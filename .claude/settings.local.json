@@ -25,7 +25,10 @@
       "Bash(git add eas.json)",
       "Bash(printf 'y\\\\n')",
       "WebFetch(domain:expo.dev)",
-      "Bash(npx expo prebuild --platform android --no-install)"
+      "Bash(npx expo prebuild --platform android --no-install)",
+      "Bash(npx eas-cli build:view decb8ead-0376-4266-b6fc-62ef53957cff --json)",
+      "WebFetch(domain:job-logs.eascdn.net)",
+      "Bash(npx expo install react-native-worklets)"
     ]
   }
 }
