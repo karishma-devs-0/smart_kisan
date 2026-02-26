@@ -1,31 +1,38 @@
 {
-  "name": "smartKisan",
+  "name": "smartkisan",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
     "web": "expo start --web"
   },
   "dependencies": {
-    "@react-native-picker/picker": "^2.11.1",
-    "@react-navigation/bottom-tabs": "^7.4.2",
-    "@react-navigation/native": "^7.1.14",
-    "@react-navigation/native-stack": "^7.3.21",
-    "expo": "~53.0.15",
-    "expo-status-bar": "~2.2.3",
-    "formik": "^2.4.6",
-    "react": "19.0.0",
-    "react-native": "0.79.4",
-    "react-native-safe-area-context": "5.4.0",
-    "react-native-screens": "^4.11.1",
-    "react-native-vector-icons": "^10.2.0",
-    "yup": "^1.6.1"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.20.0",
-    "@react-native-community/cli": "^19.1.0"
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-navigation/bottom-tabs": "^7.14.0",
+    "@react-navigation/native": "^7.1.28",
+    "@react-navigation/native-stack": "^7.13.0",
+    "@reduxjs/toolkit": "^2.11.2",
+    "babel-preset-expo": "^54.0.10",
+    "dayjs": "^1.11.19",
+    "expo": "~54.0.33",
+    "expo-image-picker": "~17.0.10",
+    "expo-linear-gradient": "~15.0.8",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-circular-progress": "^1.4.1",
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-gifted-charts": "^1.4.74",
+    "react-native-reanimated": "~4.1.1",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "react-native-svg": "15.12.1",
+    "react-native-web": "^0.21.0",
+    "react-native-webview": "13.15.0",
+    "react-redux": "^9.2.0"
   },
   "private": true
 }

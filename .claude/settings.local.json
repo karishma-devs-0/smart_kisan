@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(test:*)",
+      "Bash(npx create-expo-app@latest:*)",
+      "Bash(npx expo install:*)",
+      "Bash(npm install:*)",
+      "Bash(npx expo export:*)",
+      "WebFetch(domain:docs.expo.dev)",
+      "Bash(npx eas-cli --version)",
+      "Bash(npx eas-cli whoami)",
+      "Bash(npx eas-cli build --platform android --profile preview --non-interactive)",
+      "Bash(git init)",
+      "Bash(git add -A)",
+      "Bash(git commit -m \"Initial commit - SmartKisan app with floating tab bar, green header layout, and farm map feature\")",
+      "Bash(npx eas-cli init --non-interactive)",
+      "Bash(npx eas-cli init --non-interactive --force)",
+      "Bash(git add app.json)",
+      "Bash(git commit -m \"Add EAS project ID to app.json\")",
+      "Bash(npx eas-cli build --platform android --profile preview)",
+      "Bash(git checkout master -- .gitignore App.js app.json eas.json package.json package-lock.json)"
+    ]
+  }
+}

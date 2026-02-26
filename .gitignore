@@ -36,14 +36,6 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# Plant Detection - ML
-plantDetection/venv310/
-plantDetection/__MACOSX/
-plantDetection/*.h5
-plantDetection/*.keras
-__pycache__/
-*.pyc
-
-# Misc
-nul
-.claude/
+# generated native folders
+/ios
+/android

@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "Smart Kisan",
-    "slug": "Smart Kisan",
+    "name": "SmartKisan",
+    "slug": "SmartKisan",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/smartKisanIcon.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -16,20 +16,21 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.smartkisan.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "package": "com.karishma_bhatia.tempexpo"
+      "edgeToEdgeEnabled": true
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "9634f78b-7407-4c4d-acbb-e5dd16b3642d"
+        "projectId": "4fa6ae46-9da2-4bb5-ac0d-a8cd9a7a09bd"
       }
-    }
+    },
+    "owner": "karishma_bhatia"
   }
 }
