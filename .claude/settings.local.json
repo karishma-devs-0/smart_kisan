@@ -18,7 +18,14 @@
       "Bash(git add app.json)",
       "Bash(git commit -m \"Add EAS project ID to app.json\")",
       "Bash(npx eas-cli build --platform android --profile preview)",
-      "Bash(git checkout master -- .gitignore App.js app.json eas.json package.json package-lock.json)"
+      "Bash(git checkout master -- .gitignore App.js app.json eas.json package.json package-lock.json)",
+      "Bash(git push origin main --force)",
+      "Bash(git add .gitignore)",
+      "Bash(keytool -genkeypair -v -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 -storepass smartkisan123 -keypass smartkisan123 -alias smartkisan -keystore smartkisan.jks -dname \"CN=SmartKisan,OU=Dev,O=SmartKisan,L=Indore,ST=MP,C=IN\")",
+      "Bash(git add eas.json)",
+      "Bash(printf 'y\\\\n')",
+      "WebFetch(domain:expo.dev)",
+      "Bash(npx expo prebuild --platform android --no-install)"
     ]
   }
 }
