@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: SPACING.lg,
-    paddingBottom: SPACING.xxxxl,
+    paddingBottom: 120,
   },
   header: {
     flexDirection: 'row',
@@ -199,6 +199,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: SPACING.xs,
+    marginRight: 62,
   },
   gaugeLabelLow: {
     fontSize: FONT_SIZES.xs,
@@ -219,24 +220,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SPACING.lg,
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
   },
   chartTitle: {
     fontSize: FONT_SIZES.lg,
     fontWeight: FONT_WEIGHTS.semiBold,
     color: COLORS.textPrimary,
+    flexShrink: 1,
   },
   chartTabs: {
     flexDirection: 'row',
-    gap: SPACING.sm,
+    backgroundColor: COLORS.background,
+    borderRadius: BORDER_RADIUS.full,
+    padding: 2,
   },
   chartTab: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.full,
   },
   chartTabActive: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.full,
     backgroundColor: COLORS.primary,
   },
@@ -262,9 +268,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
   },
   chartBar: {
-    width: 30,
+    flex: 1,
+    maxWidth: 30,
     borderRadius: 4,
     minHeight: 8,
+    marginHorizontal: 2,
   },
   chartEmpty: {
     flex: 1,
@@ -278,19 +286,21 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    gap: SPACING.md,
+    gap: SPACING.sm,
   },
   statCard: {
     flex: 1,
     backgroundColor: COLORS.white,
     borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.lg,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.sm,
     alignItems: 'center',
   },
   statLabel: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
     marginBottom: SPACING.xs,
+    textAlign: 'center',
   },
   statValue: {
     fontSize: FONT_SIZES.xl,

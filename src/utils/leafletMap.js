@@ -8,9 +8,10 @@ import { MOCK_DEVICE_TYPES } from '../features/devices/mock/devicesMockData';
  * @param {Array} options.devices - Device objects with coordinates.lat/lng
  * @param {boolean} options.interactive - Allow zoom/pan (true for full screen, false for widget)
  * @param {number} options.zoom - Initial zoom level
+ * @param {boolean} options.tapToPlace - Enable tap-to-place mode (sends lat/lng via postMessage)
  * @returns {string} Complete HTML string for WebView
  */
-export function generateMapHTML({ fields = [], devices = [], interactive = true, zoom = 15 }) {
+export function generateMapHTML({ fields = [], devices = [], interactive = true, zoom = 15, tapToPlace = false }) {
   // Calculate center from all points
   const allLats = [
     ...fields.map((f) => f.location?.lat).filter(Boolean),
@@ -137,6 +138,28 @@ export function generateMapHTML({ fields = [], devices = [], interactive = true,
     if (allCoords.length > 1) {
       map.fitBounds(allCoords, { padding: [40, 40] });
     }
+
+    ${tapToPlace ? `
+    // Tap-to-place mode
+    var placementMarker = null;
+    map.on('click', function(e) {
+      var lat = e.latlng.lat;
+      var lng = e.latlng.lng;
+      if (placementMarker) {
+        placementMarker.setLatLng(e.latlng);
+      } else {
+        placementMarker = L.marker(e.latlng, {
+          icon: L.divIcon({
+            className: 'placement-pin',
+            html: '<div style="width:32px;height:32px;background:#4CAF50;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;"><div style=\\'width:8px;height:8px;background:#fff;border-radius:50%;\\'></div></div>',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+          })
+        }).addTo(map);
+      }
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'tapLocation', lat: lat, lng: lng }));
+    });
+    ` : ''}
   </script>
 </body>
 </html>

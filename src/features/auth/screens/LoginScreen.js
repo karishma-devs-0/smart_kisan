@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { COLORS } from '../../../constants/colors';
@@ -69,10 +69,11 @@ const LoginScreen = ({ navigation }) => {
       >
         {/* Logo */}
         <View style={styles.logoContainer}>
-          <View style={styles.logoPlaceholder}>
-            <Text style={styles.logoText}>SMARTKISAN</Text>
-            <Text style={styles.logoSubtext}>PRECISION AGRICULTURE</Text>
+          <View style={styles.logoIcon}>
+            <MaterialCommunityIcons name="sprout" size={48} color={COLORS.white} />
           </View>
+          <Text style={styles.logoText}>SmartKisan</Text>
+          <Text style={styles.logoSubtext}>Precision Agriculture</Text>
         </View>
 
         {/* Tab Bar */}
@@ -107,31 +108,33 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: SPACING.xxl,
   },
   logoContainer: {
     alignItems: 'center',
     marginBottom: SPACING.xxxl,
   },
-  logoPlaceholder: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: COLORS.primarySurface,
+  logoIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    backgroundColor: COLORS.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: COLORS.primary,
+    marginBottom: SPACING.md,
   },
   logoText: {
-    fontSize: FONT_SIZES.xl,
+    fontSize: FONT_SIZES.xxxl,
     fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.primary,
   },
   logoSubtext: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.primaryLight,
-    marginTop: 2,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   errorContainer: {
     backgroundColor: '#FFEBEE',

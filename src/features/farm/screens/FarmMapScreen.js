@@ -1,5 +1,8 @@
-import React, { useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  TextInput, Modal, Alert, KeyboardAvoidingView, Platform,
+} from 'react-native';
 import { WebView } from 'react-native-webview';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
@@ -7,11 +10,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
-import { BORDER_RADIUS, TAB_BAR } from '../../../constants/layout';
+import { BORDER_RADIUS, TAB_BAR, SHADOWS } from '../../../constants/layout';
 import { MOCK_DEVICE_TYPES } from '../../devices/mock/devicesMockData';
-import { fetchFields } from '../../fields/slice/fieldsSlice';
-import { fetchDevices } from '../../devices/slice/devicesSlice';
+import { fetchFields, addField } from '../../fields/slice/fieldsSlice';
+import { fetchDevices, addDevice } from '../../devices/slice/devicesSlice';
 import { generateMapHTML } from '../../../utils/leafletMap';
+
+const DEVICE_TYPE_OPTIONS = Object.entries(MOCK_DEVICE_TYPES).map(([key, val]) => ({
+  type: key,
+  label: key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+  ...val,
+}));
 
 const CROP_ICONS = {
   Wheat: 'barley',
@@ -21,39 +30,119 @@ const CROP_ICONS = {
   Soybean: 'seed',
 };
 
+const CROP_OPTIONS = ['Wheat', 'Bell Pepper', 'Cotton', 'Tomato', 'Soybean'];
+
 const FarmMapScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const fields = useSelector((state) => state.fields.fields);
   const devices = useSelector((state) => state.devices.devices);
+  const webViewRef = useRef(null);
+
+  const [editMode, setEditMode] = useState(null); // null | 'addDevice' | 'addField'
+  const [tappedLocation, setTappedLocation] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+
+  const [deviceName, setDeviceName] = useState('');
+  const [deviceType, setDeviceType] = useState('moisture_sensor');
+  const [fieldName, setFieldName] = useState('');
+  const [fieldCrop, setFieldCrop] = useState('Wheat');
+  const [fieldArea, setFieldArea] = useState('');
 
   useEffect(() => {
     dispatch(fetchFields());
     dispatch(fetchDevices());
   }, [dispatch]);
 
+  const isPlacing = editMode !== null;
+
   const mapHTML = useMemo(() => {
     if (!fields.length && !devices.length) return null;
-    return generateMapHTML({ fields, devices, interactive: true, zoom: 15 });
-  }, [fields, devices]);
+    return generateMapHTML({ fields, devices, interactive: true, zoom: 15, tapToPlace: isPlacing });
+  }, [fields, devices, isPlacing]);
 
   const onlineCount = devices.filter((d) => d.status === 'online').length;
   const offlineCount = devices.filter((d) => d.status === 'offline').length;
-
-  const legendItems = Object.entries(MOCK_DEVICE_TYPES).map(([key, val]) => ({
-    type: key,
-    label: key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-    ...val,
-  }));
-
   const tabBarPadding = TAB_BAR.height + TAB_BAR.marginBottom + Math.max(insets.bottom, 12) + 8;
+
+  const handleWebViewMessage = useCallback((event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'tapLocation') {
+        setTappedLocation({ lat: data.lat, lng: data.lng });
+        setShowForm(true);
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+  }, []);
+
+  const resetEditState = () => {
+    setEditMode(null);
+    setTappedLocation(null);
+    setShowForm(false);
+    setDeviceName('');
+    setDeviceType('moisture_sensor');
+    setFieldName('');
+    setFieldCrop('Wheat');
+    setFieldArea('');
+  };
+
+  const handleSaveDevice = () => {
+    if (!deviceName.trim()) {
+      Alert.alert('Missing Name', 'Please enter a device name.');
+      return;
+    }
+    if (!tappedLocation) return;
+    dispatch(addDevice({
+      id: `user_${Date.now()}`,
+      name: deviceName.trim(),
+      type: deviceType,
+      status: 'online',
+      batteryLevel: 100,
+      lastSync: new Date().toISOString(),
+      location: 'User placed',
+      coordinates: tappedLocation,
+      fieldId: null,
+      firmwareVersion: '1.0.0',
+      signalStrength: 80,
+    }));
+    resetEditState();
+  };
+
+  const handleSaveField = () => {
+    if (!fieldName.trim()) {
+      Alert.alert('Missing Name', 'Please enter a field name.');
+      return;
+    }
+    if (!tappedLocation) return;
+    dispatch(addField({
+      id: `field_${Date.now()}`,
+      name: fieldName.trim(),
+      area: parseFloat(fieldArea) || 1.0,
+      crop: fieldCrop,
+      sowingDate: new Date().toISOString(),
+      growthStage: 'seedling',
+      growthProgress: 5,
+      soilType: 'Loamy',
+      irrigationType: 'drip',
+      lastIrrigation: new Date().toISOString(),
+      nextIrrigation: new Date().toISOString(),
+      status: 'active',
+      location: tappedLocation,
+    }));
+    resetEditState();
+  };
+
+  const legendItems = DEVICE_TYPE_OPTIONS;
 
   return (
     <View style={styles.container}>
-      {/* Full-screen map */}
+      {/* Map */}
       <View style={styles.mapContainer}>
         {mapHTML ? (
           <WebView
+            ref={webViewRef}
             source={{ html: mapHTML }}
             style={styles.webview}
             scrollEnabled={false}
@@ -61,6 +150,7 @@ const FarmMapScreen = ({ navigation }) => {
             domStorageEnabled={true}
             startInLoadingState={true}
             originWhitelist={['*']}
+            onMessage={handleWebViewMessage}
           />
         ) : (
           <View style={styles.loadingMap}>
@@ -70,258 +160,274 @@ const FarmMapScreen = ({ navigation }) => {
         )}
       </View>
 
-      {/* Back button overlay */}
+      {/* Back / Cancel button */}
       <TouchableOpacity
         style={[styles.backButton, { top: insets.top + 12 }]}
-        onPress={() => navigation.goBack()}
+        onPress={() => { if (editMode) resetEditState(); else navigation.goBack(); }}
       >
-        <MaterialCommunityIcons name="arrow-left" size={22} color={COLORS.textPrimary} />
+        <MaterialCommunityIcons name={editMode ? 'close' : 'arrow-left'} size={22} color={COLORS.textPrimary} />
       </TouchableOpacity>
 
-      {/* Bottom sheet */}
-      <View style={[styles.bottomSheet, { paddingBottom: tabBarPadding }]}>
-        <View style={styles.handle} />
-
-        {/* Summary stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statChip}>
-            <MaterialCommunityIcons name="vector-square" size={16} color={COLORS.primaryLight} />
-            <Text style={styles.statChipText}>{fields.length} Fields</Text>
-          </View>
-          <View style={styles.statChip}>
-            <View style={[styles.statusDot, { backgroundColor: COLORS.success }]} />
-            <Text style={styles.statChipText}>{onlineCount} Online</Text>
-          </View>
-          <View style={styles.statChip}>
-            <View style={[styles.statusDot, { backgroundColor: COLORS.danger }]} />
-            <Text style={styles.statChipText}>{offlineCount} Offline</Text>
-          </View>
+      {/* Tap instruction banner */}
+      {isPlacing && !showForm && (
+        <View style={[styles.editBanner, { top: insets.top + 12 }]}>
+          <MaterialCommunityIcons name="map-marker-plus" size={18} color={COLORS.white} />
+          <Text style={styles.editBannerText}>
+            Tap map to place {editMode === 'addDevice' ? 'device' : 'field'}
+          </Text>
         </View>
+      )}
 
-        {/* Legend row */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.legendContent}
-        >
-          {/* Field marker legend */}
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.primaryLight }]} />
-            <Text style={styles.legendLabel}>Field</Text>
-          </View>
-          {legendItems.map((item) => (
-            <View key={item.type} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: item.color }]}>
-                <MaterialCommunityIcons name={item.icon} size={10} color={COLORS.white} />
-              </View>
-              <Text style={styles.legendLabel}>{item.label}</Text>
+      {/* FAB buttons */}
+      {!editMode && (
+        <View style={[styles.fabColumn, { bottom: tabBarPadding + 220 }]}>
+          <TouchableOpacity
+            style={[styles.fab, { backgroundColor: COLORS.primaryLight }]}
+            onPress={() => setEditMode('addField')}
+          >
+            <MaterialCommunityIcons name="vector-square" size={22} color={COLORS.white} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.fab, { backgroundColor: '#2196F3' }]}
+            onPress={() => setEditMode('addDevice')}
+          >
+            <MaterialCommunityIcons name="router-wireless" size={22} color={COLORS.white} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Bottom sheet (view mode only) */}
+      {!editMode && (
+        <View style={[styles.bottomSheet, { paddingBottom: tabBarPadding }]}>
+          <View style={styles.handle} />
+          <View style={styles.statsRow}>
+            <View style={styles.statChip}>
+              <MaterialCommunityIcons name="vector-square" size={16} color={COLORS.primaryLight} />
+              <Text style={styles.statChipText}>{fields.length} Fields</Text>
             </View>
-          ))}
-        </ScrollView>
+            <View style={styles.statChip}>
+              <View style={[styles.statusDot, { backgroundColor: COLORS.success }]} />
+              <Text style={styles.statChipText}>{onlineCount} Online</Text>
+            </View>
+            <View style={styles.statChip}>
+              <View style={[styles.statusDot, { backgroundColor: COLORS.danger }]} />
+              <Text style={styles.statChipText}>{offlineCount} Offline</Text>
+            </View>
+          </View>
 
-        {/* Field list */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.fieldCardsContent}
-        >
-          {fields.map((field) => (
-            <TouchableOpacity
-              key={field.id}
-              style={styles.fieldCard}
-              onPress={() => navigation.navigate('FieldDetail', { field })}
-              activeOpacity={0.7}
-            >
-              <View style={styles.fieldCardTop}>
-                <View style={[styles.fieldCardIcon, {
-                  backgroundColor: (field.status === 'harvested' ? COLORS.warning : COLORS.primaryLight) + '20',
-                }]}>
-                  <MaterialCommunityIcons
-                    name={CROP_ICONS[field.crop] || 'sprout'}
-                    size={20}
-                    color={field.status === 'harvested' ? COLORS.warning : COLORS.primaryLight}
-                  />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.legendContent}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: COLORS.primaryLight }]} />
+              <Text style={styles.legendLabel}>Field</Text>
+            </View>
+            {legendItems.map((item) => (
+              <View key={item.type} style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: item.color }]}>
+                  <MaterialCommunityIcons name={item.icon} size={10} color={COLORS.white} />
                 </View>
-                <Text style={styles.fieldCardName} numberOfLines={1}>{field.name}</Text>
+                <Text style={styles.legendLabel}>{item.label}</Text>
               </View>
-              <Text style={styles.fieldCardCrop}>{field.crop}</Text>
-              <View style={styles.fieldCardBottom}>
-                <Text style={styles.fieldCardArea}>{field.area} acres</Text>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, {
-                    width: `${field.growthProgress}%`,
-                    backgroundColor: field.status === 'harvested' ? COLORS.warning : COLORS.primaryLight,
-                  }]} />
+            ))}
+          </ScrollView>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.fieldCardsContent}>
+            {fields.map((field) => (
+              <TouchableOpacity key={field.id} style={styles.fieldCard} onPress={() => navigation.navigate('FieldDetail', { field })} activeOpacity={0.7}>
+                <View style={styles.fieldCardTop}>
+                  <View style={[styles.fieldCardIcon, { backgroundColor: (field.status === 'harvested' ? COLORS.warning : COLORS.primaryLight) + '20' }]}>
+                    <MaterialCommunityIcons name={CROP_ICONS[field.crop] || 'sprout'} size={20} color={field.status === 'harvested' ? COLORS.warning : COLORS.primaryLight} />
+                  </View>
+                  <Text style={styles.fieldCardName} numberOfLines={1}>{field.name}</Text>
                 </View>
+                <Text style={styles.fieldCardCrop}>{field.crop}</Text>
+                <View style={styles.fieldCardBottom}>
+                  <Text style={styles.fieldCardArea}>{field.area} acres</Text>
+                  <View style={styles.progressBarBg}>
+                    <View style={[styles.progressBarFill, { width: `${field.growthProgress}%`, backgroundColor: field.status === 'harvested' ? COLORS.warning : COLORS.primaryLight }]} />
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* ── Add Device Form ── */}
+      <Modal visible={showForm && editMode === 'addDevice'} transparent animationType="slide">
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.formSheet}>
+            <View style={styles.formHeader}>
+              <Text style={styles.formTitle}>Add Smart Device</Text>
+              <TouchableOpacity onPress={resetEditState}>
+                <MaterialCommunityIcons name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {tappedLocation && (
+              <View style={styles.coordRow}>
+                <MaterialCommunityIcons name="map-marker" size={16} color={COLORS.primaryLight} />
+                <Text style={styles.coordText}>{tappedLocation.lat.toFixed(5)}, {tappedLocation.lng.toFixed(5)}</Text>
               </View>
+            )}
+
+            <Text style={styles.formLabel}>Device Name</Text>
+            <TextInput style={styles.input} placeholder="e.g. Field A Moisture Sensor" placeholderTextColor={COLORS.textTertiary} value={deviceName} onChangeText={setDeviceName} />
+
+            <Text style={styles.formLabel}>Device Type</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeScroll}>
+              {DEVICE_TYPE_OPTIONS.map((opt) => (
+                <TouchableOpacity
+                  key={opt.type}
+                  style={[styles.typeChip, deviceType === opt.type && { backgroundColor: opt.color + '20', borderColor: opt.color }]}
+                  onPress={() => setDeviceType(opt.type)}
+                >
+                  <MaterialCommunityIcons name={opt.icon} size={18} color={deviceType === opt.type ? opt.color : COLORS.textSecondary} />
+                  <Text style={[styles.typeChipText, deviceType === opt.type && { color: opt.color }]}>{opt.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity style={styles.saveButton} onPress={handleSaveDevice}>
+              <MaterialCommunityIcons name="check" size={20} color={COLORS.white} />
+              <Text style={styles.saveButtonText}>Place Device</Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Add Field Form ── */}
+      <Modal visible={showForm && editMode === 'addField'} transparent animationType="slide">
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.formSheet}>
+            <View style={styles.formHeader}>
+              <Text style={styles.formTitle}>Add Field</Text>
+              <TouchableOpacity onPress={resetEditState}>
+                <MaterialCommunityIcons name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {tappedLocation && (
+              <View style={styles.coordRow}>
+                <MaterialCommunityIcons name="map-marker" size={16} color={COLORS.primaryLight} />
+                <Text style={styles.coordText}>{tappedLocation.lat.toFixed(5)}, {tappedLocation.lng.toFixed(5)}</Text>
+              </View>
+            )}
+
+            <Text style={styles.formLabel}>Field Name</Text>
+            <TextInput style={styles.input} placeholder="e.g. Field F - West" placeholderTextColor={COLORS.textTertiary} value={fieldName} onChangeText={setFieldName} />
+
+            <Text style={styles.formLabel}>Crop</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeScroll}>
+              {CROP_OPTIONS.map((crop) => (
+                <TouchableOpacity
+                  key={crop}
+                  style={[styles.cropChip, fieldCrop === crop && styles.cropChipActive]}
+                  onPress={() => setFieldCrop(crop)}
+                >
+                  <MaterialCommunityIcons name={CROP_ICONS[crop] || 'sprout'} size={16} color={fieldCrop === crop ? COLORS.primaryLight : COLORS.textSecondary} />
+                  <Text style={[styles.cropChipText, fieldCrop === crop && styles.cropChipTextActive]}>{crop}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <Text style={styles.formLabel}>Area (acres)</Text>
+            <TextInput style={styles.input} placeholder="e.g. 3.5" placeholderTextColor={COLORS.textTertiary} value={fieldArea} onChangeText={setFieldArea} keyboardType="decimal-pad" />
+
+            <TouchableOpacity style={styles.saveButton} onPress={handleSaveField}>
+              <MaterialCommunityIcons name="check" size={20} color={COLORS.white} />
+              <Text style={styles.saveButtonText}>Add Field</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  mapContainer: {
-    flex: 1,
-  },
-  webview: {
-    flex: 1,
-  },
-  loadingMap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.background,
-  },
-  loadingText: {
-    marginTop: SPACING.md,
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textTertiary,
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  mapContainer: { flex: 1 },
+  webview: { flex: 1 },
+  loadingMap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background },
+  loadingText: { marginTop: SPACING.md, fontSize: FONT_SIZES.md, color: COLORS.textTertiary },
   backButton: {
-    position: 'absolute',
-    left: SPACING.lg,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
+    position: 'absolute', left: SPACING.lg, width: 40, height: 40, borderRadius: 20,
+    backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center', ...SHADOWS.md,
   },
+  editBanner: {
+    position: 'absolute', alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+    backgroundColor: COLORS.primaryLight, borderRadius: BORDER_RADIUS.full,
+    paddingHorizontal: SPACING.lg, paddingVertical: SPACING.sm, ...SHADOWS.md,
+  },
+  editBannerText: { color: COLORS.white, fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.semiBold },
+  fabColumn: { position: 'absolute', right: SPACING.lg, gap: SPACING.md },
+  fab: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', ...SHADOWS.lg },
+
   bottomSheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: SPACING.sm,
-    paddingHorizontal: SPACING.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 10,
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingTop: SPACING.sm, paddingHorizontal: SPACING.lg, ...SHADOWS.lg,
   },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.divider,
-    alignSelf: 'center',
-    marginBottom: SPACING.md,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginBottom: SPACING.md,
-  },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: COLORS.divider, alignSelf: 'center', marginBottom: SPACING.md },
+  statsRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md },
   statChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-    borderRadius: BORDER_RADIUS.full,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    gap: SPACING.xs,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.background,
+    borderRadius: BORDER_RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, gap: SPACING.xs,
   },
-  statChipText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    fontWeight: FONT_WEIGHTS.medium,
+  statChipText: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, fontWeight: FONT_WEIGHTS.medium },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  legendContent: { gap: SPACING.sm, paddingBottom: SPACING.md },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  legendLabel: { fontSize: 10, color: COLORS.textTertiary, fontWeight: FONT_WEIGHTS.medium },
+  fieldCardsContent: { gap: SPACING.md, paddingBottom: SPACING.sm },
+  fieldCard: { width: 140, backgroundColor: COLORS.background, borderRadius: BORDER_RADIUS.md, padding: SPACING.md },
+  fieldCardTop: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
+  fieldCardIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  fieldCardName: { flex: 1, fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.semiBold, color: COLORS.textPrimary },
+  fieldCardCrop: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginBottom: SPACING.sm },
+  fieldCardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  fieldCardArea: { fontSize: 10, color: COLORS.textTertiary, fontWeight: FONT_WEIGHTS.medium },
+  progressBarBg: { width: 40, height: 3, borderRadius: 2, backgroundColor: COLORS.divider },
+  progressBarFill: { height: 3, borderRadius: 2 },
+
+  // Modal form
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  formSheet: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.xl, paddingBottom: SPACING.xxxl },
+  formHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg },
+  formTitle: { fontSize: FONT_SIZES.xl, fontWeight: FONT_WEIGHTS.bold, color: COLORS.textPrimary },
+  coordRow: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.xs,
+    backgroundColor: COLORS.background, borderRadius: BORDER_RADIUS.sm, padding: SPACING.sm, marginBottom: SPACING.lg,
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  coordText: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  formLabel: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.semiBold, color: COLORS.textPrimary, marginBottom: SPACING.sm },
+  input: {
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md,
+    fontSize: FONT_SIZES.md, color: COLORS.textPrimary, marginBottom: SPACING.lg,
   },
-  legendContent: {
-    gap: SPACING.sm,
-    paddingBottom: SPACING.md,
+  typeScroll: { marginBottom: SPACING.lg },
+  typeChip: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.xs,
+    borderWidth: 1.5, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.full,
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, marginRight: SPACING.sm,
   },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+  typeChipText: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, fontWeight: FONT_WEIGHTS.medium },
+  cropChip: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.xs,
+    borderWidth: 1.5, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.full,
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, marginRight: SPACING.sm,
   },
-  legendDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
+  cropChipActive: { backgroundColor: COLORS.primaryLight + '20', borderColor: COLORS.primaryLight },
+  cropChipText: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, fontWeight: FONT_WEIGHTS.medium },
+  cropChipTextActive: { color: COLORS.primaryLight },
+  saveButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm,
+    backgroundColor: COLORS.primaryLight, borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.lg, marginTop: SPACING.sm,
   },
-  legendLabel: {
-    fontSize: 10,
-    color: COLORS.textTertiary,
-    fontWeight: FONT_WEIGHTS.medium,
-  },
-  fieldCardsContent: {
-    gap: SPACING.md,
-    paddingBottom: SPACING.sm,
-  },
-  fieldCard: {
-    width: 140,
-    backgroundColor: COLORS.background,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-  },
-  fieldCardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.xs,
-  },
-  fieldCardIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fieldCardName: {
-    flex: 1,
-    fontSize: FONT_SIZES.sm,
-    fontWeight: FONT_WEIGHTS.semiBold,
-    color: COLORS.textPrimary,
-  },
-  fieldCardCrop: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.sm,
-  },
-  fieldCardBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  fieldCardArea: {
-    fontSize: 10,
-    color: COLORS.textTertiary,
-    fontWeight: FONT_WEIGHTS.medium,
-  },
-  progressBarBg: {
-    width: 40,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: COLORS.divider,
-  },
-  progressBarFill: {
-    height: 3,
-    borderRadius: 2,
-  },
+  saveButtonText: { color: COLORS.white, fontSize: FONT_SIZES.md, fontWeight: FONT_WEIGHTS.semiBold },
 });
 
 export default FarmMapScreen;

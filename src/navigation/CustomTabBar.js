@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, Animated } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/colors';
-import { FONT_SIZES, FONT_WEIGHTS } from '../constants/typography';
+// typography import removed - no labels in tab bar
 import { SPACING } from '../constants/spacing';
 import { TAB_BAR } from '../constants/layout';
 
@@ -55,12 +55,12 @@ const TabItem = ({ tab, isFocused, onPress, onLongPress }) => {
       <Animated.View style={[styles.inactiveIcon, { opacity: iconOpacity }]}>
         <MaterialCommunityIcons
           name={tab.icon}
-          size={22}
+          size={24}
           color="#B0B0C0"
         />
       </Animated.View>
 
-      {/* Active pill (scales + fades in) */}
+      {/* Active pill (scales + fades in) — icon only, no label */}
       <Animated.View
         style={[
           styles.activePill,
@@ -72,10 +72,9 @@ const TabItem = ({ tab, isFocused, onPress, onLongPress }) => {
       >
         <MaterialCommunityIcons
           name={tab.activeIcon}
-          size={22}
+          size={24}
           color={COLORS.white}
         />
-        <Text style={styles.activeLabel}>{tab.label}</Text>
       </Animated.View>
     </TouchableOpacity>
   );
@@ -156,19 +155,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   activePill: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.primaryLight,
-    borderRadius: 20,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    gap: SPACING.xs,
-  },
-  activeLabel: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: FONT_WEIGHTS.semiBold,
-    color: COLORS.white,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
 });
 

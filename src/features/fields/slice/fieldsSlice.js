@@ -42,6 +42,12 @@ const fieldsSlice = createSlice({
     clearSelectedField: (state) => {
       state.selectedField = null;
     },
+    addField: (state, action) => {
+      state.fields.push(action.payload);
+    },
+    removeField: (state, action) => {
+      state.fields = state.fields.filter((f) => f.id !== action.payload);
+    },
   },
   extraReducers: (builder) => {
     // fetchFields
@@ -62,5 +68,5 @@ const fieldsSlice = createSlice({
   },
 });
 
-export const { selectField, clearSelectedField } = fieldsSlice.actions;
+export const { selectField, clearSelectedField, addField, removeField } = fieldsSlice.actions;
 export default fieldsSlice.reducer;

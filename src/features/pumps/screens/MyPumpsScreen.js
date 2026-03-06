@@ -17,11 +17,11 @@ import ScreenLayout from '../../../components/common/ScreenLayout';
 
 const MODES = [
   { id: 'manual', label: 'Manual', icon: 'hand-back-right' },
-  { id: 'automatic', label: 'Automatic', icon: 'auto-fix' },
+  { id: 'automatic', label: 'Auto', icon: 'auto-fix' },
   { id: 'timer', label: 'Timer', icon: 'timer-outline' },
   { id: 'schedule', label: 'Schedule', icon: 'calendar-clock' },
   { id: 'sensor', label: 'Sensor', icon: 'access-point' },
-  { id: 'ai', label: 'AI Mode', icon: 'robot' },
+  { id: 'ai', label: 'AI', icon: 'robot' },
 ];
 
 const ModeButton = ({ mode, isActive, onPress }) => (
@@ -36,7 +36,7 @@ const ModeButton = ({ mode, isActive, onPress }) => (
         color={isActive ? COLORS.white : COLORS.textSecondary}
       />
     </View>
-    <Text style={[styles.modeLabel, isActive && styles.modeLabelActive]}>
+    <Text style={[styles.modeLabel, isActive && styles.modeLabelActive]} numberOfLines={1}>
       {mode.label}
     </Text>
   </TouchableOpacity>
@@ -135,8 +135,7 @@ const MyPumpsScreen = ({ navigation }) => {
           onPress={handleEmergencyStop}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons name="stop-circle" size={20} color={COLORS.white} />
-          <Text style={styles.emergencyText}>Emergency Stop all Pumps</Text>
+          <MaterialCommunityIcons name="stop-circle" size={28} color={COLORS.white} />
         </TouchableOpacity>
       )}
     >
@@ -177,7 +176,7 @@ const styles = StyleSheet.create({
   },
   modeButton: {
     alignItems: 'center',
-    width: 56,
+    flex: 1,
   },
   modeButtonActive: {},
   modeIconContainer: {
@@ -267,21 +266,15 @@ const styles = StyleSheet.create({
   },
   emergencyButton: {
     position: 'absolute',
-    left: SPACING.lg,
     right: SPACING.lg,
-    flexDirection: 'row',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.danger,
-    borderRadius: BORDER_RADIUS.md,
-    paddingVertical: SPACING.lg,
-    gap: SPACING.sm,
     ...SHADOWS.lg,
-  },
-  emergencyText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: FONT_WEIGHTS.semiBold,
-    color: COLORS.white,
+    shadowColor: COLORS.danger,
   },
 });
 

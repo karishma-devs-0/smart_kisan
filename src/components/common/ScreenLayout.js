@@ -39,27 +39,36 @@ const ScreenLayout = ({
           renderCustomHeader()
         ) : (
           <View style={styles.headerContent}>
-            <View style={styles.headerLeft}>
+            {/* Left side: back button or spacer */}
+            <View style={styles.headerSide}>
               {showBack && (
                 <TouchableOpacity onPress={onBack} style={styles.backButton}>
                   <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.white} />
                 </TouchableOpacity>
               )}
-              <View style={styles.titleContainer}>
-                {prefix ? <Text style={styles.prefixText}>{prefix}</Text> : null}
-                {title ? <Text style={styles.titleText}> {title}</Text> : null}
-              </View>
             </View>
-            {rightActions.length > 0 && (
-              <View style={styles.headerRight}>
-                {rightActions.map((action, index) => (
-                  <TouchableOpacity key={index} onPress={action.onPress} style={styles.headerActionButton}>
-                    <MaterialCommunityIcons name={action.icon} size={20} color={COLORS.white} />
-                    {action.badge && <View style={styles.actionBadge} />}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+
+            {/* Center: logo + title */}
+            <View style={styles.headerCenter}>
+              <MaterialCommunityIcons name="sprout" size={22} color={COLORS.white} style={{ marginRight: 6 }} />
+              <Text style={styles.titleText} numberOfLines={1}>
+                {prefix ? `${prefix} ` : ''}{title || ''}
+              </Text>
+            </View>
+
+            {/* Right side: actions or spacer */}
+            <View style={[styles.headerSide, { alignItems: 'flex-end' }]}>
+              {rightActions.length > 0 && (
+                <View style={styles.headerRight}>
+                  {rightActions.map((action, index) => (
+                    <TouchableOpacity key={index} onPress={action.onPress} style={styles.headerActionButton}>
+                      <MaterialCommunityIcons name={action.icon} size={20} color={COLORS.white} />
+                      {action.badge && <View style={styles.actionBadge} />}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
           </View>
         )}
       </View>
@@ -106,10 +115,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerLeft: {
+  headerSide: {
+    width: 48,
+    justifyContent: 'center',
+  },
+  headerCenter: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    justifyContent: 'center',
   },
   backButton: {
     width: 40,
@@ -118,20 +132,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  prefixText: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: FONT_WEIGHTS.bold,
-    color: COLORS.white,
-    opacity: 0.85,
   },
   titleText: {
-    fontSize: FONT_SIZES.xxl,
+    fontSize: FONT_SIZES.xl,
     fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.white,
   },

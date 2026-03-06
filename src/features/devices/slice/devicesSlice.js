@@ -35,6 +35,12 @@ const devicesSlice = createSlice({
     clearSelectedDevice: (state) => {
       state.selectedDevice = null;
     },
+    addDevice: (state, action) => {
+      state.devices.push(action.payload);
+    },
+    removeDevice: (state, action) => {
+      state.devices = state.devices.filter((d) => d.id !== action.payload);
+    },
   },
   extraReducers: (builder) => {
     // fetchDevices
@@ -54,5 +60,5 @@ const devicesSlice = createSlice({
   },
 });
 
-export const { selectDevice, clearSelectedDevice } = devicesSlice.actions;
+export const { selectDevice, clearSelectedDevice, addDevice, removeDevice } = devicesSlice.actions;
 export default devicesSlice.reducer;
