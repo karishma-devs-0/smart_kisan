@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   TextInput, Modal, Alert, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Keyboard,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,8 +13,8 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, TAB_BAR, SHADOWS } from '../../../constants/layout';
 import { MOCK_DEVICE_TYPES } from '../../devices/mock/devicesMockData';
-import { fetchFields, addField } from '../../fields/slice/fieldsSlice';
-import { fetchDevices, addDevice } from '../../devices/slice/devicesSlice';
+import { fetchFields, addField, removeField } from '../../fields/slice/fieldsSlice';
+import { fetchDevices, addDevice, removeDevice } from '../../devices/slice/devicesSlice';
 import { generateMapHTML } from '../../../utils/leafletMap';
 
 const DEVICE_TYPE_OPTIONS = Object.entries(MOCK_DEVICE_TYPES).map(([key, val]) => ({
@@ -49,17 +50,153 @@ const FarmMapScreen = ({ navigation }) => {
   const [fieldCrop, setFieldCrop] = useState('Wheat');
   const [fieldArea, setFieldArea] = useState('');
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const searchTimeout = useRef(null);
+
   useEffect(() => {
     dispatch(fetchFields());
     dispatch(fetchDevices());
   }, [dispatch]);
 
+  // Debounced geocoding search via Photon (better fuzzy search than Nominatim)
+  const handleSearch = useCallback((text) => {
+    setSearchQuery(text);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (!text.trim()) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+    searchTimeout.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(
+          `https://photon.komoot.io/api/?q=${encodeURIComponent(text)}&limit=6&lang=en`
+        );
+        const data = await res.json();
+        setSearchResults((data.features || []).map((f, i) => {
+          const p = f.properties;
+          const parts = [p.name, p.city, p.state, p.country].filter(Boolean);
+          return {
+            id: `${f.properties.osm_id || i}`,
+            name: parts.join(', '),
+            lat: f.geometry.coordinates[1],
+            lng: f.geometry.coordinates[0],
+          };
+        }));
+        setShowResults(true);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 400);
+  }, []);
+
+  const handleSelectResult = useCallback((result) => {
+    setSearchQuery(result.name.split(',')[0]);
+    setShowResults(false);
+    setSearchResults([]);
+    Keyboard.dismiss();
+    // Fly the map to the selected location via injectJavaScript
+    const js = `map.flyTo([${result.lat}, ${result.lng}], 14, { duration: 1.5 }); true;`;
+    webViewRef.current?.injectJavaScript(js);
+  }, []);
+
+  const handleClearAll = useCallback(() => {
+    if (!devices.length && !fields.length) {
+      Alert.alert('Nothing to Clear', 'No fields or devices to remove.');
+      return;
+    }
+    Alert.alert(
+      'Clear All',
+      `Remove all ${fields.length} field(s) and ${devices.length} device(s) from the map?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => {
+            devices.forEach((d) => dispatch(removeDevice(d.id)));
+            fields.forEach((f) => dispatch(removeField(f.id)));
+            // Clear all layers from the map except tile layers
+            webViewRef.current?.injectJavaScript(`
+              map.eachLayer(function(layer) {
+                if (!(layer instanceof L.TileLayer)) {
+                  map.removeLayer(layer);
+                }
+              });
+              true;
+            `);
+          },
+        },
+      ]
+    );
+  }, [devices, fields, dispatch]);
+
   const isPlacing = editMode !== null;
 
+  // Generate map HTML only once on initial load — all updates happen via injectJavaScript
+  const initialFieldsRef = useRef(null);
+  const initialDevicesRef = useRef(null);
+  if (initialFieldsRef.current === null) initialFieldsRef.current = fields;
+  if (initialDevicesRef.current === null) initialDevicesRef.current = devices;
+
   const mapHTML = useMemo(() => {
-    if (!fields.length && !devices.length) return null;
-    return generateMapHTML({ fields, devices, interactive: true, zoom: 15, tapToPlace: isPlacing });
-  }, [fields, devices, isPlacing]);
+    return generateMapHTML({
+      fields: initialFieldsRef.current,
+      devices: initialDevicesRef.current,
+      interactive: true, zoom: 15, tapToPlace: false,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Inject / remove tap-to-place listener when edit mode changes (no WebView reload)
+  useEffect(() => {
+    if (!webViewRef.current) return;
+    if (isPlacing) {
+      webViewRef.current.injectJavaScript(`
+        if (!window._placementHandler) {
+          window._placementMarker = null;
+          window._placementHandler = function(e) {
+            var lat = e.latlng.lat;
+            var lng = e.latlng.lng;
+            if (window._placementMarker) {
+              window._placementMarker.setLatLng(e.latlng);
+            } else {
+              window._placementMarker = L.marker(e.latlng, {
+                icon: L.divIcon({
+                  className: 'placement-pin',
+                  html: '<div style="width:32px;height:32px;background:#4CAF50;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;"><div style="width:8px;height:8px;background:#fff;border-radius:50%;"></div></div>',
+                  iconSize: [32, 32],
+                  iconAnchor: [16, 16],
+                })
+              }).addTo(map);
+            }
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'tapLocation', lat: lat, lng: lng }));
+          };
+          map.on('click', window._placementHandler);
+        }
+        true;
+      `);
+    } else {
+      webViewRef.current.injectJavaScript(`
+        if (window._placementHandler) {
+          map.off('click', window._placementHandler);
+          window._placementHandler = null;
+          if (window._placementMarker) {
+            map.removeLayer(window._placementMarker);
+            window._placementMarker = null;
+          }
+        }
+        true;
+      `);
+    }
+  }, [isPlacing]);
 
   const onlineCount = devices.filter((d) => d.status === 'online').length;
   const offlineCount = devices.filter((d) => d.status === 'offline').length;
@@ -94,9 +231,13 @@ const FarmMapScreen = ({ navigation }) => {
       return;
     }
     if (!tappedLocation) return;
+    const typeInfo = MOCK_DEVICE_TYPES[deviceType] || {};
+    const iconColor = typeInfo.color || '#607D8B';
+    const name = deviceName.trim();
+
     dispatch(addDevice({
       id: `user_${Date.now()}`,
-      name: deviceName.trim(),
+      name,
       type: deviceType,
       status: 'online',
       batteryLevel: 100,
@@ -107,6 +248,16 @@ const FarmMapScreen = ({ navigation }) => {
       firmwareVersion: '1.0.0',
       signalStrength: 80,
     }));
+
+    // Inject marker into existing map
+    webViewRef.current?.injectJavaScript(`
+      L.circleMarker([${tappedLocation.lat}, ${tappedLocation.lng}], {
+        radius: 8, fillColor: '${iconColor}', color: '#4CAF50',
+        weight: 3, opacity: 1, fillOpacity: 1,
+      }).addTo(map)
+        .bindPopup('<b>${name.replace(/'/g, "\\'")}</b><br><span style="color:#4CAF50">● Online</span><br>Battery: 100%');
+      true;
+    `);
     resetEditState();
   };
 
@@ -116,9 +267,12 @@ const FarmMapScreen = ({ navigation }) => {
       return;
     }
     if (!tappedLocation) return;
+    const name = fieldName.trim();
+    const shortName = name.split(' - ')[0];
+
     dispatch(addField({
       id: `field_${Date.now()}`,
-      name: fieldName.trim(),
+      name,
       area: parseFloat(fieldArea) || 1.0,
       crop: fieldCrop,
       sowingDate: new Date().toISOString(),
@@ -131,6 +285,17 @@ const FarmMapScreen = ({ navigation }) => {
       status: 'active',
       location: tappedLocation,
     }));
+
+    // Inject marker into existing map
+    webViewRef.current?.injectJavaScript(`
+      L.circleMarker([${tappedLocation.lat}, ${tappedLocation.lng}], {
+        radius: 14, fillColor: '#4CAF50', color: '#fff',
+        weight: 3, opacity: 1, fillOpacity: 0.85,
+      }).addTo(map)
+        .bindPopup('<b>${name.replace(/'/g, "\\'")}</b><br>${fieldCrop} · ${parseFloat(fieldArea) || 1.0} acres<br>Growth: 5%', { closeButton: false })
+        .bindTooltip('${shortName.replace(/'/g, "\\'")}', { permanent: true, direction: 'bottom', offset: [0, 10], className: 'field-label' });
+      true;
+    `);
     resetEditState();
   };
 
@@ -160,17 +325,58 @@ const FarmMapScreen = ({ navigation }) => {
         )}
       </View>
 
-      {/* Back / Cancel button */}
-      <TouchableOpacity
-        style={[styles.backButton, { top: insets.top + 12 }]}
-        onPress={() => { if (editMode) resetEditState(); else navigation.goBack(); }}
-      >
-        <MaterialCommunityIcons name={editMode ? 'close' : 'arrow-left'} size={22} color={COLORS.textPrimary} />
-      </TouchableOpacity>
+      {/* Top bar: back + search + clear all */}
+      <View style={[styles.topBar, { top: insets.top + 12 }]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => { if (editMode) resetEditState(); else navigation.goBack(); }}
+        >
+          <MaterialCommunityIcons name={editMode ? 'close' : 'arrow-left'} size={22} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+
+        {!isPlacing && (
+          <View style={styles.searchContainer}>
+            <MaterialCommunityIcons name="magnify" size={20} color={COLORS.textTertiary} style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search location..."
+              placeholderTextColor={COLORS.textTertiary}
+              value={searchQuery}
+              onChangeText={handleSearch}
+              onFocus={() => searchResults.length && setShowResults(true)}
+              returnKeyType="search"
+            />
+            {searching && <ActivityIndicator size="small" color={COLORS.primaryLight} style={styles.searchSpinner} />}
+            {searchQuery.length > 0 && !searching && (
+              <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); setShowResults(false); }} style={styles.searchClear}>
+                <MaterialCommunityIcons name="close-circle" size={18} color={COLORS.textTertiary} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {!isPlacing && (
+          <TouchableOpacity style={styles.clearAllButton} onPress={handleClearAll}>
+            <MaterialCommunityIcons name="delete-sweep-outline" size={22} color={COLORS.danger} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Search results dropdown */}
+      {showResults && searchResults.length > 0 && (
+        <View style={[styles.searchDropdown, { top: insets.top + 64 }]}>
+          {searchResults.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.searchResultItem} onPress={() => handleSelectResult(item)}>
+              <MaterialCommunityIcons name="map-marker-outline" size={18} color={COLORS.primaryLight} />
+              <Text style={styles.searchResultText} numberOfLines={2}>{item.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* Tap instruction banner */}
       {isPlacing && !showForm && (
-        <View style={[styles.editBanner, { top: insets.top + 12 }]}>
+        <View style={[styles.editBanner, { top: insets.top + 64 }]}>
           <MaterialCommunityIcons name="map-marker-plus" size={18} color={COLORS.white} />
           <Text style={styles.editBannerText}>
             Tap map to place {editMode === 'addDevice' ? 'device' : 'field'}
@@ -350,12 +556,43 @@ const styles = StyleSheet.create({
   webview: { flex: 1 },
   loadingMap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background },
   loadingText: { marginTop: SPACING.md, fontSize: FONT_SIZES.md, color: COLORS.textTertiary },
+  topBar: {
+    position: 'absolute', left: SPACING.md, right: SPACING.md,
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, zIndex: 10,
+  },
   backButton: {
-    position: 'absolute', left: SPACING.lg, width: 40, height: 40, borderRadius: 20,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center', ...SHADOWS.md,
   },
+  searchContainer: {
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    backgroundColor: COLORS.white, borderRadius: 20, height: 40,
+    paddingHorizontal: SPACING.sm, ...SHADOWS.md,
+  },
+  searchIcon: { marginRight: SPACING.xs },
+  searchInput: {
+    flex: 1, fontSize: FONT_SIZES.sm, color: COLORS.textPrimary,
+    paddingVertical: 0, height: 40,
+  },
+  searchSpinner: { marginLeft: SPACING.xs },
+  searchClear: { marginLeft: SPACING.xs, padding: 2 },
+  clearAllButton: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center', ...SHADOWS.md,
+  },
+  searchDropdown: {
+    position: 'absolute', left: SPACING.md + 48, right: SPACING.md + 48, zIndex: 20,
+    backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.md, ...SHADOWS.lg,
+    maxHeight: 240, overflow: 'hidden',
+  },
+  searchResultItem: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.md,
+    borderBottomWidth: 1, borderBottomColor: COLORS.divider,
+  },
+  searchResultText: { flex: 1, fontSize: FONT_SIZES.xs, color: COLORS.textSecondary },
   editBanner: {
-    position: 'absolute', alignSelf: 'center',
+    position: 'absolute', alignSelf: 'center', zIndex: 10,
     flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
     backgroundColor: COLORS.primaryLight, borderRadius: BORDER_RADIUS.full,
     paddingHorizontal: SPACING.lg, paddingVertical: SPACING.sm, ...SHADOWS.md,

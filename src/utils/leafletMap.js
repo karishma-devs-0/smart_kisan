@@ -139,6 +139,24 @@ export function generateMapHTML({ fields = [], devices = [], interactive = true,
       map.fitBounds(allCoords, { padding: [40, 40] });
     }
 
+    // Listen for messages from React Native (e.g. flyTo)
+    document.addEventListener('message', function(e) {
+      try {
+        var msg = JSON.parse(e.data);
+        if (msg.type === 'flyTo') {
+          map.flyTo([msg.lat, msg.lng], msg.zoom || 14, { duration: 1.5 });
+        }
+      } catch(err) {}
+    });
+    window.addEventListener('message', function(e) {
+      try {
+        var msg = JSON.parse(e.data);
+        if (msg.type === 'flyTo') {
+          map.flyTo([msg.lat, msg.lng], msg.zoom || 14, { duration: 1.5 });
+        }
+      } catch(err) {}
+    });
+
     ${tapToPlace ? `
     // Tap-to-place mode
     var placementMarker = null;
