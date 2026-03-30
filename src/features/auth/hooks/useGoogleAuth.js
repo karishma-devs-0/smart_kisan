@@ -1,6 +1,6 @@
 import { useCallback, useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
-import { Alert } from 'react-native';
+import { Alert, TurboModuleRegistry } from 'react-native';
 import { GOOGLE_WEB_CLIENT_ID } from '../../../config/firebase.config';
 import { loginWithGoogle } from '../slice/authSlice';
 
@@ -10,17 +10,23 @@ let configured = false;
 
 function initGoogleSignin() {
   if (configured) return !!GoogleSignin;
+  configured = true;
+
+  // Check if native module exists before requiring — prevents Invariant Violation crash in Expo Go
   try {
+    const nativeModule = TurboModuleRegistry.get('RNGoogleSignin');
+    if (!nativeModule) {
+      if (__DEV__) console.log('Google Sign-In: native module not available (Expo Go). Skipping.');
+      return false;
+    }
     const mod = require('@react-native-google-signin/google-signin');
     GoogleSignin = mod.GoogleSignin;
     statusCodes = mod.statusCodes;
     GoogleSignin.configure({
       webClientId: GOOGLE_WEB_CLIENT_ID,
     });
-    configured = true;
     return true;
   } catch {
-    configured = true;
     return false;
   }
 }
