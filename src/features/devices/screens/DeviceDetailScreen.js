@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,6 +13,7 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
+import { useTranslation } from 'react-i18next';
 import { MOCK_DEVICE_TYPES } from '../mock/devicesMockData';
 
 const formatTypeLabel = (type) => {
@@ -65,7 +67,8 @@ const ProgressBar = ({ value, color }) => (
 );
 
 const DeviceDetailScreen = ({ navigation, route }) => {
-  const { device } = route.params;
+  const { t } = useTranslation();
+  const { device } = route.params || {};
   const insets = useSafeAreaInsets();
 
   const deviceType = MOCK_DEVICE_TYPES[device.type] || { icon: 'devices', color: COLORS.textTertiary };
@@ -88,33 +91,33 @@ const DeviceDetailScreen = ({ navigation, route }) => {
       case 'weather_station':
         return (
           <View>
-            <Text style={styles.sectionTitle}>Live Readings</Text>
+            <Text style={styles.sectionTitle}>{t('devices.detail.liveReadings')}</Text>
             <View style={styles.readingsGrid}>
               <ReadingCard
                 icon="thermometer"
                 iconColor="#F44336"
-                label="Temperature"
+                label={t('devices.detail.temperature')}
                 value="32.5"
                 unit=" °C"
               />
               <ReadingCard
                 icon="water-percent"
                 iconColor="#2196F3"
-                label="Humidity"
+                label={t('devices.detail.humidity')}
                 value="68"
                 unit=" %"
               />
               <ReadingCard
                 icon="weather-windy"
                 iconColor="#607D8B"
-                label="Wind Speed"
+                label={t('devices.detail.windSpeed')}
                 value="12.3"
                 unit=" km/h"
               />
               <ReadingCard
                 icon="weather-pouring"
                 iconColor="#1565C0"
-                label="Rainfall"
+                label={t('devices.detail.rainfall')}
                 value="2.4"
                 unit=" mm"
               />
@@ -125,19 +128,19 @@ const DeviceDetailScreen = ({ navigation, route }) => {
       case 'moisture_sensor':
         return (
           <View>
-            <Text style={styles.sectionTitle}>Live Readings</Text>
+            <Text style={styles.sectionTitle}>{t('devices.detail.liveReadings')}</Text>
             <View style={styles.readingsGrid}>
               <ReadingCard
                 icon="water-percent"
                 iconColor="#4CAF50"
-                label="Current Moisture"
+                label={t('devices.detail.currentMoisture')}
                 value="42"
                 unit=" %"
               />
               <ReadingCard
                 icon="arrow-collapse-down"
                 iconColor="#795548"
-                label="Depth"
+                label={t('devices.detail.depth')}
                 value="30"
                 unit=" cm"
               />
@@ -148,26 +151,26 @@ const DeviceDetailScreen = ({ navigation, route }) => {
       case 'pump_controller':
         return (
           <View>
-            <Text style={styles.sectionTitle}>Live Readings</Text>
+            <Text style={styles.sectionTitle}>{t('devices.detail.liveReadings')}</Text>
             <View style={styles.readingsGrid}>
               <ReadingCard
                 icon="power"
                 iconColor="#4CAF50"
-                label="Pump Status"
-                value="Running"
+                label={t('devices.detail.pumpStatus')}
+                value={t('common.running')}
                 unit=""
               />
               <ReadingCard
                 icon="clock-outline"
                 iconColor="#FF9800"
-                label="Runtime Today"
+                label={t('devices.detail.runtimeToday')}
                 value="4.5"
                 unit=" hrs"
               />
               <ReadingCard
                 icon="water"
                 iconColor="#2196F3"
-                label="Flow Rate"
+                label={t('devices.detail.flowRate')}
                 value="15.2"
                 unit=" L/min"
               />
@@ -210,19 +213,19 @@ const DeviceDetailScreen = ({ navigation, route }) => {
             <View style={[styles.statusBadge, { backgroundColor: isOnline ? COLORS.success + '20' : COLORS.danger + '20' }]}>
               <View style={[styles.statusDot, { backgroundColor: isOnline ? COLORS.success : COLORS.danger }]} />
               <Text style={[styles.statusText, { color: isOnline ? COLORS.success : COLORS.danger }]}>
-                {isOnline ? 'Online' : 'Offline'}
+                {isOnline ? t('common.online') : t('common.offline')}
               </Text>
             </View>
           </View>
         </View>
 
         {/* Info Cards */}
-        <Text style={styles.sectionTitle}>Device Info</Text>
+        <Text style={styles.sectionTitle}>{t('devices.detail.deviceInfo')}</Text>
 
         <InfoCard
           icon="battery"
           iconColor={getBatteryColor(device.batteryLevel)}
-          label="Battery Level"
+          label={t('devices.detail.batteryLevel')}
           value={`${device.batteryLevel}%`}
         >
           <ProgressBar value={device.batteryLevel} color={getBatteryColor(device.batteryLevel)} />
@@ -231,7 +234,7 @@ const DeviceDetailScreen = ({ navigation, route }) => {
         <InfoCard
           icon="signal"
           iconColor={getSignalColor(device.signalStrength)}
-          label="Signal Strength"
+          label={t('devices.detail.signalStrength')}
           value={`${device.signalStrength}%`}
         >
           <ProgressBar value={device.signalStrength} color={getSignalColor(device.signalStrength)} />
@@ -240,21 +243,21 @@ const DeviceDetailScreen = ({ navigation, route }) => {
         <InfoCard
           icon="cellphone-arrow-down"
           iconColor={COLORS.info}
-          label="Firmware Version"
+          label={t('devices.detail.firmwareVersion')}
           value={`v${device.firmwareVersion}`}
         />
 
         <InfoCard
           icon="sync"
           iconColor={COLORS.primary}
-          label="Last Sync"
+          label={t('devices.detail.lastSync')}
           value={formatLastSync(device.lastSync)}
         />
 
         <InfoCard
           icon="map-marker"
           iconColor={COLORS.warning}
-          label="Location"
+          label={t('devices.detail.location')}
           value={device.location}
         />
 
@@ -264,21 +267,48 @@ const DeviceDetailScreen = ({ navigation, route }) => {
         {/* Action Buttons */}
         <View style={styles.actionsSection}>
           <TouchableOpacity
+            style={styles.calibrateButton}
+            onPress={() => navigation.navigate('CalibrationWizard', { deviceId: device.id })}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="tune-vertical" size={20} color={COLORS.white} />
+            <Text style={styles.calibrateButtonText}>Calibrate</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={styles.connectionButton}
             onPress={() => navigation.navigate('DeviceConnection')}
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="cog-outline" size={20} color={COLORS.white} />
-            <Text style={styles.connectionButtonText}>Connection Settings</Text>
+            <Text style={styles.connectionButtonText}>{t('devices.detail.connectionSettings')}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.alertRulesButton}
+            onPress={() => navigation.navigate('AlertRules')}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="bell-alert-outline" size={20} color={COLORS.primary} />
+            <Text style={styles.alertRulesButtonText}>Alert Rules</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.removeButton}
-            onPress={() => {}}
+            onPress={() => {
+              Alert.alert(
+                t('devices.detail.removeDevice'),
+                `Are you sure you want to remove ${device.name}?`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Remove', style: 'destructive', onPress: () => navigation.goBack() },
+                ],
+              );
+            }}
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="delete-outline" size={20} color={COLORS.danger} />
-            <Text style={styles.removeButtonText}>Remove Device</Text>
+            <Text style={styles.removeButtonText}>{t('devices.detail.removeDevice')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -447,6 +477,21 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
     marginBottom: SPACING.xxl,
   },
+  calibrateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.info,
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: SPACING.lg,
+    gap: SPACING.sm,
+    ...SHADOWS.md,
+  },
+  calibrateButtonText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.semiBold,
+    color: COLORS.white,
+  },
   connectionButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -461,6 +506,22 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     fontWeight: FONT_WEIGHTS.semiBold,
     color: COLORS.white,
+  },
+  alertRulesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: SPACING.lg,
+    gap: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  alertRulesButtonText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.semiBold,
+    color: COLORS.primary,
   },
   removeButton: {
     flexDirection: 'row',

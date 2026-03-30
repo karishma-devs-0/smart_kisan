@@ -5,6 +5,7 @@ import WeatherForecastScreen from '../features/weather/screens/WeatherForecastSc
 import HistoricalWeatherScreen from '../features/weather/screens/HistoricalWeatherScreen';
 import WindDetailScreen from '../features/weather/screens/WindDetailScreen';
 import HumidityDetailScreen from '../features/weather/screens/HumidityDetailScreen';
+import ETCalculatorScreen from '../features/weather/screens/ETCalculatorScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -22,6 +23,7 @@ const WeatherStack = () => {
       <Stack.Screen name="HistoricalWeather" component={HistoricalWeatherScreen} />
       <Stack.Screen name="WindDetail" component={WindDetailScreen} />
       <Stack.Screen name="HumidityDetail" component={HumidityDetailScreen} />
+      <Stack.Screen name="ETCalculator" component={ETCalculatorScreen} />
     </Stack.Navigator>
   );
 };

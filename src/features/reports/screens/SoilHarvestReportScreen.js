@@ -6,26 +6,28 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS } from '../../../constants/layout';
+import { useTranslation } from 'react-i18next';
 
 const SoilHarvestReportScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}><MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} /></TouchableOpacity>
-        <Text style={styles.titlePrefix}>The</Text><Text style={styles.titleText}> Report</Text>
+        <Text style={styles.titlePrefix}>{t('reports.thePrefix')}</Text><Text style={styles.titleText}>{' ' + t('reports.title')}</Text>
       </View>
-      <Text style={styles.sectionTitle}>Soil Condition Analysis</Text>
+      <Text style={styles.sectionTitle}>{t('soilHarvestReport.soilConditionAnalysis')}</Text>
       <View style={styles.card}>
-        {[{ label: 'Overall', value: 'Good', color: COLORS.success }, { label: 'Moisture', value: 'Adequate', color: COLORS.info }, { label: 'pH Level', value: 'Optimal', color: COLORS.success }, { label: 'Nutrients', value: 'Moderate', color: COLORS.warning }].map((item, i) => (
+        {[{ label: t('soilHarvestReport.overall'), value: t('soilHarvestReport.good'), color: COLORS.success }, { label: t('soilHarvestReport.moisture'), value: t('soilHarvestReport.adequate'), color: COLORS.info }, { label: t('soilHarvestReport.phLevel'), value: t('soilHarvestReport.optimal'), color: COLORS.success }, { label: t('soilHarvestReport.nutrients'), value: t('soilHarvestReport.moderate'), color: COLORS.warning }].map((item, i) => (
           <View key={i} style={styles.condRow}><Text style={styles.condLabel}>{item.label}</Text><View style={[styles.condBadge, { backgroundColor: item.color + '20' }]}><Text style={[styles.condValue, { color: item.color }]}>{item.value}</Text></View></View>
         ))}
       </View>
-      <Text style={styles.sectionTitle}>Harvest Performance</Text>
+      <Text style={styles.sectionTitle}>{t('soilHarvestReport.harvestPerformance')}</Text>
       <View style={styles.card}>
-        <View style={styles.harvestRow}><Text style={styles.harvestLabel}>Estimated Yield</Text><Text style={styles.harvestValue}>2,400 kg</Text></View>
-        <View style={styles.harvestRow}><Text style={styles.harvestLabel}>Actual Yield</Text><Text style={styles.harvestValue}>2,200 kg</Text></View>
-        <View style={styles.harvestRow}><Text style={styles.harvestLabel}>Efficiency</Text><Text style={[styles.harvestValue, { color: COLORS.success }]}>91.7%</Text></View>
+        <View style={styles.harvestRow}><Text style={styles.harvestLabel}>{t('soilHarvestReport.estimatedYield')}</Text><Text style={styles.harvestValue}>2,400 kg</Text></View>
+        <View style={styles.harvestRow}><Text style={styles.harvestLabel}>{t('soilHarvestReport.actualYield')}</Text><Text style={styles.harvestValue}>2,200 kg</Text></View>
+        <View style={styles.harvestRow}><Text style={styles.harvestLabel}>{t('soilHarvestReport.efficiency')}</Text><Text style={[styles.harvestValue, { color: COLORS.success }]}>91.7%</Text></View>
       </View>
     </ScrollView>
   );

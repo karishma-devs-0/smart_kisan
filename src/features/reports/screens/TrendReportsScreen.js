@@ -6,25 +6,27 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS } from '../../../constants/layout';
+import { useTranslation } from 'react-i18next';
 
 const TrendReportsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [timeRange, setTimeRange] = useState('daily');
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}><MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} /></TouchableOpacity>
-        <Text style={styles.titlePrefix}>Only</Text><Text style={styles.titleText}> Reports</Text>
+        <Text style={styles.titlePrefix}>{t('trendReports.titlePrefix')}</Text><Text style={styles.titleText}>{' ' + t('trendReports.title')}</Text>
       </View>
       <View style={styles.tabRow}>
-        {['daily', 'weekly', 'monthly'].map((t) => (
-          <TouchableOpacity key={t} style={[styles.tab, timeRange === t && styles.tabActive]} onPress={() => setTimeRange(t)}>
-            <Text style={[styles.tabText, timeRange === t && styles.tabTextActive]}>{t.charAt(0).toUpperCase() + t.slice(1)}</Text>
+        {['daily', 'weekly', 'monthly'].map((tab) => (
+          <TouchableOpacity key={tab} style={[styles.tab, timeRange === tab && styles.tabActive]} onPress={() => setTimeRange(tab)}>
+            <Text style={[styles.tabText, timeRange === tab && styles.tabTextActive]}>{t(`trendReports.${tab}`)}</Text>
           </TouchableOpacity>
         ))}
       </View>
-      <Text style={styles.sectionTitle}>Pump Runtime</Text>
+      <Text style={styles.sectionTitle}>{t('trendReports.pumpRuntime')}</Text>
       <View style={styles.chartCard}>
         <View style={styles.chartArea}>
           {[6, 8, 7.5, 9, 8.5, 7, 8].map((v, i) => (
@@ -35,7 +37,7 @@ const TrendReportsScreen = ({ navigation }) => {
           ))}
         </View>
       </View>
-      <Text style={styles.sectionTitle}>Water Usage Trend</Text>
+      <Text style={styles.sectionTitle}>{t('trendReports.waterUsageTrend')}</Text>
       <View style={styles.chartCard}>
         <View style={styles.chartArea}>
           {[200, 250, 220, 280, 240, 210, 260].map((v, i) => (

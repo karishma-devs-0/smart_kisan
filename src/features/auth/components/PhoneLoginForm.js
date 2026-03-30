@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS } from '../../../constants/layout';
 
 const PhoneLoginForm = ({ onLogin, loading }) => {
+  const { t } = useTranslation();
   const [countryCode, setCountryCode] = useState('+91');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
@@ -22,7 +24,7 @@ const PhoneLoginForm = ({ onLogin, loading }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Phone Number</Text>
+      <Text style={styles.label}>{t('login.phoneNumber')}</Text>
       <View style={styles.phoneRow}>
         <TouchableOpacity style={styles.countryCodeContainer}>
           <Text style={styles.flag}>🇮🇳</Text>
@@ -32,7 +34,7 @@ const PhoneLoginForm = ({ onLogin, loading }) => {
         <View style={styles.phoneInputContainer}>
           <TextInput
             style={styles.phoneInput}
-            placeholder="Phone number"
+            placeholder={t('login.phonePlaceholder')}
             placeholderTextColor={COLORS.textTertiary}
             value={phone}
             onChangeText={setPhone}
@@ -48,15 +50,15 @@ const PhoneLoginForm = ({ onLogin, loading }) => {
           onPress={handleSendOtp}
           disabled={!phone}
         >
-          <Text style={styles.sendOtpText}>Send OTP</Text>
+          <Text style={styles.sendOtpText}>{t('login.sendOtp')}</Text>
         </TouchableOpacity>
       ) : (
         <>
-          <Text style={styles.label}>OTP</Text>
+          <Text style={styles.label}>{t('login.otp')}</Text>
           <View style={styles.otpContainer}>
             <TextInput
               style={styles.otpInput}
-              placeholder="Enter 6-digit OTP"
+              placeholder={t('login.otpPlaceholder')}
               placeholderTextColor={COLORS.textTertiary}
               value={otp}
               onChangeText={setOtp}
@@ -67,10 +69,10 @@ const PhoneLoginForm = ({ onLogin, loading }) => {
 
           <View style={styles.row}>
             <TouchableOpacity>
-              <Text style={styles.linkText}>Forgot Password?</Text>
+              <Text style={styles.linkText}>{t('login.forgotPassword')}</Text>
             </TouchableOpacity>
             <TouchableOpacity>
-              <Text style={styles.linkText}>Local Mode</Text>
+              <Text style={styles.linkText}>{t('login.localMode')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -79,7 +81,7 @@ const PhoneLoginForm = ({ onLogin, loading }) => {
             onPress={handleVerify}
             disabled={loading}
           >
-            <Text style={styles.loginButtonText}>{loading ? 'Verifying...' : 'Login'}</Text>
+            <Text style={styles.loginButtonText}>{loading ? t('login.verifying') : t('login.loginButton')}</Text>
           </TouchableOpacity>
         </>
       )}

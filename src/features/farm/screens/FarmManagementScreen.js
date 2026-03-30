@@ -14,6 +14,7 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
+import { useTranslation } from 'react-i18next';
 import { fetchFarmData } from '../slice/farmSlice';
 
 const StatCard = ({ label, value, color }) => (
@@ -55,6 +56,7 @@ const GrowthBar = ({ item, maxValue }) => {
 };
 
 const FarmManagementScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { tasks, categories, growthTrends, loading } = useSelector((state) => state.farm);
@@ -87,19 +89,19 @@ const FarmManagementScreen = ({ navigation }) => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.titlePrefix}>Farm</Text>
-          <Text style={styles.titleText}> Management</Text>
+          <Text style={styles.titlePrefix}>{t('farmMgmt.farmPrefix')}</Text>
+          <Text style={styles.titleText}> {t('farmMgmt.title')}</Text>
         </View>
 
         {/* Summary Stats */}
         <View style={styles.statsRow}>
-          <StatCard label="Total Tasks" value={totalTasks} color={COLORS.primary} />
-          <StatCard label="Active" value={activeTasks} color={COLORS.success} />
-          <StatCard label="Completed" value={completedTasks} color={COLORS.info} />
+          <StatCard label={t('farmMgmt.totalTasks')} value={totalTasks} color={COLORS.primary} />
+          <StatCard label={t('common.active')} value={activeTasks} color={COLORS.success} />
+          <StatCard label={t('farmMgmt.completed')} value={completedTasks} color={COLORS.info} />
         </View>
 
         {/* Categories Grid */}
-        <Text style={styles.sectionTitle}>Categories</Text>
+        <Text style={styles.sectionTitle}>{t('farmMgmt.categories')}</Text>
         <View style={styles.categoriesGrid}>
           {categories.map((category) => (
             <CategoryCard
@@ -111,7 +113,7 @@ const FarmManagementScreen = ({ navigation }) => {
         </View>
 
         {/* Growth Trends */}
-        <Text style={styles.sectionTitle}>Growth Trends</Text>
+        <Text style={styles.sectionTitle}>{t('farmMgmt.growthTrends')}</Text>
         <View style={styles.growthChartCard}>
           <View style={styles.growthChartRow}>
             {growthTrends.map((item) => (
@@ -131,9 +133,9 @@ const FarmManagementScreen = ({ navigation }) => {
               <MaterialCommunityIcons name="clipboard-check-outline" size={28} color={COLORS.primary} />
             </View>
             <View>
-              <Text style={styles.activeTasksTitle}>Active Tasks</Text>
+              <Text style={styles.activeTasksTitle}>{t('farmMgmt.activeTasks')}</Text>
               <Text style={styles.activeTasksSubtitle}>
-                {activeTasks} task{activeTasks !== 1 ? 's' : ''} require attention
+                {t('farmMgmt.tasksNeedAttention', { count: activeTasks })}
               </Text>
             </View>
           </View>

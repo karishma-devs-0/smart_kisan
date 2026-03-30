@@ -15,6 +15,7 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
+import { useTranslation } from 'react-i18next';
 import { fetchDevices, selectDevice } from '../slice/devicesSlice';
 import { MOCK_DEVICE_TYPES } from '../mock/devicesMockData';
 
@@ -90,6 +91,7 @@ const DeviceCard = React.memo(({ device, onPress }) => {
 });
 
 const DeviceListScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { devices, loading } = useSelector((state) => state.devices);
@@ -120,7 +122,7 @@ const DeviceListScreen = ({ navigation }) => {
         <MaterialCommunityIcons name="magnify" size={20} color={COLORS.textTertiary} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search devices..."
+          placeholder={t('devices.searchPlaceholder')}
           placeholderTextColor={COLORS.textTertiary}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -136,13 +138,13 @@ const DeviceListScreen = ({ navigation }) => {
       <View style={styles.summaryRow}>
         <StatusSummaryCard
           count={onlineCount}
-          label="Online"
+          label={t('common.online')}
           color={COLORS.success}
           icon="check-circle"
         />
         <StatusSummaryCard
           count={offlineCount}
-          label="Offline"
+          label={t('common.offline')}
           color={COLORS.danger}
           icon="close-circle"
         />
@@ -155,7 +157,7 @@ const DeviceListScreen = ({ navigation }) => {
       </View>
 
       {/* Section Label */}
-      <Text style={styles.sectionLabel}>All Devices</Text>
+      <Text style={styles.sectionLabel}>{t('devices.allDevices')}</Text>
     </View>
   );
 
@@ -166,8 +168,15 @@ const DeviceListScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.titlePrefix}>My</Text>
-        <Text style={styles.titleText}> Devices</Text>
+        <Text style={styles.titlePrefix}>{t('devices.myPrefix')}</Text>
+        <Text style={styles.titleText}> {t('devices.title')}</Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('AlertRules')}
+          style={styles.alertHeaderBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <MaterialCommunityIcons name="bell-alert-outline" size={24} color={COLORS.primary} />
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -185,7 +194,18 @@ const DeviceListScreen = ({ navigation }) => {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>No devices found</Text>
+            <View style={styles.emptyState}>
+              <MaterialCommunityIcons name="devices" size={64} color={COLORS.textSecondary} />
+              <Text style={styles.emptyTitle}>No Devices Connected</Text>
+              <Text style={styles.emptySubtitle}>Connect IoT sensors to monitor your farm in real-time</Text>
+              <TouchableOpacity
+                style={styles.emptyButton}
+                onPress={() => navigation.navigate('DeviceConnection')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.emptyButtonText}>Connect Device</Text>
+              </TouchableOpacity>
+            </View>
           }
         />
       )}
@@ -193,7 +213,7 @@ const DeviceListScreen = ({ navigation }) => {
       {/* FAB */}
       <TouchableOpacity
         style={[styles.fab, { bottom: insets.bottom + 20 }]}
-        onPress={() => {}}
+        onPress={() => navigation.navigate('DeviceConnection')}
         activeOpacity={0.8}
       >
         <MaterialCommunityIcons name="plus" size={28} color={COLORS.white} />
@@ -222,9 +242,14 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
   titleText: {
+    flex: 1,
     fontSize: FONT_SIZES.xxl,
     fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.textPrimary,
+  },
+  alertHeaderBtn: {
+    padding: SPACING.xs,
+    marginLeft: SPACING.sm,
   },
   listContent: {
     paddingHorizontal: SPACING.lg,
@@ -336,11 +361,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyText: {
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.xxxl,
+  },
+  emptyTitle: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.semiBold,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.lg,
+  },
+  emptySubtitle: {
     fontSize: FONT_SIZES.md,
-    color: COLORS.textTertiary,
+    color: COLORS.textSecondary,
     textAlign: 'center',
-    marginTop: SPACING.xxxl,
+    marginTop: SPACING.sm,
+    marginHorizontal: SPACING.xl,
+  },
+  emptyButton: {
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: BORDER_RADIUS.lg,
+    paddingHorizontal: SPACING.xxl,
+    paddingVertical: SPACING.md,
+    marginTop: SPACING.xl,
+  },
+  emptyButtonText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.semiBold,
+    color: COLORS.white,
   },
   fab: {
     position: 'absolute',

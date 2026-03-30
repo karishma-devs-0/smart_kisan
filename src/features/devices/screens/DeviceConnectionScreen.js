@@ -14,6 +14,7 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
+import { useTranslation } from 'react-i18next';
 import { MOCK_CONNECTION_PROTOCOLS } from '../mock/devicesMockData';
 
 const MOCK_BLE_DEVICES = [
@@ -49,7 +50,7 @@ const SignalStrengthVisual = ({ strength }) => {
   );
 };
 
-const ProtocolCard = ({ protocol, enabled, onToggle }) => {
+const ProtocolCard = ({ protocol, enabled, onToggle, t }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'connected': return COLORS.success;
@@ -61,10 +62,10 @@ const ProtocolCard = ({ protocol, enabled, onToggle }) => {
 
   const getStatusLabel = (status) => {
     switch (status) {
-      case 'connected': return 'Connected';
-      case 'available': return 'Available';
-      case 'disabled': return 'Disabled';
-      default: return 'Unknown';
+      case 'connected': return t('devices.connected');
+      case 'available': return t('devices.connection.available');
+      case 'disabled': return t('devices.connection.disabled');
+      default: return t('devices.connection.unknown');
     }
   };
 
@@ -126,6 +127,7 @@ const BleDeviceItem = ({ device }) => {
 };
 
 const DeviceConnectionScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const [protocolToggles, setProtocolToggles] = useState({
@@ -164,8 +166,8 @@ const DeviceConnectionScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.titlePrefix}>Connection</Text>
-        <Text style={styles.titleText}> Settings</Text>
+        <Text style={styles.titlePrefix}>{t('devices.connection.title')}</Text>
+        <Text style={styles.titleText}> {t('devices.connection.settings')}</Text>
       </View>
 
       <ScrollView
@@ -174,12 +176,12 @@ const DeviceConnectionScreen = ({ navigation }) => {
       >
         {/* Signal Strength Indicator */}
         <View style={styles.signalCard}>
-          <Text style={styles.signalCardTitle}>Current Signal Strength</Text>
+          <Text style={styles.signalCardTitle}>{t('devices.connection.currentSignal')}</Text>
           <SignalStrengthVisual strength={78} />
         </View>
 
         {/* Connection Protocols */}
-        <Text style={styles.sectionTitle}>Connection Protocols</Text>
+        <Text style={styles.sectionTitle}>{t('devices.connection.connectionProtocols')}</Text>
 
         {MOCK_CONNECTION_PROTOCOLS.map((protocol) => (
           <ProtocolCard
@@ -187,32 +189,33 @@ const DeviceConnectionScreen = ({ navigation }) => {
             protocol={protocol}
             enabled={protocolToggles[protocol.id]}
             onToggle={() => handleToggleProtocol(protocol.id)}
+            t={t}
           />
         ))}
 
         {/* WiFi Details */}
         {protocolToggles.wifi && (
           <View>
-            <Text style={styles.sectionTitle}>WiFi Configuration</Text>
+            <Text style={styles.sectionTitle}>{t('devices.connection.wifiConfig')}</Text>
             <View style={styles.formCard}>
-              <Text style={styles.inputLabel}>Network Name (SSID)</Text>
+              <Text style={styles.inputLabel}>{t('devices.connection.networkName')}</Text>
               <View style={styles.inputContainer}>
                 <MaterialCommunityIcons name="wifi" size={18} color={COLORS.textTertiary} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Enter WiFi network name"
+                  placeholder={t('devices.connection.networkPlaceholder')}
                   placeholderTextColor={COLORS.textTertiary}
                   value={wifiSsid}
                   onChangeText={setWifiSsid}
                 />
               </View>
 
-              <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>Password</Text>
+              <Text style={[styles.inputLabel, { marginTop: SPACING.lg }]}>{t('devices.connection.wifiPassword')}</Text>
               <View style={styles.inputContainer}>
                 <MaterialCommunityIcons name="lock" size={18} color={COLORS.textTertiary} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Enter WiFi password"
+                  placeholder={t('devices.connection.wifiPasswordPlaceholder')}
                   placeholderTextColor={COLORS.textTertiary}
                   secureTextEntry={!showPassword}
                   value={wifiPassword}
@@ -236,7 +239,7 @@ const DeviceConnectionScreen = ({ navigation }) => {
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons name="wifi-check" size={20} color={COLORS.white} />
-                <Text style={styles.connectWifiText}>Connect to WiFi</Text>
+                <Text style={styles.connectWifiText}>{t('devices.connection.connectWifi')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -245,7 +248,7 @@ const DeviceConnectionScreen = ({ navigation }) => {
         {/* BLE Section */}
         {protocolToggles.bluetooth && (
           <View>
-            <Text style={styles.sectionTitle}>Bluetooth Devices</Text>
+            <Text style={styles.sectionTitle}>{t('devices.connection.bluetoothDevices')}</Text>
             <View style={styles.formCard}>
               <TouchableOpacity
                 style={styles.scanButton}
@@ -259,13 +262,13 @@ const DeviceConnectionScreen = ({ navigation }) => {
                   <MaterialCommunityIcons name="bluetooth-connect" size={20} color={COLORS.primary} />
                 )}
                 <Text style={styles.scanButtonText}>
-                  {isScanning ? 'Scanning...' : 'Scan for Devices'}
+                  {isScanning ? t('devices.connection.scanning') : t('devices.connection.scanForDevices')}
                 </Text>
               </TouchableOpacity>
 
               {discoveredDevices.length > 0 && (
                 <View style={styles.bleDevicesList}>
-                  <Text style={styles.bleListTitle}>Discovered Devices</Text>
+                  <Text style={styles.bleListTitle}>{t('devices.connection.discoveredDevices')}</Text>
                   {discoveredDevices.map((device) => (
                     <BleDeviceItem key={device.id} device={device} />
                   ))}
@@ -276,7 +279,7 @@ const DeviceConnectionScreen = ({ navigation }) => {
                 <View style={styles.bleEmptyState}>
                   <MaterialCommunityIcons name="bluetooth-off" size={36} color={COLORS.textTertiary} />
                   <Text style={styles.bleEmptyText}>
-                    Tap scan to search for nearby Bluetooth devices
+                    {t('devices.connection.tapToScan')}
                   </Text>
                 </View>
               )}

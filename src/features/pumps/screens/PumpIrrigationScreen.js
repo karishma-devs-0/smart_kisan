@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { useTranslation } from 'react-i18next';
+import { stopAllPumps } from '../slice/pumpsSlice';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
@@ -15,6 +17,8 @@ const schedules = [
 ];
 
 const PumpIrrigationScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
+  const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { pumpId } = route.params || {};
   const pump = useSelector((s) => s.pumps.pumps.find((p) => p.id === pumpId)) || { name: 'Pump 1' };
@@ -37,8 +41,8 @@ const PumpIrrigationScreen = ({ navigation, route }) => {
         <Text style={styles.title}>{pump.name}</Text>
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Irrigation Details</Text>
-        <Text style={styles.subtitle}>Irrigation Schedule</Text>
+        <Text style={styles.sectionTitle}>{t('pumps.irrigation.title')}</Text>
+        <Text style={styles.subtitle}>{t('pumps.irrigation.schedule')}</Text>
         {schedules.map((s) => (
           <View key={s.id} style={styles.scheduleCard}>
             <View style={[styles.statusLine, { backgroundColor: getStatusColor(s.status) }]} />
@@ -52,17 +56,22 @@ const PumpIrrigationScreen = ({ navigation, route }) => {
             </View>
           </View>
         ))}
-        <Text style={styles.sectionTitle}>Pump Status</Text>
+        <Text style={styles.sectionTitle}>{t('pumps.irrigation.pumpStatus')}</Text>
         <View style={styles.statusCard}>
-          <View style={styles.statusRow}><Text style={styles.statusLabel}>Status</Text><Text style={[styles.statusVal, { color: COLORS.success }]}>Running</Text></View>
-          <View style={styles.statusRow}><Text style={styles.statusLabel}>Today Run Time</Text><Text style={styles.statusVal}>4.5 hrs</Text></View>
-          <View style={styles.statusRow}><Text style={styles.statusLabel}>Water Delivered</Text><Text style={styles.statusVal}>2,450 L</Text></View>
-          <View style={styles.statusRow}><Text style={styles.statusLabel}>Next Schedule</Text><Text style={styles.statusVal}>Hand 3 at 6:00 PM</Text></View>
+          <View style={styles.statusRow}><Text style={styles.statusLabel}>{t('common.status')}</Text><Text style={[styles.statusVal, { color: COLORS.success }]}>{t('common.running')}</Text></View>
+          <View style={styles.statusRow}><Text style={styles.statusLabel}>{t('pumps.irrigation.todayRunTime')}</Text><Text style={styles.statusVal}>4.5 hrs</Text></View>
+          <View style={styles.statusRow}><Text style={styles.statusLabel}>{t('pumps.irrigation.waterDelivered')}</Text><Text style={styles.statusVal}>2,450 L</Text></View>
+          <View style={styles.statusRow}><Text style={styles.statusLabel}>{t('pumps.irrigation.nextSchedule')}</Text><Text style={styles.statusVal}>Hand 3 at 6:00 PM</Text></View>
         </View>
       </ScrollView>
-      <TouchableOpacity style={[styles.emergencyBtn, { marginBottom: insets.bottom + 8 }]} onPress={() => {}}>
+      <TouchableOpacity style={[styles.emergencyBtn, { marginBottom: insets.bottom + 8 }]} onPress={() => {
+        Alert.alert('Emergency Stop', 'Are you sure you want to stop all pumps?', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Stop All', style: 'destructive', onPress: () => dispatch(stopAllPumps()) },
+        ]);
+      }}>
         <MaterialCommunityIcons name="stop-circle" size={20} color={COLORS.white} />
-        <Text style={styles.emergencyText}>Emergency Stop this Pump</Text>
+        <Text style={styles.emergencyText}>{t('pumps.detail.emergencyStop')}</Text>
       </TouchableOpacity>
     </View>
   );

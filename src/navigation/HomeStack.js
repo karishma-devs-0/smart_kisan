@@ -7,6 +7,7 @@ import MetricReportsScreen from '../features/reports/screens/MetricReportsScreen
 import TrendReportsScreen from '../features/reports/screens/TrendReportsScreen';
 import MyCropsScreen from '../features/crops/screens/MyCropsScreen';
 import AddCropScreen from '../features/crops/screens/AddCropScreen';
+import CropRotationScreen from '../features/crops/screens/CropRotationScreen';
 // Device Management
 import DeviceListScreen from '../features/devices/screens/DeviceListScreen';
 import DeviceDetailScreen from '../features/devices/screens/DeviceDetailScreen';
@@ -44,6 +45,7 @@ const HomeStack = () => {
         component={AddCropScreen}
         options={{ presentation: 'modal', contentStyle: { backgroundColor: '#FFFFFF' } }}
       />
+      <Stack.Screen name="CropRotation" component={CropRotationScreen} />
       <Stack.Screen name="ComprehensiveReport" component={ComprehensiveReportScreen} />
       <Stack.Screen name="SoilHarvestReport" component={SoilHarvestReportScreen} />
       <Stack.Screen name="MetricReports" component={MetricReportsScreen} />

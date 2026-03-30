@@ -6,10 +6,12 @@ import { useSelector } from 'react-redux';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../constants/layout';
 
 const PumpControlsScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { pumpId } = route.params || {};
   const pump = useSelector((s) => s.pumps.pumps.find((p) => p.id === pumpId)) || { name: 'Pump 1' };
   const [autoMode, setAutoMode] = useState(true);
@@ -23,14 +25,14 @@ const PumpControlsScreen = ({ navigation, route }) => {
         <Text style={styles.title}>{pump.name}</Text>
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Pump Controls</Text>
+        <Text style={styles.sectionTitle}>{t('pumpControls.title')}</Text>
         {/* Auto Mode Toggle */}
         <View style={styles.controlCard}>
           <View style={styles.controlRow}>
             <MaterialCommunityIcons name="auto-fix" size={24} color={COLORS.primaryLight} />
             <View style={styles.controlInfo}>
-              <Text style={styles.controlName}>Auto Mode</Text>
-              <Text style={styles.controlDesc}>Automatically manage irrigation</Text>
+              <Text style={styles.controlName}>{t('pumpControls.autoMode')}</Text>
+              <Text style={styles.controlDesc}>{t('pumpControls.autoModeDesc')}</Text>
             </View>
             <TouchableOpacity style={[styles.toggle, autoMode && styles.toggleOn]} onPress={() => setAutoMode(!autoMode)}>
               <View style={[styles.toggleThumb, autoMode && styles.toggleThumbOn]} />
@@ -38,14 +40,14 @@ const PumpControlsScreen = ({ navigation, route }) => {
           </View>
         </View>
         {/* Irrigation Settings */}
-        <Text style={styles.sectionTitle}>Irrigation Schedule</Text>
+        <Text style={styles.sectionTitle}>{t('pumpControls.irrigationSchedule')}</Text>
         <View style={styles.controlCard}>
-          <View style={styles.settingRow}><Text style={styles.settingLabel}>Lag</Text><Text style={styles.settingValue}>15 min</Text></View>
-          <View style={styles.settingRow}><Text style={styles.settingLabel}>Duration</Text><Text style={styles.settingValue}>1h 30 min - Automatic</Text></View>
-          <View style={styles.settingRow}><Text style={styles.settingLabel}>Interval</Text><Text style={styles.settingValue}>Every 6 hours</Text></View>
+          <View style={styles.settingRow}><Text style={styles.settingLabel}>{t('pumpControls.lag')}</Text><Text style={styles.settingValue}>15 min</Text></View>
+          <View style={styles.settingRow}><Text style={styles.settingLabel}>{t('pumpControls.duration')}</Text><Text style={styles.settingValue}>1h 30 min - Automatic</Text></View>
+          <View style={styles.settingRow}><Text style={styles.settingLabel}>{t('pumpControls.interval')}</Text><Text style={styles.settingValue}>Every 6 hours</Text></View>
         </View>
         {/* Water Flow */}
-        <Text style={styles.sectionTitle}>Water Flow</Text>
+        <Text style={styles.sectionTitle}>{t('pumpControls.waterFlow')}</Text>
         <View style={styles.controlCard}>
           <View style={styles.flowRow}>
             <MaterialCommunityIcons name="water" size={24} color={COLORS.info} />
@@ -56,7 +58,7 @@ const PumpControlsScreen = ({ navigation, route }) => {
       </ScrollView>
       <TouchableOpacity style={[styles.emergencyBtn, { marginBottom: insets.bottom + 8 }]} onPress={() => navigation.goBack()}>
         <MaterialCommunityIcons name="stop-circle" size={20} color={COLORS.white} />
-        <Text style={styles.emergencyText}>Emergency Stop this Pump</Text>
+        <Text style={styles.emergencyText}>{t('pumpControls.emergencyStop')}</Text>
       </TouchableOpacity>
     </View>
   );

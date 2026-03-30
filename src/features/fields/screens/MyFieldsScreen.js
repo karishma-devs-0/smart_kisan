@@ -15,6 +15,7 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
+import { useTranslation } from 'react-i18next';
 import { fetchFields } from '../slice/fieldsSlice';
 
 const STAGE_COLORS = {
@@ -146,7 +147,7 @@ const FieldCard = React.memo(({ field, onPress }) => {
           ]}
         />
       </View>
-      <Text style={styles.progressText}>{field.growthProgress}% Growth</Text>
+      <Text style={styles.progressText}>{field.growthProgress}% {t('fields.growth')}</Text>
 
       {/* Info row: soil + irrigation */}
       <View style={styles.fieldInfoRow}>
@@ -166,12 +167,12 @@ const FieldCard = React.memo(({ field, onPress }) => {
       <View style={styles.fieldIrrigationRow}>
         <View style={styles.fieldIrrigationItem}>
           <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.textTertiary} />
-          <Text style={styles.fieldIrrigationLabel}>Last: </Text>
+          <Text style={styles.fieldIrrigationLabel}>{t('fields.last')}: </Text>
           <Text style={styles.fieldIrrigationDate}>{formatDate(field.lastIrrigation)}</Text>
         </View>
         <View style={styles.fieldIrrigationItem}>
           <MaterialCommunityIcons name="clock-fast" size={14} color={COLORS.primary} />
-          <Text style={styles.fieldIrrigationLabel}>Next: </Text>
+          <Text style={styles.fieldIrrigationLabel}>{t('fields.next_')}: </Text>
           <Text style={[styles.fieldIrrigationDate, { color: COLORS.primary }]}>
             {formatDate(field.nextIrrigation)}
           </Text>
@@ -182,6 +183,7 @@ const FieldCard = React.memo(({ field, onPress }) => {
 });
 
 const MyFieldsScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { fields, growthData, loading } = useSelector((state) => state.fields);
@@ -200,8 +202,8 @@ const MyFieldsScreen = ({ navigation }) => {
 
   const handleAddField = useCallback(() => {
     Alert.alert(
-      'Add Field',
-      'Field creation form will be available in a future update.',
+      t('farmMap.addField'),
+      t('tasks.addTaskMsg'),
       [{ text: 'OK' }],
     );
   }, []);
@@ -210,17 +212,17 @@ const MyFieldsScreen = ({ navigation }) => {
     <View>
       {/* Quick Stats */}
       <View style={styles.statsRow}>
-        <StatCard label="Total Fields" value={totalFields} icon="land-plots" color={COLORS.primary} />
-        <StatCard label="Active" value={activeFields} icon="check-circle-outline" color={COLORS.success} />
-        <StatCard label="Total Area" value={`${totalArea} ac`} icon="map-outline" color={COLORS.info} />
+        <StatCard label={t('fields.totalFields')} value={totalFields} icon="land-plots" color={COLORS.primary} />
+        <StatCard label={t('common.active')} value={activeFields} icon="check-circle-outline" color={COLORS.success} />
+        <StatCard label={t('fields.totalArea')} value={`${totalArea} ac`} icon="map-outline" color={COLORS.info} />
       </View>
 
       {/* Growth Progress Chart */}
-      <Text style={styles.sectionTitle}>Growth Progress</Text>
+      <Text style={styles.sectionTitle}>{t('fields.growthProgress')}</Text>
       <GrowthDotChart data={growthData} />
 
       {/* Fields list label */}
-      <Text style={styles.sectionTitle}>Your Fields</Text>
+      <Text style={styles.sectionTitle}>{t('fields.yourFields')}</Text>
     </View>
   );
 
@@ -239,8 +241,8 @@ const MyFieldsScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.titlePrefix}>My</Text>
-        <Text style={styles.titleText}> Fields</Text>
+        <Text style={styles.titlePrefix}>{t('fields.myPrefix')}</Text>
+        <Text style={styles.titleText}> {t('fields.title')}</Text>
       </View>
 
       {/* Field List */}
@@ -254,7 +256,20 @@ const MyFieldsScreen = ({ navigation }) => {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No fields added yet</Text>
+          !loading && (
+            <View style={styles.emptyState}>
+              <MaterialCommunityIcons name="map-marker-off-outline" size={64} color={COLORS.textSecondary} />
+              <Text style={styles.emptyTitle}>No Fields Yet</Text>
+              <Text style={styles.emptySubtitle}>Add your farm fields to monitor them</Text>
+              <TouchableOpacity
+                style={styles.emptyButton}
+                onPress={handleAddField}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.emptyButtonText}>Add Field</Text>
+              </TouchableOpacity>
+            </View>
+          )
         }
       />
 
@@ -462,11 +477,35 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontWeight: FONT_WEIGHTS.medium,
   },
-  emptyText: {
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.xxxl,
+  },
+  emptyTitle: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: FONT_WEIGHTS.semiBold,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.lg,
+  },
+  emptySubtitle: {
     fontSize: FONT_SIZES.md,
-    color: COLORS.textTertiary,
+    color: COLORS.textSecondary,
     textAlign: 'center',
-    marginTop: SPACING.xxxl,
+    marginTop: SPACING.sm,
+    marginHorizontal: SPACING.xl,
+  },
+  emptyButton: {
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: BORDER_RADIUS.lg,
+    paddingHorizontal: SPACING.xxl,
+    paddingVertical: SPACING.md,
+    marginTop: SPACING.xl,
+  },
+  emptyButtonText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.semiBold,
+    color: COLORS.white,
   },
   fab: {
     position: 'absolute',

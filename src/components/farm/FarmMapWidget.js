@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 import { WebView } from 'react-native-webview';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
@@ -11,13 +13,15 @@ import { generateMapHTML } from '../../utils/leafletMap';
 const CANVAS_HEIGHT = 180;
 
 const FarmMapWidget = ({ fields = [], devices = [], onPress }) => {
+  const { t } = useTranslation();
+  const location = useSelector((s) => s.settings.location);
   const onlineCount = devices.filter((d) => d.status === 'online').length;
   const offlineCount = devices.filter((d) => d.status === 'offline').length;
 
   const mapHTML = useMemo(() => {
-    if (!fields.length && !devices.length) return null;
-    return generateMapHTML({ fields, devices, interactive: false, zoom: 14 });
-  }, [fields, devices]);
+    if (!fields.length && !devices.length && !location) return null;
+    return generateMapHTML({ fields, devices, interactive: false, zoom: 14, defaultCenter: location });
+  }, [fields, devices, location]);
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
@@ -25,10 +29,10 @@ const FarmMapWidget = ({ fields = [], devices = [], onPress }) => {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <MaterialCommunityIcons name="map-outline" size={20} color={COLORS.primaryLight} />
-          <Text style={styles.title}>My Farm</Text>
+          <Text style={styles.title}>{t('farmMap.myFarm')}</Text>
         </View>
         <View style={styles.headerRight}>
-          <Text style={styles.viewText}>View Map</Text>
+          <Text style={styles.viewText}>{t('farmMap.viewMap')}</Text>
           <MaterialCommunityIcons name="chevron-right" size={18} color={COLORS.primaryLight} />
         </View>
       </View>
@@ -58,17 +62,17 @@ const FarmMapWidget = ({ fields = [], devices = [], onPress }) => {
       <View style={styles.summaryRow}>
         <View style={styles.summaryItem}>
           <MaterialCommunityIcons name="vector-square" size={14} color={COLORS.primaryLight} />
-          <Text style={styles.summaryText}>{fields.length} Fields</Text>
+          <Text style={styles.summaryText}>{fields.length} {t('farmMap.fields')}</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
           <View style={[styles.statusDot, { backgroundColor: COLORS.success }]} />
-          <Text style={styles.summaryText}>{onlineCount} Online</Text>
+          <Text style={styles.summaryText}>{onlineCount} {t('common.online')}</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
           <View style={[styles.statusDot, { backgroundColor: COLORS.danger }]} />
-          <Text style={styles.summaryText}>{offlineCount} Offline</Text>
+          <Text style={styles.summaryText}>{offlineCount} {t('common.offline')}</Text>
         </View>
       </View>
     </TouchableOpacity>

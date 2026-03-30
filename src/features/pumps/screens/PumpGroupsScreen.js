@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
@@ -10,6 +11,7 @@ import { BORDER_RADIUS } from '../../../constants/layout';
 import { fetchGroups } from '../slice/pumpsSlice';
 
 const PumpGroupsScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { groups, pumps } = useSelector((state) => state.pumps);
@@ -34,7 +36,7 @@ const PumpGroupsScreen = ({ navigation }) => {
           </View>
           <View style={styles.groupInfo}>
             <Text style={styles.groupName}>{item.name}</Text>
-            <Text style={styles.groupPumpCount}>{groupPumps.length} pumps</Text>
+            <Text style={styles.groupPumpCount}>{groupPumps.length} {t('pumps.groups.pumps')}</Text>
           </View>
           <View style={styles.groupRight}>
             <View style={styles.moistureBadge}>
@@ -64,18 +66,18 @@ const PumpGroupsScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Pump Groups</Text>
+        <Text style={styles.title}>{t('pumps.groups.title')}</Text>
       </View>
       <FlatList
         data={groups}
         keyExtractor={(item) => item.id}
         renderItem={renderGroup}
         contentContainerStyle={styles.listContent}
-        ListEmptyComponent={<Text style={styles.emptyText}>No pump groups created yet</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>{t('pumps.groups.noGroups')}</Text>}
       />
       <TouchableOpacity style={[styles.addButton, { marginBottom: insets.bottom + 16 }]} onPress={() => navigation.navigate('EditPumpGroups')}>
         <MaterialCommunityIcons name="plus" size={20} color={COLORS.white} />
-        <Text style={styles.addButtonText}>Add new pump group</Text>
+        <Text style={styles.addButtonText}>{t('pumps.groups.addGroup')}</Text>
       </TouchableOpacity>
     </View>
   );

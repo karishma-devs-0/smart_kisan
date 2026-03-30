@@ -7,14 +7,17 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS } from '../../../constants/layout';
+import { useTranslation } from 'react-i18next';
 import { fetchHistoricalWeather } from '../slice/weatherSlice';
 
-const TABS = ['Yesterday', 'Last Week', 'Monthly'];
+const getTabs = (t) => [t('historicalWeather.yesterday'), t('historicalWeather.lastWeek'), t('historicalWeather.monthly')];
 
 const HistoricalWeatherScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState('Yesterday');
+  const { t } = useTranslation();
+  const TABS = getTabs(t);
+  const [activeTab, setActiveTab] = useState(TABS[0]);
   const historical = useSelector((s) => s.weather.historical);
 
   useEffect(() => { dispatch(fetchHistoricalWeather()); }, [dispatch]);
@@ -32,10 +35,10 @@ const HistoricalWeatherScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.titlePrefix}>The</Text>
-        <Text style={styles.titleText}> Weather</Text>
+        <Text style={styles.titlePrefix}>{t('weather.thePrefix')}</Text>
+        <Text style={styles.titleText}>{' ' + t('weather.title')}</Text>
       </View>
-      <Text style={styles.sectionTitle}>Historical Weather Data</Text>
+      <Text style={styles.sectionTitle}>{t('historicalWeather.title')}</Text>
       <View style={styles.tabRow}>
         {TABS.map((tab) => (
           <TouchableOpacity key={tab} style={[styles.tab, activeTab === tab && styles.tabActive]} onPress={() => setActiveTab(tab)}>
@@ -45,7 +48,7 @@ const HistoricalWeatherScreen = ({ navigation }) => {
       </View>
       {/* Chart */}
       <View style={styles.chartCard}>
-        <Text style={styles.chartTitle}>Temperature Trend</Text>
+        <Text style={styles.chartTitle}>{t('historicalWeather.temperatureTrend')}</Text>
         <View style={styles.chartArea}>
           {weekData.map((d, i) => (
             <View key={i} style={styles.chartColumn}>
@@ -56,7 +59,7 @@ const HistoricalWeatherScreen = ({ navigation }) => {
         </View>
       </View>
       <View style={styles.chartCard}>
-        <Text style={styles.chartTitle}>Humidity Trend</Text>
+        <Text style={styles.chartTitle}>{t('historicalWeather.humidityTrend')}</Text>
         <View style={styles.chartArea}>
           {weekData.map((d, i) => (
             <View key={i} style={styles.chartColumn}>
@@ -68,9 +71,9 @@ const HistoricalWeatherScreen = ({ navigation }) => {
       </View>
       {/* Stats */}
       <View style={styles.statsRow}>
-        <View style={styles.statCard}><Text style={styles.statLabel}>Avg Temp</Text><Text style={styles.statValue}>36°C</Text></View>
-        <View style={styles.statCard}><Text style={styles.statLabel}>Avg Humidity</Text><Text style={styles.statValue}>70%</Text></View>
-        <View style={styles.statCard}><Text style={styles.statLabel}>Total Rain</Text><Text style={styles.statValue}>12mm</Text></View>
+        <View style={styles.statCard}><Text style={styles.statLabel}>{t('historicalWeather.avgTemp')}</Text><Text style={styles.statValue}>36°C</Text></View>
+        <View style={styles.statCard}><Text style={styles.statLabel}>{t('historicalWeather.avgHumidity')}</Text><Text style={styles.statValue}>70%</Text></View>
+        <View style={styles.statCard}><Text style={styles.statLabel}>{t('historicalWeather.totalRain')}</Text><Text style={styles.statValue}>12mm</Text></View>
       </View>
     </ScrollView>
   );

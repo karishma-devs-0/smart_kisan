@@ -15,6 +15,7 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { fetchAnalytics } from '../slice/analyticsSlice';
+import { useTranslation } from 'react-i18next';
 
 const NDVI_COLORS = {
   excellent: '#1B5E20',
@@ -78,11 +79,12 @@ const ExpertCard = ({ expert }) => (
       <MaterialCommunityIcons name="star" size={14} color="#FFB300" />
       <Text style={styles.expertRating}>{expert.rating}</Text>
     </View>
-    <Text style={styles.expertConsultations}>{expert.consultations} consults</Text>
+    <Text style={styles.expertConsultations}>{expert.consultations} {t('ndvi.consults')}</Text>
   </View>
 );
 
 const NDVIMapScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { ndviData, expertNetwork, loading } = useSelector((state) => state.analytics);
@@ -116,30 +118,30 @@ const NDVIMapScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.titlePrefix}>NDVI</Text>
-        <Text style={styles.titleText}> Map</Text>
+        <Text style={styles.titlePrefix}>{t('ndvi.prefix')}</Text>
+        <Text style={styles.titleText}> {t('ndvi.title')}</Text>
       </View>
 
       {/* Overall NDVI Index */}
       <View style={styles.overallCard}>
         <View style={styles.overallHeader}>
           <MaterialCommunityIcons name="satellite-variant" size={24} color={overallColor} />
-          <Text style={styles.overallLabel}>Overall NDVI Index</Text>
+          <Text style={styles.overallLabel}>{t('ndvi.overallIndex')}</Text>
         </View>
         <View style={styles.overallValueRow}>
           <Text style={[styles.overallValue, { color: overallColor }]}>{ndvi.overallIndex.toFixed(2)}</Text>
           <View style={[styles.overallIndicator, { backgroundColor: overallColor + '20' }]}>
             <View style={[styles.overallIndicatorDot, { backgroundColor: overallColor }]} />
             <Text style={[styles.overallIndicatorText, { color: overallColor }]}>
-              {ndvi.overallIndex > 0.6 ? 'Good Vegetation' : 'Needs Attention'}
+              {ndvi.overallIndex > 0.6 ? t('ndvi.goodVegetation') : t('ndvi.needsAttention')}
             </Text>
           </View>
         </View>
-        <Text style={styles.lastUpdated}>Last updated: {formatDate(ndvi.lastUpdated)}</Text>
+        <Text style={styles.lastUpdated}>{t('ndvi.lastUpdated')}: {formatDate(ndvi.lastUpdated)}</Text>
       </View>
 
       {/* NDVI Scale Legend */}
-      <Text style={styles.sectionTitle}>NDVI Scale</Text>
+      <Text style={styles.sectionTitle}>{t('ndvi.ndviScale')}</Text>
       <View style={styles.scaleCard}>
         <View style={styles.scaleBar}>
           <View style={[styles.scaleSegment, { backgroundColor: '#F44336', flex: 1 }]} />
@@ -157,25 +159,25 @@ const NDVIMapScreen = ({ navigation }) => {
         <View style={styles.scaleLegend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: NDVI_COLORS.poor }]} />
-            <Text style={styles.legendText}>Poor</Text>
+            <Text style={styles.legendText}>{t('ndvi.poor')}</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: NDVI_COLORS.moderate }]} />
-            <Text style={styles.legendText}>Moderate</Text>
+            <Text style={styles.legendText}>{t('ndvi.moderate')}</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: NDVI_COLORS.good }]} />
-            <Text style={styles.legendText}>Good</Text>
+            <Text style={styles.legendText}>{t('ndvi.good')}</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: NDVI_COLORS.excellent }]} />
-            <Text style={styles.legendText}>Excellent</Text>
+            <Text style={styles.legendText}>{t('ndvi.excellent')}</Text>
           </View>
         </View>
       </View>
 
       {/* Zone List */}
-      <Text style={styles.sectionTitle}>Vegetation Zones</Text>
+      <Text style={styles.sectionTitle}>{t('ndvi.vegetationZones')}</Text>
       {ndvi.zones.map((zone) => (
         <ZoneCard key={zone.id} zone={zone} />
       ))}
@@ -183,7 +185,7 @@ const NDVIMapScreen = ({ navigation }) => {
       {/* Expert Network */}
       <View style={styles.sectionHeaderRow}>
         <MaterialCommunityIcons name="account-group" size={22} color={COLORS.primary} />
-        <Text style={styles.sectionTitle}>Expert Network</Text>
+        <Text style={styles.sectionTitle}>{t('ndvi.expertNetwork')}</Text>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.expertScroll}>
         {experts.map((expert) => (

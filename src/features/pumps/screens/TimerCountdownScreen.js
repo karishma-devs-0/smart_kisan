@@ -13,15 +13,18 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
-import { startTimer, tickTimer, stopTimer } from '../slice/pumpsSlice';
+import { useTranslation } from 'react-i18next';
+import { startTimer, tickTimer, stopTimer, startPumpTimer, stopPumpTimer } from '../slice/pumpsSlice';
+import { FIREBASE_ENABLED } from '../../../services/firebase';
 
 const RING_SIZE = 260;
 const RING_BORDER = 8;
 
 const TimerCountdownScreen = ({ navigation, route }) => {
-  const { pumpId, totalSeconds, hours = 0, minutes = 0, seconds = 0 } = route.params;
+  const { pumpId, totalSeconds, hours = 0, minutes = 0, seconds = 0 } = route.params || {};
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   const pump = useSelector((state) =>
     state.pumps.pumps.find((p) => p.id === pumpId),
@@ -61,10 +64,14 @@ const TimerCountdownScreen = ({ navigation, route }) => {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-      dispatch(stopTimer(pumpId));
+      if (FIREBASE_ENABLED) {
+        dispatch(stopPumpTimer(pumpId));
+      } else {
+        dispatch(stopTimer(pumpId));
+      }
       Alert.alert(
-        'Timer Complete',
-        `${pump.name} timer has finished. The pump has been turned off.`,
+        t('timerCountdown.timerComplete'),
+        t('timerCountdown.timerFinishedMsg', { pumpName: pump.name }),
         [{ text: 'OK', onPress: () => navigation.goBack() }],
       );
     }
@@ -81,7 +88,11 @@ const TimerCountdownScreen = ({ navigation, route }) => {
     } else {
       // Start
       if (!isStarted) {
-        dispatch(startTimer({ pumpId, seconds: totalSeconds }));
+        if (FIREBASE_ENABLED) {
+          dispatch(startPumpTimer({ pumpId, durationSeconds: totalSeconds }));
+        } else {
+          dispatch(startTimer({ pumpId, seconds: totalSeconds }));
+        }
         setIsStarted(true);
       }
       setIsRunning(true);
@@ -107,7 +118,11 @@ const TimerCountdownScreen = ({ navigation, route }) => {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    dispatch(stopTimer(pumpId));
+    if (FIREBASE_ENABLED) {
+      dispatch(stopPumpTimer(pumpId));
+    } else {
+      dispatch(stopTimer(pumpId));
+    }
   };
 
   // Calculate the rotation angle for the progress indicator
@@ -130,7 +145,7 @@ const TimerCountdownScreen = ({ navigation, route }) => {
             color={COLORS.textPrimary}
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Timer</Text>
+        <Text style={styles.headerTitle}>{t('timerCountdown.timer')}</Text>
       </View>
 
       <View style={styles.content}>
@@ -200,7 +215,7 @@ const TimerCountdownScreen = ({ navigation, route }) => {
               size={14}
               color={COLORS.primaryLight}
             />
-            <Text style={styles.modeBadgeText}>Timer Mode</Text>
+            <Text style={styles.modeBadgeText}>{t('timerCountdown.timerMode')}</Text>
           </View>
         </View>
 
@@ -208,9 +223,9 @@ const TimerCountdownScreen = ({ navigation, route }) => {
         <Text style={styles.progressLabel}>
           {isStarted
             ? isRunning
-              ? 'Running...'
-              : 'Paused'
-            : 'Ready to start'}
+              ? t('timerCountdown.running')
+              : t('timerCountdown.paused')
+            : t('timerCountdown.readyToStart')}
         </Text>
 
         {/* Controls */}
@@ -225,7 +240,7 @@ const TimerCountdownScreen = ({ navigation, route }) => {
               size={22}
               color={COLORS.textPrimary}
             />
-            <Text style={styles.resetButtonText}>Reset</Text>
+            <Text style={styles.resetButtonText}>{t('timerCountdown.reset')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -239,7 +254,7 @@ const TimerCountdownScreen = ({ navigation, route }) => {
               color={COLORS.white}
             />
             <Text style={styles.startPauseButtonText}>
-              {isRunning ? 'Pause' : 'Start'}
+              {isRunning ? t('timerCountdown.pause') : t('timerCountdown.start')}
             </Text>
           </TouchableOpacity>
         </View>

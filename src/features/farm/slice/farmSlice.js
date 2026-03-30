@@ -1,10 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { mockDelay } from '../../../utils/mockDelay';
-import {
-  MOCK_FARM_TASKS,
-  MOCK_FARM_CATEGORIES,
-  MOCK_GROWTH_TRENDS,
-} from '../mock/farmMockData';
+import { farmService } from '../../../services/api';
 
 // ─── Async Thunks ────────────────────────────────────────────────────────────
 
@@ -12,12 +7,7 @@ export const fetchFarmData = createAsyncThunk(
   'farm/fetchFarmData',
   async (_, { rejectWithValue }) => {
     try {
-      await mockDelay(600);
-      return {
-        tasks: [...MOCK_FARM_TASKS],
-        categories: [...MOCK_FARM_CATEGORIES],
-        growthTrends: [...MOCK_GROWTH_TRENDS],
-      };
+      return await farmService.fetchFarmData();
     } catch (error) {
       return rejectWithValue(error.message);
     }

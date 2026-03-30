@@ -12,13 +12,14 @@ import { useSelector } from 'react-redux';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 
-const DETAIL_MODES = [
-  { id: 'timer', label: 'Timer', icon: 'timer-outline' },
-  { id: 'schedule', label: 'Schedule', icon: 'calendar-clock' },
-  { id: 'sensor', label: 'Sensor', icon: 'access-point' },
-  { id: 'ai', label: 'AI Mode', icon: 'robot' },
+const getDetailModes = (t) => [
+  { id: 'timer', label: t('pumpTimer.timer'), icon: 'timer-outline' },
+  { id: 'schedule', label: t('pumpTimer.schedule'), icon: 'calendar-clock' },
+  { id: 'sensor', label: t('pumpTimer.sensor'), icon: 'access-point' },
+  { id: 'ai', label: t('pumpTimer.aiMode'), icon: 'robot' },
 ];
 
 const TIMER_PRESETS = [
@@ -28,8 +29,10 @@ const TIMER_PRESETS = [
 ];
 
 const PumpTimerScreen = ({ navigation, route }) => {
-  const { pumpId } = route.params;
+  const { pumpId } = route.params || {};
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const DETAIL_MODES = getDetailModes(t);
 
   const pump = useSelector((state) =>
     state.pumps.pumps.find((p) => p.id === pumpId),
@@ -85,8 +88,8 @@ const PumpTimerScreen = ({ navigation, route }) => {
           />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitlePrefix}>My</Text>
-          <Text style={styles.headerTitle}> Pumps</Text>
+          <Text style={styles.headerTitlePrefix}>{t('pumps.myPrefix').replace(',', '')}</Text>
+          <Text style={styles.headerTitle}>{t('pumps.title')}</Text>
         </View>
       </View>
 
@@ -99,13 +102,19 @@ const PumpTimerScreen = ({ navigation, route }) => {
         <Text style={styles.pumpName}>{pump.name}</Text>
 
         {/* Mode Selection */}
-        <Text style={styles.modeSectionTitle}>Select Mode of Operation</Text>
+        <Text style={styles.modeSectionTitle}>{t('pumpTimer.selectMode')}</Text>
         <View style={styles.modeRow}>
           {DETAIL_MODES.map((mode) => (
             <TouchableOpacity
               key={mode.id}
               style={[styles.modeButton, selectedMode === mode.id && styles.modeButtonActive]}
-              onPress={() => {}}
+              onPress={() => {
+                if (mode.id === 'sensor') {
+                  navigation.navigate('SensorBased', { pumpId });
+                } else if (mode.id === 'schedule') {
+                  navigation.navigate('PumpIrrigation', { pumpId });
+                }
+              }}
             >
               <View
                 style={[
@@ -140,7 +149,7 @@ const PumpTimerScreen = ({ navigation, route }) => {
         <View style={styles.timeSetterContainer}>
           {/* Hours Column */}
           <View style={styles.timeColumn}>
-            <Text style={styles.timeColumnLabel}>Hours</Text>
+            <Text style={styles.timeColumnLabel}>{t('pumpTimer.hours')}</Text>
             <TouchableOpacity
               style={styles.chevronButton}
               onPress={incrementHours}
@@ -170,7 +179,7 @@ const PumpTimerScreen = ({ navigation, route }) => {
 
           {/* Minutes Column */}
           <View style={styles.timeColumn}>
-            <Text style={styles.timeColumnLabel}>Minutes</Text>
+            <Text style={styles.timeColumnLabel}>{t('pumpTimer.minutes')}</Text>
             <TouchableOpacity
               style={styles.chevronButton}
               onPress={incrementMinutes}
@@ -200,7 +209,7 @@ const PumpTimerScreen = ({ navigation, route }) => {
 
           {/* Seconds Column */}
           <View style={styles.timeColumn}>
-            <Text style={styles.timeColumnLabel}>Seconds</Text>
+            <Text style={styles.timeColumnLabel}>{t('pumpTimer.seconds')}</Text>
             <TouchableOpacity
               style={styles.chevronButton}
               onPress={incrementSeconds}
@@ -251,7 +260,7 @@ const PumpTimerScreen = ({ navigation, route }) => {
           disabled={hours === 0 && minutes === 0 && seconds === 0}
         >
           <MaterialCommunityIcons name="play" size={22} color={COLORS.white} />
-          <Text style={styles.startButtonText}>Start</Text>
+          <Text style={styles.startButtonText}>{t('pumpTimer.start')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

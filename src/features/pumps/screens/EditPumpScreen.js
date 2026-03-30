@@ -15,14 +15,29 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
+import { useTranslation } from 'react-i18next';
 import { savePump, updatePumpField } from '../slice/pumpsSlice';
 
-const PUMP_TYPES = ['Submersible', 'Centrifugal', 'Jet Pump', 'Booster'];
+const getPumpTypes = (t) => [t('editPump.submersible'), t('editPump.centrifugal'), t('editPump.jetPump'), t('editPump.booster')];
+
+const MODE_COLORS = { manual: '#607D8B', automatic: '#FF9800', timer: '#2196F3', schedule: '#9C27B0', sensor: '#00BCD4', ai: '#4CAF50' };
+
+const CONTROL_MODES = [
+  { id: 'manual', icon: 'hand-back-right', labelKey: 'pumps.modes.manual', descKey: 'editPump.modeManualDesc' },
+  { id: 'automatic', icon: 'auto-fix', labelKey: 'pumps.modes.auto', descKey: 'editPump.modeAutoDesc' },
+  { id: 'timer', icon: 'timer-outline', labelKey: 'pumps.modes.timer', descKey: 'editPump.modeTimerDesc' },
+  { id: 'schedule', icon: 'calendar-clock', labelKey: 'pumps.modes.schedule', descKey: 'editPump.modeScheduleDesc' },
+  { id: 'sensor', icon: 'access-point', labelKey: 'pumps.modes.sensor', descKey: 'editPump.modeSensorDesc' },
+  { id: 'ai', icon: 'robot', labelKey: 'pumps.modes.ai', descKey: 'editPump.modeAiDesc' },
+];
 
 const EditPumpScreen = ({ navigation, route }) => {
   const { pumpId } = route.params || {};
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const PUMP_TYPES = getPumpTypes(t);
+  const isNewPump = !pumpId;
 
   const pump = useSelector((state) =>
     state.pumps.pumps.find((p) => p.id === pumpId),
@@ -31,12 +46,13 @@ const EditPumpScreen = ({ navigation, route }) => {
   const [pumpName, setPumpName] = useState(pump.name || '');
   const [fieldAssignment, setFieldAssignment] = useState(pump.field || '');
   const [pumpType, setPumpType] = useState(pump.type || 'submersible');
+  const [pumpMode, setPumpMode] = useState(pump.mode || 'manual');
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [imageUri, setImageUri] = useState(pump.imageUri || null);
 
   const handleSave = () => {
     if (!pumpName.trim()) {
-      Alert.alert('Validation Error', 'Please enter a pump name.');
+      Alert.alert(t('editPump.validationError'), t('editPump.enterPumpName'));
       return;
     }
 
@@ -45,6 +61,7 @@ const EditPumpScreen = ({ navigation, route }) => {
       name: pumpName.trim(),
       field: fieldAssignment.trim(),
       type: pumpType,
+      mode: pumpMode,
       imageUri,
     };
 
@@ -58,8 +75,8 @@ const EditPumpScreen = ({ navigation, route }) => {
 
   const handleImagePick = () => {
     Alert.alert(
-      'Pick Image',
-      'Image picker would open here. This is a placeholder for camera/gallery functionality.',
+      t('editPump.pickImage'),
+      t('editPump.pickImageDesc'),
     );
   };
 
@@ -76,7 +93,7 @@ const EditPumpScreen = ({ navigation, route }) => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Edit Pump</Text>
+        <Text style={styles.headerTitle}>{t('editPump.title')}</Text>
         <TouchableOpacity
           style={styles.closeButton}
           onPress={handleCancel}
@@ -108,7 +125,7 @@ const EditPumpScreen = ({ navigation, route }) => {
                 size={48}
                 color={COLORS.primary}
               />
-              <Text style={styles.imagePreviewText}>Image selected</Text>
+              <Text style={styles.imagePreviewText}>{t('editPump.imageSelected')}</Text>
             </View>
           ) : (
             <View style={styles.imagePlaceholder}>
@@ -120,10 +137,10 @@ const EditPumpScreen = ({ navigation, route }) => {
                 />
               </View>
               <Text style={styles.imagePlaceholderText}>
-                Tap to add pump image
+                {t('editPump.tapToAddImage')}
               </Text>
               <Text style={styles.imagePlaceholderSubtext}>
-                Take a photo or choose from gallery
+                {t('editPump.takePhotoOrGallery')}
               </Text>
             </View>
           )}
@@ -131,31 +148,69 @@ const EditPumpScreen = ({ navigation, route }) => {
 
         {/* Pump Name */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>Pump Name</Text>
+          <Text style={styles.fieldLabel}>{t('editPump.pumpName')}</Text>
           <TextInput
             style={styles.textInput}
             value={pumpName}
             onChangeText={setPumpName}
-            placeholder="Enter pump name"
+            placeholder={t('editPump.pumpNamePlaceholder')}
             placeholderTextColor={COLORS.textTertiary}
           />
         </View>
 
         {/* Field Assignment */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>Field Assignment</Text>
+          <Text style={styles.fieldLabel}>{t('editPump.fieldAssignment')}</Text>
           <TextInput
             style={styles.textInput}
             value={fieldAssignment}
             onChangeText={setFieldAssignment}
-            placeholder="Enter field assignment"
+            placeholder={t('editPump.fieldAssignmentPlaceholder')}
             placeholderTextColor={COLORS.textTertiary}
           />
         </View>
 
+        {/* Control Mode */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.fieldLabel}>
+            {isNewPump ? t('editPump.controlModeDesc') : t('editPump.controlMode')}
+          </Text>
+          <View style={styles.modeGrid}>
+            {CONTROL_MODES.map((mode) => {
+              const isSelected = pumpMode === mode.id;
+              const color = MODE_COLORS[mode.id];
+              return (
+                <TouchableOpacity
+                  key={mode.id}
+                  style={[
+                    styles.modeCard,
+                    isSelected && { borderColor: color, backgroundColor: color + '12' },
+                  ]}
+                  onPress={() => setPumpMode(mode.id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.modeCardIcon, { backgroundColor: color + '1A' }]}>
+                    <MaterialCommunityIcons
+                      name={mode.icon}
+                      size={24}
+                      color={isSelected ? color : COLORS.textSecondary}
+                    />
+                  </View>
+                  <Text style={[styles.modeCardLabel, isSelected && { color }]}>
+                    {t(mode.labelKey)}
+                  </Text>
+                  <Text style={styles.modeCardDesc} numberOfLines={2}>
+                    {t(mode.descKey)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         {/* Pump Type */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>Pump Type</Text>
+          <Text style={styles.fieldLabel}>{t('editPump.pumpType')}</Text>
           <TouchableOpacity
             style={styles.dropdownButton}
             onPress={() => setShowTypeDropdown(!showTypeDropdown)}
@@ -207,7 +262,7 @@ const EditPumpScreen = ({ navigation, route }) => {
             onPress={handleCancel}
             activeOpacity={0.7}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -216,7 +271,7 @@ const EditPumpScreen = ({ navigation, route }) => {
             activeOpacity={0.8}
           >
             <MaterialCommunityIcons name="check" size={20} color={COLORS.white} />
-            <Text style={styles.saveButtonText}>Save</Text>
+            <Text style={styles.saveButtonText}>{t('common.save')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -365,6 +420,39 @@ const styles = StyleSheet.create({
   dropdownItemTextActive: {
     color: COLORS.primary,
     fontWeight: FONT_WEIGHTS.semiBold,
+  },
+  modeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+  },
+  modeCard: {
+    width: '48%',
+    flexGrow: 1,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    alignItems: 'center',
+  },
+  modeCardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.xs,
+  },
+  modeCardLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semiBold,
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  modeCardDesc: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textTertiary,
+    textAlign: 'center',
   },
   buttonRow: {
     flexDirection: 'row',

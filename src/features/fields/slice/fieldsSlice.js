@@ -1,9 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { mockDelay } from '../../../utils/mockDelay';
-import {
-  MOCK_FIELDS,
-  MOCK_FIELD_GROWTH_DATA,
-} from '../mock/fieldsMockData';
+import { fieldsService } from '../../../services/api';
 
 // ─── Async Thunks ────────────────────────────────────────────────────────────
 
@@ -11,11 +7,7 @@ export const fetchFields = createAsyncThunk(
   'fields/fetchFields',
   async (_, { rejectWithValue }) => {
     try {
-      await mockDelay(600);
-      return {
-        fields: [...MOCK_FIELDS],
-        growthData: [...MOCK_FIELD_GROWTH_DATA],
-      };
+      return await fieldsService.fetchFields();
     } catch (error) {
       return rejectWithValue(error.message);
     }

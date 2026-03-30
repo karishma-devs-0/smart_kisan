@@ -2,6 +2,7 @@
   "expo": {
     "name": "SmartKisan",
     "slug": "SmartKisan",
+    "scheme": "smartkisan",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -31,6 +32,18 @@
         "projectId": "4fa6ae46-9da2-4bb5-ac0d-a8cd9a7a09bd"
       }
     },
-    "owner": "karishma_bhatia"
+    "owner": "karishma_bhatia",
+    "plugins": [
+      "expo-localization",
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "SmartKisan needs camera access to scan plant leaves for disease detection.",
+          "photosPermission": "SmartKisan needs photo library access to upload plant leaf images."
+        }
+      ]
+    ]
   }
 }

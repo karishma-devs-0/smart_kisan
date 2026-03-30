@@ -15,12 +15,14 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
+import { useTranslation } from 'react-i18next';
 import { saveGroup } from '../slice/pumpsSlice';
 
 const EditPumpGroupsScreen = ({ navigation, route }) => {
   const { groupId } = route.params || {};
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   const pumps = useSelector((state) => state.pumps.pumps) || [];
   const existingGroup = useSelector((state) =>
@@ -42,11 +44,11 @@ const EditPumpGroupsScreen = ({ navigation, route }) => {
 
   const handleSave = () => {
     if (!groupName.trim()) {
-      Alert.alert('Validation Error', 'Please enter a group name.');
+      Alert.alert(t('editPumpGroups.validationError'), t('editPumpGroups.enterGroupName'));
       return;
     }
     if (selectedPumpIds.length === 0) {
-      Alert.alert('Validation Error', 'Please select at least one pump.');
+      Alert.alert(t('editPumpGroups.validationError'), t('editPumpGroups.selectAtLeastOne'));
       return;
     }
 
@@ -80,7 +82,7 @@ const EditPumpGroupsScreen = ({ navigation, route }) => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Edit Pump Groups</Text>
+        <Text style={styles.headerTitle}>{t('editPumpGroups.title')}</Text>
         <TouchableOpacity
           style={styles.closeButton}
           onPress={handleClose}
@@ -101,12 +103,12 @@ const EditPumpGroupsScreen = ({ navigation, route }) => {
       >
         {/* Group Name */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>Group Name</Text>
+          <Text style={styles.fieldLabel}>{t('editPumpGroups.groupName')}</Text>
           <TextInput
             style={styles.textInput}
             value={groupName}
             onChangeText={setGroupName}
-            placeholder="Enter group name"
+            placeholder={t('editPumpGroups.groupNamePlaceholder')}
             placeholderTextColor={COLORS.textTertiary}
           />
         </View>
@@ -122,7 +124,7 @@ const EditPumpGroupsScreen = ({ navigation, route }) => {
               />
             </View>
             <View style={styles.moistureInfo}>
-              <Text style={styles.moistureLabel}>Avg. Soil Moisture</Text>
+              <Text style={styles.moistureLabel}>{t('editPumpGroups.avgSoilMoisture')}</Text>
               <Text style={styles.moistureValue}>{avgMoisture}%</Text>
             </View>
             <View style={styles.moistureBar}>
@@ -134,9 +136,9 @@ const EditPumpGroupsScreen = ({ navigation, route }) => {
         )}
 
         {/* Pump Selection */}
-        <Text style={styles.sectionTitle}>Select Pumps</Text>
+        <Text style={styles.sectionTitle}>{t('editPumpGroups.selectPumps')}</Text>
         <Text style={styles.sectionSubtitle}>
-          Choose which pumps belong to this group
+          {t('editPumpGroups.selectPumpsDesc')}
         </Text>
 
         {pumps.map((pump) => {
@@ -183,7 +185,7 @@ const EditPumpGroupsScreen = ({ navigation, route }) => {
                   {pump.name}
                 </Text>
                 <Text style={styles.pumpField}>
-                  {pump.field || 'No field assigned'}
+                  {pump.field || t('pumps.noFieldAssigned')}
                 </Text>
               </View>
 
@@ -205,7 +207,7 @@ const EditPumpGroupsScreen = ({ navigation, route }) => {
 
         {/* Selected Count */}
         <Text style={styles.selectedCountText}>
-          {selectedPumpIds.length} pump{selectedPumpIds.length !== 1 ? 's' : ''} selected
+          {t('editPumpGroups.pumpsSelected', { count: selectedPumpIds.length })}
         </Text>
 
         {/* Save Button */}
@@ -224,7 +226,7 @@ const EditPumpGroupsScreen = ({ navigation, route }) => {
             size={20}
             color={COLORS.white}
           />
-          <Text style={styles.saveButtonText}>Save Group</Text>
+          <Text style={styles.saveButtonText}>{t('editPumpGroups.saveGroup')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

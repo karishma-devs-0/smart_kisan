@@ -15,6 +15,7 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { fetchAnalytics } from '../slice/analyticsSlice';
+import { useTranslation } from 'react-i18next';
 
 const getTrendIcon = (trend) => {
   if (trend === 'up') return 'trending-up';
@@ -58,7 +59,7 @@ const getNextIrrigationCountdown = (schedules) => {
   return `${diffMins}m`;
 };
 
-const YieldCard = ({ crop }) => {
+const YieldCard = ({ crop, t }) => {
   const trendColor = getTrendColor(crop.trend);
   const changePrefix = crop.changePercent > 0 ? '+' : '';
   return (
@@ -78,15 +79,15 @@ const YieldCard = ({ crop }) => {
       <View style={styles.yieldValueRow}>
         <View>
           <Text style={styles.yieldValue}>{crop.predictedYield.toLocaleString()}</Text>
-          <Text style={styles.yieldUnit}>kg/acre (predicted)</Text>
+          <Text style={styles.yieldUnit}>{t('yield.kgAcre')} ({t('yield.predicted')})</Text>
         </View>
         <View style={styles.yieldLastYear}>
-          <Text style={styles.yieldLastYearLabel}>Last Year</Text>
-          <Text style={styles.yieldLastYearValue}>{crop.lastYearYield.toLocaleString()} kg/acre</Text>
+          <Text style={styles.yieldLastYearLabel}>{t('yield.lastYear')}</Text>
+          <Text style={styles.yieldLastYearValue}>{crop.lastYearYield.toLocaleString()} {t('yield.kgAcre')}</Text>
         </View>
       </View>
       <View style={styles.confidenceRow}>
-        <Text style={styles.confidenceLabel}>Confidence</Text>
+        <Text style={styles.confidenceLabel}>{t('analytics.confidence')}</Text>
         <View style={styles.confidenceBarContainer}>
           <View style={[styles.confidenceBarFill, { width: `${crop.confidence}%` }]} />
         </View>
@@ -139,6 +140,7 @@ const ScheduleCard = ({ schedule }) => {
 };
 
 const YieldPredictionScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { yieldPrediction, irrigationSchedule, loading } = useSelector((state) => state.analytics);
@@ -175,14 +177,14 @@ const YieldPredictionScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.titlePrefix}>Yield</Text>
-        <Text style={styles.titleText}> Prediction</Text>
+        <Text style={styles.titlePrefix}>{t('yield.prefix')}</Text>
+        <Text style={styles.titleText}> {t('yield.title')}</Text>
       </View>
 
       {/* Yield Overview */}
-      <Text style={styles.sectionTitle}>Crop Yield Forecast</Text>
+      <Text style={styles.sectionTitle}>{t('yield.cropForecast')}</Text>
       {yields.map((crop, index) => (
-        <YieldCard key={index} crop={crop} />
+        <YieldCard key={index} crop={crop} t={t} />
       ))}
 
       {/* Divider */}
@@ -191,7 +193,7 @@ const YieldPredictionScreen = ({ navigation }) => {
       {/* Irrigation Schedule */}
       <View style={styles.sectionHeaderRow}>
         <MaterialCommunityIcons name="brain" size={22} color={COLORS.primary} />
-        <Text style={styles.sectionTitle}>AI Irrigation Schedule</Text>
+        <Text style={styles.sectionTitle}>{t('yield.aiIrrigationSchedule')}</Text>
       </View>
       {schedules.map((schedule) => (
         <ScheduleCard key={schedule.id} schedule={schedule} />
@@ -199,24 +201,24 @@ const YieldPredictionScreen = ({ navigation }) => {
 
       {/* Summary Card */}
       <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Irrigation Summary</Text>
+        <Text style={styles.summaryTitle}>{t('yield.irrigationSummary')}</Text>
         <View style={styles.summaryStatsRow}>
           <View style={styles.summaryStat}>
             <MaterialCommunityIcons name="water" size={24} color={COLORS.info} />
             <Text style={styles.summaryStatValue}>{(totalWater / 1000).toFixed(1)}K L</Text>
-            <Text style={styles.summaryStatLabel}>Total Water</Text>
+            <Text style={styles.summaryStatLabel}>{t('yield.totalWater')}</Text>
           </View>
           <View style={styles.summaryStatDivider} />
           <View style={styles.summaryStat}>
             <MaterialCommunityIcons name="format-list-numbered" size={24} color={COLORS.primary} />
             <Text style={styles.summaryStatValue}>{irrigationCount}</Text>
-            <Text style={styles.summaryStatLabel}>Irrigations</Text>
+            <Text style={styles.summaryStatLabel}>{t('yield.irrigations')}</Text>
           </View>
           <View style={styles.summaryStatDivider} />
           <View style={styles.summaryStat}>
             <MaterialCommunityIcons name="clock-fast" size={24} color={COLORS.warning} />
             <Text style={styles.summaryStatValue}>{nextCountdown}</Text>
-            <Text style={styles.summaryStatLabel}>Next In</Text>
+            <Text style={styles.summaryStatLabel}>{t('yield.nextIn')}</Text>
           </View>
         </View>
       </View>

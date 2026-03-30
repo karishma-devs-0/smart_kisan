@@ -15,6 +15,7 @@ import { BORDER_RADIUS, TAB_BAR, SHADOWS } from '../../../constants/layout';
 import { MOCK_DEVICE_TYPES } from '../../devices/mock/devicesMockData';
 import { fetchFields, addField, removeField } from '../../fields/slice/fieldsSlice';
 import { fetchDevices, addDevice, removeDevice } from '../../devices/slice/devicesSlice';
+import { useTranslation } from 'react-i18next';
 import { generateMapHTML } from '../../../utils/leafletMap';
 
 const DEVICE_TYPE_OPTIONS = Object.entries(MOCK_DEVICE_TYPES).map(([key, val]) => ({
@@ -34,10 +35,12 @@ const CROP_ICONS = {
 const CROP_OPTIONS = ['Wheat', 'Bell Pepper', 'Cotton', 'Tomato', 'Soybean'];
 
 const FarmMapScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const fields = useSelector((state) => state.fields.fields);
   const devices = useSelector((state) => state.devices.devices);
+  const settingsLocation = useSelector((state) => state.settings.location);
   const webViewRef = useRef(null);
 
   const [editMode, setEditMode] = useState(null); // null | 'addDevice' | 'addField'
@@ -73,10 +76,14 @@ const FarmMapScreen = ({ navigation }) => {
     }
     searchTimeout.current = setTimeout(async () => {
       setSearching(true);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       try {
         const res = await fetch(
-          `https://photon.komoot.io/api/?q=${encodeURIComponent(text)}&limit=6&lang=en`
+          `https://photon.komoot.io/api/?q=${encodeURIComponent(text)}&limit=6&lang=en`,
+          { signal: controller.signal }
         );
+        clearTimeout(timeoutId);
         const data = await res.json();
         setSearchResults((data.features || []).map((f, i) => {
           const p = f.properties;
@@ -90,6 +97,7 @@ const FarmMapScreen = ({ navigation }) => {
         }));
         setShowResults(true);
       } catch {
+        clearTimeout(timeoutId);
         setSearchResults([]);
       } finally {
         setSearching(false);
@@ -109,16 +117,16 @@ const FarmMapScreen = ({ navigation }) => {
 
   const handleClearAll = useCallback(() => {
     if (!devices.length && !fields.length) {
-      Alert.alert('Nothing to Clear', 'No fields or devices to remove.');
+      Alert.alert(t('farmMap.nothingToClear'), t('farmMap.noFieldsOrDevices'));
       return;
     }
     Alert.alert(
-      'Clear All',
-      `Remove all ${fields.length} field(s) and ${devices.length} device(s) from the map?`,
+      t('common.clearAll'),
+      t('farmMap.clearConfirm', { fields: fields.length, devices: devices.length }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Clear',
+          text: t('common.clear'),
           style: 'destructive',
           onPress: () => {
             devices.forEach((d) => dispatch(removeDevice(d.id)));
@@ -151,6 +159,7 @@ const FarmMapScreen = ({ navigation }) => {
       fields: initialFieldsRef.current,
       devices: initialDevicesRef.current,
       interactive: true, zoom: 15, tapToPlace: false,
+      defaultCenter: settingsLocation,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -320,7 +329,7 @@ const FarmMapScreen = ({ navigation }) => {
         ) : (
           <View style={styles.loadingMap}>
             <MaterialCommunityIcons name="map-search" size={48} color={COLORS.textTertiary} />
-            <Text style={styles.loadingText}>Loading map...</Text>
+            <Text style={styles.loadingText}>{t('farmMap.loadingMap')}</Text>
           </View>
         )}
       </View>
@@ -339,7 +348,7 @@ const FarmMapScreen = ({ navigation }) => {
             <MaterialCommunityIcons name="magnify" size={20} color={COLORS.textTertiary} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search location..."
+              placeholder={t('farmMap.searchPlaceholder')}
               placeholderTextColor={COLORS.textTertiary}
               value={searchQuery}
               onChangeText={handleSearch}
@@ -379,7 +388,7 @@ const FarmMapScreen = ({ navigation }) => {
         <View style={[styles.editBanner, { top: insets.top + 64 }]}>
           <MaterialCommunityIcons name="map-marker-plus" size={18} color={COLORS.white} />
           <Text style={styles.editBannerText}>
-            Tap map to place {editMode === 'addDevice' ? 'device' : 'field'}
+            {t('farmMap.tapToPlace', { item: editMode === 'addDevice' ? t('farmMap.device') : t('farmMap.field') })}
           </Text>
         </View>
       )}
@@ -409,22 +418,22 @@ const FarmMapScreen = ({ navigation }) => {
           <View style={styles.statsRow}>
             <View style={styles.statChip}>
               <MaterialCommunityIcons name="vector-square" size={16} color={COLORS.primaryLight} />
-              <Text style={styles.statChipText}>{fields.length} Fields</Text>
+              <Text style={styles.statChipText}>{fields.length} {t('farmMap.fields')}</Text>
             </View>
             <View style={styles.statChip}>
               <View style={[styles.statusDot, { backgroundColor: COLORS.success }]} />
-              <Text style={styles.statChipText}>{onlineCount} Online</Text>
+              <Text style={styles.statChipText}>{onlineCount} {t('common.online')}</Text>
             </View>
             <View style={styles.statChip}>
               <View style={[styles.statusDot, { backgroundColor: COLORS.danger }]} />
-              <Text style={styles.statChipText}>{offlineCount} Offline</Text>
+              <Text style={styles.statChipText}>{offlineCount} {t('common.offline')}</Text>
             </View>
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.legendContent}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: COLORS.primaryLight }]} />
-              <Text style={styles.legendLabel}>Field</Text>
+              <Text style={styles.legendLabel}>{t('farmMap.field')}</Text>
             </View>
             {legendItems.map((item) => (
               <View key={item.type} style={styles.legendItem}>
@@ -463,7 +472,7 @@ const FarmMapScreen = ({ navigation }) => {
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.formSheet}>
             <View style={styles.formHeader}>
-              <Text style={styles.formTitle}>Add Smart Device</Text>
+              <Text style={styles.formTitle}>{t('farmMap.addDevice')}</Text>
               <TouchableOpacity onPress={resetEditState}>
                 <MaterialCommunityIcons name="close" size={24} color={COLORS.textSecondary} />
               </TouchableOpacity>
@@ -476,10 +485,10 @@ const FarmMapScreen = ({ navigation }) => {
               </View>
             )}
 
-            <Text style={styles.formLabel}>Device Name</Text>
-            <TextInput style={styles.input} placeholder="e.g. Field A Moisture Sensor" placeholderTextColor={COLORS.textTertiary} value={deviceName} onChangeText={setDeviceName} />
+            <Text style={styles.formLabel}>{t('farmMap.deviceName')}</Text>
+            <TextInput style={styles.input} placeholder={t('farmMap.deviceNamePlaceholder')} placeholderTextColor={COLORS.textTertiary} value={deviceName} onChangeText={setDeviceName} />
 
-            <Text style={styles.formLabel}>Device Type</Text>
+            <Text style={styles.formLabel}>{t('farmMap.deviceType')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeScroll}>
               {DEVICE_TYPE_OPTIONS.map((opt) => (
                 <TouchableOpacity
@@ -495,7 +504,7 @@ const FarmMapScreen = ({ navigation }) => {
 
             <TouchableOpacity style={styles.saveButton} onPress={handleSaveDevice}>
               <MaterialCommunityIcons name="check" size={20} color={COLORS.white} />
-              <Text style={styles.saveButtonText}>Place Device</Text>
+              <Text style={styles.saveButtonText}>{t('farmMap.placeDevice')}</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -506,7 +515,7 @@ const FarmMapScreen = ({ navigation }) => {
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.formSheet}>
             <View style={styles.formHeader}>
-              <Text style={styles.formTitle}>Add Field</Text>
+              <Text style={styles.formTitle}>{t('farmMap.addField')}</Text>
               <TouchableOpacity onPress={resetEditState}>
                 <MaterialCommunityIcons name="close" size={24} color={COLORS.textSecondary} />
               </TouchableOpacity>
@@ -519,10 +528,10 @@ const FarmMapScreen = ({ navigation }) => {
               </View>
             )}
 
-            <Text style={styles.formLabel}>Field Name</Text>
-            <TextInput style={styles.input} placeholder="e.g. Field F - West" placeholderTextColor={COLORS.textTertiary} value={fieldName} onChangeText={setFieldName} />
+            <Text style={styles.formLabel}>{t('farmMap.fieldName')}</Text>
+            <TextInput style={styles.input} placeholder={t('farmMap.fieldNamePlaceholder')} placeholderTextColor={COLORS.textTertiary} value={fieldName} onChangeText={setFieldName} />
 
-            <Text style={styles.formLabel}>Crop</Text>
+            <Text style={styles.formLabel}>{t('farmMap.crop')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeScroll}>
               {CROP_OPTIONS.map((crop) => (
                 <TouchableOpacity
@@ -536,12 +545,12 @@ const FarmMapScreen = ({ navigation }) => {
               ))}
             </ScrollView>
 
-            <Text style={styles.formLabel}>Area (acres)</Text>
-            <TextInput style={styles.input} placeholder="e.g. 3.5" placeholderTextColor={COLORS.textTertiary} value={fieldArea} onChangeText={setFieldArea} keyboardType="decimal-pad" />
+            <Text style={styles.formLabel}>{t('farmMap.areaAcres')}</Text>
+            <TextInput style={styles.input} placeholder={t('farmMap.areaPlaceholder')} placeholderTextColor={COLORS.textTertiary} value={fieldArea} onChangeText={setFieldArea} keyboardType="decimal-pad" />
 
             <TouchableOpacity style={styles.saveButton} onPress={handleSaveField}>
               <MaterialCommunityIcons name="check" size={20} color={COLORS.white} />
-              <Text style={styles.saveButtonText}>Add Field</Text>
+              <Text style={styles.saveButtonText}>{t('farmMap.addField')}</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>

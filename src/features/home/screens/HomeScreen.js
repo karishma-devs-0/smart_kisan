@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
@@ -48,6 +49,7 @@ const ActivityItem = ({ icon, message, time, color }) => (
 
 const HomeScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const { t } = useTranslation();
   const user = useSelector((state) => state.auth.user);
   const fields = useSelector((state) => state.fields.fields);
   const devices = useSelector((state) => state.devices.devices);
@@ -65,16 +67,16 @@ const HomeScreen = ({ navigation }) => {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
+    if (hour < 12) return t('home.goodMorning');
+    if (hour < 17) return t('home.goodAfternoon');
+    return t('home.goodEvening');
   };
 
   const renderCustomHeader = () => (
     <View style={styles.header}>
       <View>
         <Text style={styles.greeting}>{getGreeting()},</Text>
-        <Text style={styles.userName}>{user?.name || 'Farmer'}</Text>
+        <Text style={styles.userName}>{user?.name || t('home.farmer')}</Text>
       </View>
       <TouchableOpacity style={styles.notificationButton}>
         <MaterialCommunityIcons name="bell-outline" size={24} color={COLORS.white} />
@@ -95,75 +97,74 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.statusBanner}>
         <View style={styles.statusItem}>
           <MaterialCommunityIcons name="lightning-bolt" size={20} color={COLORS.success} />
-          <Text style={styles.statusText}>Power: </Text>
-          <Text style={[styles.statusValue, { color: COLORS.success }]}>Available</Text>
+          <Text style={styles.statusText}>{t('home.power')}: </Text>
+          <Text style={[styles.statusValue, { color: COLORS.success }]}>{t('home.available')}</Text>
         </View>
         <View style={styles.statusDivider} />
         <View style={styles.statusItem}>
           <MaterialCommunityIcons name="water-pump" size={20} color={COLORS.info} />
-          <Text style={styles.statusText}>Pump: </Text>
-          <Text style={[styles.statusValue, { color: COLORS.info }]}>2 Active</Text>
+          <Text style={styles.statusText}>{t('home.pump')}: </Text>
+          <Text style={[styles.statusValue, { color: COLORS.info }]}>2 {t('home.active')}</Text>
         </View>
       </View>
 
       {/* Quick Stats */}
-      <Text style={styles.sectionTitle}>Overview</Text>
+      <Text style={styles.sectionTitle}>{t('home.overview')}</Text>
       <View style={styles.statsRow}>
-        <QuickStatCard icon="water-pump" label="Active Pumps" value="2/6" color={COLORS.primary} />
-        <QuickStatCard icon="water-percent" label="Soil Moisture" value="45%" color={COLORS.info} />
-        <QuickStatCard icon="thermometer" label="Temperature" value="32°C" color={COLORS.warning} />
+        <QuickStatCard icon="water-pump" label={t('home.activePumps')} value="2/6" color={COLORS.primary} />
+        <QuickStatCard icon="water-percent" label={t('home.soilMoisture')} value="45%" color={COLORS.info} />
+        <QuickStatCard icon="thermometer" label={t('home.temperature')} value="32°C" color={COLORS.warning} />
       </View>
 
-      {/* Farm Map Widget */}
+      {/* Farm Map Widget — fields only, devices shown on full map */}
       <FarmMapWidget
         fields={fields}
-        devices={devices}
         onPress={() => navigation.navigate('FarmMap')}
       />
 
       {/* Quick Actions */}
-      <Text style={styles.sectionTitle}>Quick Actions</Text>
+      <Text style={styles.sectionTitle}>{t('home.quickActions')}</Text>
       <View style={styles.actionsGrid}>
-        <QuickActionButton icon="water-pump" label="My Pumps" onPress={() => navigation.navigate('PumpsTab')} />
-        <QuickActionButton icon="leaf" label="My Soil" onPress={() => navigation.navigate('SoilTab')} color="#8BC34A" />
-        <QuickActionButton icon="sprout" label="My Crops" onPress={() => navigation.navigate('MyCrops')} color="#FF9800" />
-        <QuickActionButton icon="weather-partly-cloudy" label="Weather" onPress={() => navigation.navigate('WeatherTab')} color="#2196F3" />
-        <QuickActionButton icon="chart-line" label="Reports" onPress={() => navigation.navigate('ComprehensiveReport')} color="#9C27B0" />
-        <QuickActionButton icon="access-point" label="Devices" onPress={() => navigation.navigate('DeviceList')} color="#607D8B" />
-        <QuickActionButton icon="brain" label="Analytics" onPress={() => navigation.navigate('FarmAnalytics')} color="#E91E63" />
-        <QuickActionButton icon="tractor" label="Farm" onPress={() => navigation.navigate('FarmManagement')} color="#795548" />
-        <QuickActionButton icon="vector-square" label="My Fields" onPress={() => navigation.navigate('MyFields')} color="#009688" />
-        <QuickActionButton icon="leaf" label="Disease" onPress={() => navigation.navigate('PlantDisease')} color={COLORS.danger} />
+        <QuickActionButton icon="water-pump" label={t('home.myPumps')} onPress={() => navigation.navigate('PumpsTab')} />
+        <QuickActionButton icon="leaf" label={t('home.mySoil')} onPress={() => navigation.navigate('SoilTab')} color="#8BC34A" />
+        <QuickActionButton icon="sprout" label={t('home.myCrops')} onPress={() => navigation.navigate('MyCrops')} color="#FF9800" />
+        <QuickActionButton icon="weather-partly-cloudy" label={t('home.weather')} onPress={() => navigation.navigate('WeatherTab')} color="#2196F3" />
+        <QuickActionButton icon="chart-line" label={t('home.reports')} onPress={() => navigation.navigate('ComprehensiveReport')} color="#9C27B0" />
+        <QuickActionButton icon="access-point" label={t('home.devices')} onPress={() => navigation.navigate('DeviceList')} color="#607D8B" />
+        <QuickActionButton icon="brain" label={t('home.analytics')} onPress={() => navigation.navigate('FarmAnalytics')} color="#E91E63" />
+        <QuickActionButton icon="tractor" label={t('home.farm')} onPress={() => navigation.navigate('FarmManagement')} color="#795548" />
+        <QuickActionButton icon="vector-square" label={t('home.myFields')} onPress={() => navigation.navigate('MyFields')} color="#009688" />
+        <QuickActionButton icon="leaf" label={t('home.disease')} onPress={() => navigation.navigate('PlantDisease')} color={COLORS.danger} />
       </View>
 
       {/* Today's Run Summary */}
       <View style={styles.summaryCard}>
         <View style={styles.summaryHeader}>
-          <Text style={styles.summaryTitle}>Today's Summary</Text>
+          <Text style={styles.summaryTitle}>{t('home.todaySummary')}</Text>
           <TouchableOpacity onPress={() => navigation.navigate('ComprehensiveReport')}>
-            <Text style={styles.viewAllText}>View Reports</Text>
+            <Text style={styles.viewAllText}>{t('home.viewReports')}</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryValue}>4.5 hrs</Text>
-            <Text style={styles.summaryLabel}>Run Hours</Text>
+            <Text style={styles.summaryLabel}>{t('home.runHours')}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
             <Text style={styles.summaryValue}>2,450 L</Text>
-            <Text style={styles.summaryLabel}>Water Used</Text>
+            <Text style={styles.summaryLabel}>{t('home.waterUsed')}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
             <Text style={styles.summaryValue}>12 kWh</Text>
-            <Text style={styles.summaryLabel}>Power Used</Text>
+            <Text style={styles.summaryLabel}>{t('home.powerUsed')}</Text>
           </View>
         </View>
       </View>
 
       {/* Recent Activity */}
-      <Text style={styles.sectionTitle}>Recent Activity</Text>
+      <Text style={styles.sectionTitle}>{t('home.recentActivity')}</Text>
       <View style={styles.activityCard}>
         <ActivityItem icon="water-pump" message="Pump 1 turned on - Field A" time="2 hours ago" color={COLORS.success} />
         <ActivityItem icon="alert" message="Soil moisture dropped to 42%" time="3 hours ago" color={COLORS.warning} />

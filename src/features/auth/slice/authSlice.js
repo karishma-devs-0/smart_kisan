@@ -51,6 +51,34 @@ export const register = createAsyncThunk(
   },
 );
 
+export const loginWithGoogle = createAsyncThunk(
+  'auth/loginWithGoogle',
+  async (idToken, { rejectWithValue }) => {
+    try {
+      return await authService.loginWithGoogle(idToken);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
+export const updateProfile = createAsyncThunk(
+  'auth/updateProfile',
+  async (profileData, { getState, rejectWithValue }) => {
+    try {
+      // If Firebase is available, persist to Firestore
+      const { FIREBASE_ENABLED } = require('../../../config/firebase.config');
+      if (FIREBASE_ENABLED) {
+        const { firestoreService } = require('../../../services/firestore');
+        await firestoreService.setSingleton('meta', 'profile', profileData);
+      }
+      return profileData;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
 export const logout = createAsyncThunk(
   'auth/logout',
   async (_, { rejectWithValue }) => {
@@ -83,6 +111,12 @@ const authSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    restoreSession: (state, action) => {
+      state.isAuthenticated = true;
+      state.user = action.payload.user;
+      state.token = action.payload.token;
+      state.loading = false;
     },
   },
   extraReducers: (builder) => {
@@ -137,6 +171,23 @@ const authSlice = createSlice({
         state.error = action.payload;
       });
 
+    // loginWithGoogle
+    builder
+      .addCase(loginWithGoogle.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(loginWithGoogle.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isAuthenticated = true;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+      })
+      .addCase(loginWithGoogle.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+
     // register
     builder
       .addCase(register.pending, (state) => {
@@ -150,6 +201,21 @@ const authSlice = createSlice({
         state.token = action.payload.token;
       })
       .addCase(register.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+
+    // updateProfile
+    builder
+      .addCase(updateProfile.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateProfile.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = { ...state.user, ...action.payload };
+      })
+      .addCase(updateProfile.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });
@@ -173,5 +239,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { setLoginMethod, clearError } = authSlice.actions;
+export const { setLoginMethod, clearError, restoreSession } = authSlice.actions;
 export default authSlice.reducer;

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
@@ -22,7 +23,7 @@ const STAGE_COLORS = {
 };
 
 const STAGES = ['seedling', 'vegetative', 'flowering', 'maturity'];
-const STAGE_LABELS = ['Seedling', 'Vegetative', 'Flowering', 'Maturity'];
+const STAGE_LABEL_KEYS = ['fields.detail.stages.seedling', 'fields.detail.stages.vegetative', 'fields.detail.stages.flowering', 'fields.detail.stages.maturity'];
 
 const formatDate = (isoString) => {
   const date = new Date(isoString);
@@ -74,7 +75,8 @@ const ActionButton = ({ icon, label, onPress, variant }) => {
 };
 
 const FieldDetailScreen = ({ navigation, route }) => {
-  const { field } = route.params;
+  const { t } = useTranslation();
+  const { field } = route.params || {};
   const insets = useSafeAreaInsets();
 
   const stageColor = STAGE_COLORS[field.growthStage] || COLORS.textTertiary;
@@ -82,11 +84,25 @@ const FieldDetailScreen = ({ navigation, route }) => {
   const daysSinceSowing = getDaysSinceSowing(field.sowingDate);
 
   const handleAction = (action) => {
-    Alert.alert(
-      action,
-      `${action} will be available in a future update.`,
-      [{ text: 'OK' }],
-    );
+    const irrigationLabel = t('fields.detail.irrigationSchedule');
+    const soilLabel = t('fields.detail.viewSoilData');
+    const editLabel = t('fields.detail.editField');
+
+    if (action === irrigationLabel) {
+      navigation.navigate('PumpStack', { screen: 'MyPumps' });
+    } else if (action === soilLabel) {
+      navigation.navigate('SoilTab');
+    } else {
+      Alert.alert(
+        action,
+        t('fields.detail.comingSoon', {
+          defaultValue: `"{{action}}" for {{fieldName}} is coming soon. Stay tuned for updates!`,
+          action,
+          fieldName: field.name,
+        }),
+        [{ text: t('common.ok', 'OK') }],
+      );
+    }
   };
 
   return (
@@ -130,7 +146,7 @@ const FieldDetailScreen = ({ navigation, route }) => {
         </View>
 
         {/* Growth Progress Section */}
-        <Text style={styles.sectionTitle}>Growth Progress</Text>
+        <Text style={styles.sectionTitle}>{t('fields.growthProgress')}</Text>
         <View style={styles.growthProgressCard}>
           {/* Progress bar */}
           <View style={styles.growthProgressBarContainer}>
@@ -176,7 +192,7 @@ const FieldDetailScreen = ({ navigation, route }) => {
                       },
                     ]}
                   >
-                    {STAGE_LABELS[index]}
+                    {t(STAGE_LABEL_KEYS[index])}
                   </Text>
                 </View>
               );
@@ -185,48 +201,48 @@ const FieldDetailScreen = ({ navigation, route }) => {
         </View>
 
         {/* Field Info Grid */}
-        <Text style={styles.sectionTitle}>Field Info</Text>
+        <Text style={styles.sectionTitle}>{t('fields.detail.fieldInfo')}</Text>
         <View style={styles.infoGrid}>
           <InfoGridItem
             icon="terrain"
             iconColor="#795548"
-            label="Soil Type"
+            label={t('fields.detail.soilType')}
             value={field.soilType}
           />
           <InfoGridItem
             icon="water-outline"
             iconColor={COLORS.info}
-            label="Irrigation"
+            label={t('fields.detail.irrigation')}
             value={field.irrigationType.charAt(0).toUpperCase() + field.irrigationType.slice(1)}
           />
           <InfoGridItem
             icon="calendar-star"
             iconColor={COLORS.success}
-            label="Sowing Date"
+            label={t('fields.detail.sowingDate')}
             value={formatDate(field.sowingDate)}
           />
           <InfoGridItem
             icon="leaf"
             iconColor={stageColor}
-            label="Growth Stage"
+            label={t('fields.detail.growthStage')}
             value={field.growthStage.charAt(0).toUpperCase() + field.growthStage.slice(1)}
           />
           <InfoGridItem
             icon="clock-outline"
             iconColor={COLORS.textSecondary}
-            label="Last Irrigation"
+            label={t('fields.detail.lastIrrigation')}
             value={formatDate(field.lastIrrigation)}
           />
           <InfoGridItem
             icon="clock-fast"
             iconColor={COLORS.primary}
-            label="Next Irrigation"
+            label={t('fields.detail.nextIrrigation')}
             value={formatDate(field.nextIrrigation)}
           />
         </View>
 
         {/* Crop Details Card */}
-        <Text style={styles.sectionTitle}>Crop Details</Text>
+        <Text style={styles.sectionTitle}>{t('fields.detail.cropDetails')}</Text>
         <View style={styles.cropDetailsCard}>
           <View style={styles.cropDetailsRow}>
             <View style={styles.cropDetailsIconContainer}>
@@ -235,28 +251,28 @@ const FieldDetailScreen = ({ navigation, route }) => {
             <View style={styles.cropDetailsInfo}>
               <Text style={styles.cropDetailsName}>{field.crop}</Text>
               <Text style={styles.cropDetailsStage}>
-                Stage: {field.growthStage.charAt(0).toUpperCase() + field.growthStage.slice(1)}
+                {t('fields.detail.stage')}: {field.growthStage.charAt(0).toUpperCase() + field.growthStage.slice(1)}
               </Text>
               <Text style={styles.cropDetailsDays}>
-                {daysSinceSowing} days since sowing
+                {t('fields.detail.daysSinceSowing', { days: daysSinceSowing })}
               </Text>
             </View>
           </View>
         </View>
 
         {/* Location Card */}
-        <Text style={styles.sectionTitle}>Location</Text>
+        <Text style={styles.sectionTitle}>{t('fields.detail.location')}</Text>
         <View style={styles.locationCard}>
           <View style={styles.locationRow}>
             <View style={[styles.locationIconContainer, { backgroundColor: COLORS.warning + '15' }]}>
               <MaterialCommunityIcons name="map-marker" size={24} color={COLORS.warning} />
             </View>
             <View style={styles.locationInfo}>
-              <Text style={styles.locationLabel}>Latitude</Text>
+              <Text style={styles.locationLabel}>{t('fields.detail.latitude')}</Text>
               <Text style={styles.locationValue}>{field.location.lat}</Text>
             </View>
             <View style={styles.locationInfo}>
-              <Text style={styles.locationLabel}>Longitude</Text>
+              <Text style={styles.locationLabel}>{t('fields.detail.longitude')}</Text>
               <Text style={styles.locationValue}>{field.location.lng}</Text>
             </View>
           </View>
@@ -266,20 +282,20 @@ const FieldDetailScreen = ({ navigation, route }) => {
         <View style={styles.actionsSection}>
           <ActionButton
             icon="pencil-outline"
-            label="Edit Field"
-            onPress={() => handleAction('Edit Field')}
+            label={t('fields.detail.editField')}
+            onPress={() => handleAction(t('fields.detail.editField'))}
             variant="primary"
           />
           <ActionButton
             icon="test-tube"
-            label="View Soil Data"
-            onPress={() => handleAction('View Soil Data')}
+            label={t('fields.detail.viewSoilData')}
+            onPress={() => handleAction(t('fields.detail.viewSoilData'))}
             variant="outline"
           />
           <ActionButton
             icon="calendar-clock"
-            label="Irrigation Schedule"
-            onPress={() => handleAction('Irrigation Schedule')}
+            label={t('fields.detail.irrigationSchedule')}
+            onPress={() => handleAction(t('fields.detail.irrigationSchedule'))}
             variant="outline"
           />
         </View>

@@ -5,10 +5,10 @@ import { weatherService } from '../../../services/api';
 
 export const fetchCurrentWeather = createAsyncThunk(
   'weather/fetchCurrentWeather',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const data = await weatherService.fetchCurrentWeather();
-      return data;
+      const location = getState().settings.location;
+      return await weatherService.fetchCurrentWeather(location);
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -17,10 +17,10 @@ export const fetchCurrentWeather = createAsyncThunk(
 
 export const fetchForecast = createAsyncThunk(
   'weather/fetchForecast',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const data = await weatherService.fetchForecast();
-      return data;
+      const location = getState().settings.location;
+      return await weatherService.fetchForecast(location);
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -31,8 +31,7 @@ export const fetchHistoricalWeather = createAsyncThunk(
   'weather/fetchHistoricalWeather',
   async (_, { rejectWithValue }) => {
     try {
-      const data = await weatherService.fetchHistoricalWeather();
-      return data;
+      return await weatherService.fetchHistoricalWeather();
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -41,10 +40,10 @@ export const fetchHistoricalWeather = createAsyncThunk(
 
 export const fetchWindHistory = createAsyncThunk(
   'weather/fetchWindHistory',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const data = await weatherService.fetchWindHistory();
-      return data;
+      const location = getState().settings.location;
+      return await weatherService.fetchWindHistory(location);
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -53,10 +52,10 @@ export const fetchWindHistory = createAsyncThunk(
 
 export const fetchHumidityHistory = createAsyncThunk(
   'weather/fetchHumidityHistory',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const data = await weatherService.fetchHumidityHistory();
-      return data;
+      const location = getState().settings.location;
+      return await weatherService.fetchHumidityHistory(location);
     } catch (error) {
       return rejectWithValue(error.message);
     }

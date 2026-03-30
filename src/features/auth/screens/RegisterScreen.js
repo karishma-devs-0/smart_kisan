@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
@@ -20,6 +21,7 @@ import { register } from '../slice/authSlice';
 
 const RegisterScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const { t } = useTranslation();
   const { loading, error } = useSelector((state) => state.auth);
   const insets = useSafeAreaInsets();
 
@@ -42,12 +44,12 @@ const RegisterScreen = ({ navigation }) => {
 
   const validate = () => {
     const errors = {};
-    if (!form.name.trim()) errors.name = 'Name is required';
-    if (!form.email.trim()) errors.email = 'Email is required';
-    if (!form.phone.trim()) errors.phone = 'Phone is required';
-    if (!form.password) errors.password = 'Password is required';
-    else if (form.password.length < 6) errors.password = 'Password must be at least 6 characters';
-    if (form.password !== form.confirmPassword) errors.confirmPassword = 'Passwords do not match';
+    if (!form.name.trim()) errors.name = t('register.errors.nameRequired');
+    if (!form.email.trim()) errors.email = t('register.errors.emailRequired');
+    if (!form.phone.trim()) errors.phone = t('register.errors.phoneRequired');
+    if (!form.password) errors.password = t('register.errors.passwordRequired');
+    else if (form.password.length < 6) errors.password = t('register.errors.passwordMinLength');
+    if (form.password !== form.confirmPassword) errors.confirmPassword = t('register.errors.passwordMismatch');
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -104,7 +106,7 @@ const RegisterScreen = ({ navigation }) => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.title}>Register Screen</Text>
+          <Text style={styles.title}>{t('register.title')}</Text>
         </View>
 
         {/* Error */}
@@ -115,11 +117,11 @@ const RegisterScreen = ({ navigation }) => {
         )}
 
         {/* Form */}
-        {renderInput('name', 'Full Name', 'account-outline')}
-        {renderInput('email', 'Email ID', 'email-outline', { keyboardType: 'email-address', autoCapitalize: 'none' })}
-        {renderInput('phone', 'Phone Number', 'phone-outline', { keyboardType: 'phone-pad' })}
-        {renderInput('password', 'Password', 'lock-outline', { secureTextEntry: !showPassword })}
-        {renderInput('confirmPassword', 'Confirm Password', 'lock-check-outline', { secureTextEntry: !showPassword })}
+        {renderInput('name', t('register.fullName'), 'account-outline')}
+        {renderInput('email', t('register.emailId'), 'email-outline', { keyboardType: 'email-address', autoCapitalize: 'none' })}
+        {renderInput('phone', t('register.phoneNumber'), 'phone-outline', { keyboardType: 'phone-pad' })}
+        {renderInput('password', t('register.password'), 'lock-outline', { secureTextEntry: !showPassword })}
+        {renderInput('confirmPassword', t('register.confirmPassword'), 'lock-check-outline', { secureTextEntry: !showPassword })}
 
         {/* Register Button */}
         <TouchableOpacity
@@ -127,14 +129,14 @@ const RegisterScreen = ({ navigation }) => {
           onPress={handleRegister}
           disabled={loading}
         >
-          <Text style={styles.registerButtonText}>{loading ? 'Creating account...' : 'Sign up'}</Text>
+          <Text style={styles.registerButtonText}>{loading ? t('register.creatingAccount') : t('register.signUp')}</Text>
         </TouchableOpacity>
 
         {/* Login link */}
         <View style={styles.loginRow}>
-          <Text style={styles.loginText}>Already have an account? </Text>
+          <Text style={styles.loginText}>{t('register.hasAccount')}</Text>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.loginLink}>Login</Text>
+            <Text style={styles.loginLink}>{t('register.loginLink')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

@@ -13,6 +13,7 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
+import { useTranslation } from 'react-i18next';
 import { fetchDevices } from '../slice/devicesSlice';
 import { MOCK_DEVICE_TYPES } from '../mock/devicesMockData';
 
@@ -80,6 +81,7 @@ const ConnectedDeviceNode = ({ device, isGateway }) => {
 };
 
 const ConnectedDevicesScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { devices } = useSelector((state) => state.devices);
@@ -99,8 +101,8 @@ const ConnectedDevicesScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.titlePrefix}>Connected</Text>
-        <Text style={styles.titleText}> Devices</Text>
+        <Text style={styles.titlePrefix}>{t('devices.connected')}</Text>
+        <Text style={styles.titleText}> {t('devices.title')}</Text>
       </View>
 
       <ScrollView
@@ -111,12 +113,12 @@ const ConnectedDevicesScreen = ({ navigation }) => {
         <View style={styles.networkBanner}>
           <MaterialCommunityIcons name="lan" size={20} color={COLORS.primary} />
           <Text style={styles.networkBannerText}>
-            {onlineCount} of {devices.length} devices connected
+            {t('devices.devicesConnected', { online: onlineCount, total: devices.length })}
           </Text>
         </View>
 
         {/* Network Topology */}
-        <Text style={styles.sectionTitle}>Network Topology</Text>
+        <Text style={styles.sectionTitle}>{t('devices.networkTopology')}</Text>
 
         <View style={styles.topologyContainer}>
           {/* Gateway at center */}
@@ -144,25 +146,25 @@ const ConnectedDevicesScreen = ({ navigation }) => {
         </View>
 
         {/* Data Usage Summary */}
-        <Text style={styles.sectionTitle}>Network Summary</Text>
+        <Text style={styles.sectionTitle}>{t('devices.networkSummary')}</Text>
 
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
               <MaterialCommunityIcons name="upload" size={20} color={COLORS.info} />
-              <Text style={styles.summaryItemLabel}>Uplink</Text>
+              <Text style={styles.summaryItemLabel}>{t('devices.uplink')}</Text>
               <Text style={styles.summaryItemValue}>12.4 MB</Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
               <MaterialCommunityIcons name="download" size={20} color={COLORS.success} />
-              <Text style={styles.summaryItemLabel}>Downlink</Text>
+              <Text style={styles.summaryItemLabel}>{t('devices.downlink')}</Text>
               <Text style={styles.summaryItemValue}>8.7 MB</Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
               <MaterialCommunityIcons name="database" size={20} color={COLORS.warning} />
-              <Text style={styles.summaryItemLabel}>Total Data</Text>
+              <Text style={styles.summaryItemLabel}>{t('devices.totalData')}</Text>
               <Text style={styles.summaryItemValue}>21.1 MB</Text>
             </View>
           </View>
@@ -172,19 +174,19 @@ const ConnectedDevicesScreen = ({ navigation }) => {
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
               <MaterialCommunityIcons name="clock-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.summaryItemLabel}>Avg Latency</Text>
+              <Text style={styles.summaryItemLabel}>{t('devices.avgLatency')}</Text>
               <Text style={styles.summaryItemValue}>45 ms</Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
               <MaterialCommunityIcons name="refresh" size={20} color={COLORS.info} />
-              <Text style={styles.summaryItemLabel}>Sync Rate</Text>
+              <Text style={styles.summaryItemLabel}>{t('devices.syncRate')}</Text>
               <Text style={styles.summaryItemValue}>5 min</Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
               <MaterialCommunityIcons name="alert-circle-outline" size={20} color={COLORS.danger} />
-              <Text style={styles.summaryItemLabel}>Errors</Text>
+              <Text style={styles.summaryItemLabel}>{t('devices.errors')}</Text>
               <Text style={styles.summaryItemValue}>2</Text>
             </View>
           </View>

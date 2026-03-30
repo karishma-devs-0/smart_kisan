@@ -7,23 +7,26 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS } from '../../../constants/layout';
+import { useTranslation } from 'react-i18next';
 
-const metrics = [
-  { label: 'Water Consumption', value: '2,450', unit: 'L', change: -5, icon: 'water', color: COLORS.info },
-  { label: 'Total Run Hours', value: '156', unit: 'hrs', change: 8, icon: 'clock-outline', color: COLORS.primary },
-  { label: 'Pump Runtime', value: '8.5', unit: 'hrs/day', change: -2, icon: 'water-pump', color: COLORS.success },
-  { label: 'Mixing Ratio', value: '85', unit: '%', change: 3, icon: 'flask', color: COLORS.warning },
+const getMetrics = (t) => [
+  { label: t('metricReports.waterConsumption'), value: '2,450', unit: 'L', change: -5, icon: 'water', color: COLORS.info },
+  { label: t('metricReports.totalRunHours'), value: '156', unit: 'hrs', change: 8, icon: 'clock-outline', color: COLORS.primary },
+  { label: t('metricReports.pumpRuntime'), value: '8.5', unit: 'hrs/day', change: -2, icon: 'water-pump', color: COLORS.success },
+  { label: t('metricReports.mixingRatio'), value: '85', unit: '%', change: 3, icon: 'flask', color: COLORS.warning },
 ];
 
 const MetricReportsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const metrics = getMetrics(t);
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}><MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} /></TouchableOpacity>
-        <Text style={styles.titlePrefix}>Only</Text><Text style={styles.titleText}> Reports</Text>
+        <Text style={styles.titlePrefix}>{t('metricReports.titlePrefix')}</Text><Text style={styles.titleText}>{' ' + t('metricReports.title')}</Text>
       </View>
-      <Text style={styles.sectionTitle}>General Metrics</Text>
+      <Text style={styles.sectionTitle}>{t('metricReports.generalMetrics')}</Text>
       <View style={styles.grid}>
         {metrics.map((m, i) => (
           <View key={i} style={styles.metricCard}>
@@ -40,7 +43,7 @@ const MetricReportsScreen = ({ navigation }) => {
       </View>
       <TouchableOpacity style={styles.exportBtn}>
         <MaterialCommunityIcons name="download" size={20} color={COLORS.white} />
-        <Text style={styles.exportText}>Export Reports</Text>
+        <Text style={styles.exportText}>{t('metricReports.exportReports')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

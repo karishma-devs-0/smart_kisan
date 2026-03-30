@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS } from '../../../constants/layout';
 
 const EmailLoginForm = ({ onLogin, loading }) => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -21,7 +23,7 @@ const EmailLoginForm = ({ onLogin, loading }) => {
         <MaterialCommunityIcons name="email-outline" size={20} color={COLORS.textTertiary} style={styles.inputIcon} />
         <TextInput
           style={styles.input}
-          placeholder="Email"
+          placeholder={t('login.emailPlaceholder')}
           placeholderTextColor={COLORS.textTertiary}
           value={email}
           onChangeText={setEmail}
@@ -34,7 +36,7 @@ const EmailLoginForm = ({ onLogin, loading }) => {
         <MaterialCommunityIcons name="lock-outline" size={20} color={COLORS.textTertiary} style={styles.inputIcon} />
         <TextInput
           style={styles.input}
-          placeholder="Password"
+          placeholder={t('login.passwordPlaceholder')}
           placeholderTextColor={COLORS.textTertiary}
           value={password}
           onChangeText={setPassword}
@@ -51,10 +53,10 @@ const EmailLoginForm = ({ onLogin, loading }) => {
 
       <View style={styles.row}>
         <TouchableOpacity>
-          <Text style={styles.linkText}>Forgot Password?</Text>
+          <Text style={styles.linkText}>{t('login.forgotPassword')}</Text>
         </TouchableOpacity>
         <TouchableOpacity>
-          <Text style={styles.linkText}>Local Mode</Text>
+          <Text style={styles.linkText}>{t('login.localMode')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -63,7 +65,7 @@ const EmailLoginForm = ({ onLogin, loading }) => {
         onPress={handleLogin}
         disabled={loading}
       >
-        <Text style={styles.loginButtonText}>{loading ? 'Logging in...' : 'Login'}</Text>
+        <Text style={styles.loginButtonText}>{loading ? t('login.loggingIn') : t('login.loginButton')}</Text>
       </TouchableOpacity>
     </View>
   );

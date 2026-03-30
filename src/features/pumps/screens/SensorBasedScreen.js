@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { stopAllPumps } from '../slice/pumpsSlice';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../constants/layout';
 
 const SensorBasedScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
+  const dispatch = useDispatch();
+  const { t } = useTranslation();
   const { pumpId } = route.params || {};
   const pump = useSelector((s) => s.pumps.pumps.find((p) => p.id === pumpId)) || { name: 'Pump 1' };
   const [moistureEnabled, setMoistureEnabled] = useState(true);
@@ -24,14 +28,14 @@ const SensorBasedScreen = ({ navigation, route }) => {
         <Text style={styles.title}>{pump.name}</Text>
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Sensor-Based Control</Text>
+        <Text style={styles.sectionTitle}>{t('sensorBased.title')}</Text>
         {/* Soil Moisture Control */}
         <View style={styles.sensorCard}>
           <View style={styles.sensorHeader}>
             <MaterialCommunityIcons name="water-percent" size={24} color={COLORS.chartMoisture} />
             <View style={styles.sensorInfo}>
-              <Text style={styles.sensorName}>Soil Moisture Control</Text>
-              <Text style={styles.sensorDesc}>Start at 30% · Stop at 60%</Text>
+              <Text style={styles.sensorName}>{t('sensorBased.soilMoistureControl')}</Text>
+              <Text style={styles.sensorDesc}>{t('sensorBased.startStop')}</Text>
             </View>
             <TouchableOpacity style={[styles.toggle, moistureEnabled && styles.toggleOn]} onPress={() => setMoistureEnabled(!moistureEnabled)}>
               <View style={[styles.toggleThumb, moistureEnabled && styles.toggleThumbOn]} />
@@ -45,11 +49,11 @@ const SensorBasedScreen = ({ navigation, route }) => {
                 <View style={[styles.thresholdMarker, { left: '60%' }]}><Text style={styles.markerText}>60%</Text></View>
               </View>
               <View style={styles.thresholdLabels}>
-                <Text style={styles.thresholdLabel}>Start</Text>
-                <Text style={styles.thresholdLabel}>Stop</Text>
+                <Text style={styles.thresholdLabel}>{t('sensorBased.start')}</Text>
+                <Text style={styles.thresholdLabel}>{t('sensorBased.stop')}</Text>
               </View>
               <TouchableOpacity style={styles.detailButton} onPress={() => navigation.navigate('SoilMoistureControl', { pumpId })}>
-                <Text style={styles.detailButtonText}>View Details</Text>
+                <Text style={styles.detailButtonText}>{t('sensorBased.viewDetails')}</Text>
                 <MaterialCommunityIcons name="chevron-right" size={16} color={COLORS.primaryLight} />
               </TouchableOpacity>
             </View>
@@ -60,8 +64,8 @@ const SensorBasedScreen = ({ navigation, route }) => {
           <View style={styles.sensorHeader}>
             <MaterialCommunityIcons name="waves" size={24} color={COLORS.info} />
             <View style={styles.sensorInfo}>
-              <Text style={styles.sensorName}>Water Level Control</Text>
-              <Text style={styles.sensorDesc}>Water Level at 65%</Text>
+              <Text style={styles.sensorName}>{t('sensorBased.waterLevelControl')}</Text>
+              <Text style={styles.sensorDesc}>{t('sensorBased.waterLevel')}</Text>
             </View>
             <TouchableOpacity style={[styles.toggle, waterLevelEnabled && styles.toggleOn]} onPress={() => setWaterLevelEnabled(!waterLevelEnabled)}>
               <View style={[styles.toggleThumb, waterLevelEnabled && styles.toggleThumbOn]} />
@@ -77,9 +81,14 @@ const SensorBasedScreen = ({ navigation, route }) => {
           )}
         </View>
       </ScrollView>
-      <TouchableOpacity style={[styles.emergencyBtn, { marginBottom: insets.bottom + 8 }]} onPress={() => {}}>
+      <TouchableOpacity style={[styles.emergencyBtn, { marginBottom: insets.bottom + 8 }]} onPress={() => {
+        Alert.alert('Emergency Stop', 'Are you sure you want to stop all pumps?', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Stop All', style: 'destructive', onPress: () => dispatch(stopAllPumps()) },
+        ]);
+      }}>
         <MaterialCommunityIcons name="stop-circle" size={20} color={COLORS.white} />
-        <Text style={styles.emergencyText}>Emergency Stop this Pump</Text>
+        <Text style={styles.emergencyText}>{t('sensorBased.emergencyStop')}</Text>
       </TouchableOpacity>
     </View>
   );

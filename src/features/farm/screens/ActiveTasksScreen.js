@@ -15,13 +15,14 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
+import { useTranslation } from 'react-i18next';
 import { fetchFarmData } from '../slice/farmSlice';
 
-const FILTERS = [
-  { id: 'all', label: 'All' },
-  { id: 'active', label: 'Active' },
-  { id: 'pending', label: 'Pending' },
-  { id: 'completed', label: 'Completed' },
+const FILTER_KEYS = [
+  { id: 'all', key: 'tasks.all' },
+  { id: 'active', key: 'tasks.active' },
+  { id: 'pending', key: 'tasks.pending' },
+  { id: 'completed', key: 'tasks.completed' },
 ];
 
 const PRIORITY_COLORS = {
@@ -66,14 +67,14 @@ const formatDueDate = (isoString) => {
   });
 };
 
-const FilterPill = ({ filter, isActive, onPress }) => (
+const FilterPill = ({ filter, isActive, onPress, t }) => (
   <TouchableOpacity
     style={[styles.filterPill, isActive && styles.filterPillActive]}
     onPress={() => onPress(filter.id)}
     activeOpacity={0.7}
   >
     <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>
-      {filter.label}
+      {t(filter.key)}
     </Text>
   </TouchableOpacity>
 );
@@ -143,6 +144,7 @@ const TaskCard = React.memo(({ task }) => {
 });
 
 const ActiveTasksScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { tasks, loading } = useSelector((state) => state.farm);
@@ -160,8 +162,8 @@ const ActiveTasksScreen = ({ navigation }) => {
 
   const handleAddTask = useCallback(() => {
     Alert.alert(
-      'Add Task',
-      'Task creation form will be available in a future update.',
+      t('tasks.addTask'),
+      t('tasks.addTaskMsg'),
       [{ text: 'OK' }],
     );
   }, []);
@@ -169,9 +171,9 @@ const ActiveTasksScreen = ({ navigation }) => {
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <MaterialCommunityIcons name="clipboard-text-outline" size={64} color={COLORS.textTertiary} />
-      <Text style={styles.emptyTitle}>No Tasks Found</Text>
+      <Text style={styles.emptyTitle}>{t('tasks.noTasks')}</Text>
       <Text style={styles.emptySubtitle}>
-        No tasks match the selected filter. Try a different filter or add a new task.
+        {t('tasks.noTasksDesc')}
       </Text>
     </View>
   );
@@ -191,14 +193,14 @@ const ActiveTasksScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.titlePrefix}>Active</Text>
-        <Text style={styles.titleText}> Tasks</Text>
+        <Text style={styles.titlePrefix}>{t('tasks.activePrefix')}</Text>
+        <Text style={styles.titleText}> {t('tasks.title')}</Text>
       </View>
 
       {/* Filter Tabs */}
       <View style={styles.filterRow}>
         <FlatList
-          data={FILTERS}
+          data={FILTER_KEYS}
           keyExtractor={(item) => item.id}
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -208,6 +210,7 @@ const ActiveTasksScreen = ({ navigation }) => {
               filter={item}
               isActive={activeFilter === item.id}
               onPress={setActiveFilter}
+              t={t}
             />
           )}
         />

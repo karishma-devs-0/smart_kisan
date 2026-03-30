@@ -6,10 +6,12 @@ import { useSelector } from 'react-redux';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../constants/layout';
 
 const SoilMoistureControlScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { pumpId } = route.params || {};
   const pump = useSelector((s) => s.pumps.pumps.find((p) => p.id === pumpId)) || { name: 'Pump 1', soilMoisture: 45 };
 
@@ -24,7 +26,7 @@ const SoilMoistureControlScreen = ({ navigation, route }) => {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Moisture Gauge */}
         <View style={styles.gaugeCard}>
-          <Text style={styles.cardTitle}>Soil Moisture Control</Text>
+          <Text style={styles.cardTitle}>{t('soilMoistureCtrl.title')}</Text>
           <View style={styles.gaugeContainer}>
             <View style={styles.gaugeOuter}>
               <View style={styles.gaugeInner}>
@@ -32,16 +34,16 @@ const SoilMoistureControlScreen = ({ navigation, route }) => {
               </View>
             </View>
           </View>
-          <Text style={styles.modeText}>Stop Moisture at 60%</Text>
-          <Text style={styles.modeSubtext}>Stop Mode: Auto Mode</Text>
+          <Text style={styles.modeText}>{t('soilMoistureCtrl.stopMoistureAt')}</Text>
+          <Text style={styles.modeSubtext}>{t('soilMoistureCtrl.stopMode')}</Text>
         </View>
         {/* Moisture Chart */}
         <View style={styles.chartCard}>
           <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Moisture over Time</Text>
+            <Text style={styles.chartTitle}>{t('soilMoistureCtrl.moistureOverTime')}</Text>
             <View style={styles.chartTabs}>
-              <TouchableOpacity style={styles.chartTabActive}><Text style={styles.chartTabTextActive}>Daily</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.chartTab}><Text style={styles.chartTabText}>Average</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.chartTabActive}><Text style={styles.chartTabTextActive}>{t('soilMoistureCtrl.daily')}</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.chartTab}><Text style={styles.chartTabText}>{t('soilMoistureCtrl.average')}</Text></TouchableOpacity>
             </View>
           </View>
           <View style={styles.chartArea}>
@@ -52,16 +54,16 @@ const SoilMoistureControlScreen = ({ navigation, route }) => {
         </View>
         {/* Water Tank */}
         <View style={styles.tankCard}>
-          <Text style={styles.cardTitle}>Water Tank Status</Text>
+          <Text style={styles.cardTitle}>{t('soilMoistureCtrl.waterTankStatus')}</Text>
           <View style={styles.tankContainer}>
             <View style={styles.tank}>
               <View style={[styles.tankFill, { height: '78%' }]} />
               <Text style={styles.tankText}>780 Liters</Text>
             </View>
             <View style={styles.tankInfo}>
-              <Text style={styles.tankLabel}>Capacity: 1000L</Text>
-              <Text style={styles.tankLabel}>Fill Level: 78%</Text>
-              <Text style={styles.tankLabel}>Status: Good</Text>
+              <Text style={styles.tankLabel}>{t('soilMoistureCtrl.capacity')}</Text>
+              <Text style={styles.tankLabel}>{t('soilMoistureCtrl.fillLevel')}</Text>
+              <Text style={styles.tankLabel}>{t('soilMoistureCtrl.statusGood')}</Text>
             </View>
           </View>
         </View>

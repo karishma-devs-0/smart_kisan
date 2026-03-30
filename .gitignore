@@ -32,6 +32,12 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+backend/.env
+
+# Firebase service files (contains secrets)
+google-services.json
+serviceAccountKey*.json
 
 # typescript
 *.tsbuildinfo
@@ -42,3 +48,6 @@ yarn-error.*
 
 # project tips (local only)
 important-tips/
+
+# temporary/personal files
+tmp/

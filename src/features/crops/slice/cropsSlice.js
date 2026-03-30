@@ -56,6 +56,7 @@ export const deleteCrop = createAsyncThunk(
 const initialState = {
   crops: [],
   selectedCropId: null,
+  rotationPlan: null,
   loading: false,
   error: null,
 };
@@ -66,6 +67,9 @@ const cropsSlice = createSlice({
   reducers: {
     setSelectedCrop: (state, action) => {
       state.selectedCropId = action.payload;
+    },
+    saveRotationPlan: (state, action) => {
+      state.rotationPlan = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -139,5 +143,5 @@ const cropsSlice = createSlice({
   },
 });
 
-export const { setSelectedCrop } = cropsSlice.actions;
+export const { setSelectedCrop, saveRotationPlan } = cropsSlice.actions;
 export default cropsSlice.reducer;

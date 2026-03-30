@@ -15,6 +15,7 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { fetchAnalytics } from '../slice/analyticsSlice';
+import { useTranslation } from 'react-i18next';
 
 const MOCK_FARM_STATS = {
   totalArea: 57.3,
@@ -117,6 +118,7 @@ const AlertCard = ({ alert }) => {
 };
 
 const FarmOverviewScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { ndviData, loading } = useSelector((state) => state.analytics);
@@ -149,8 +151,8 @@ const FarmOverviewScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.titlePrefix}>Farm</Text>
-        <Text style={styles.titleText}> Overview</Text>
+        <Text style={styles.titlePrefix}>{t('farmOverview.farmPrefix')}</Text>
+        <Text style={styles.titleText}> {t('farmOverview.title')}</Text>
       </View>
 
       {/* Farm Stats Grid */}
@@ -159,37 +161,37 @@ const FarmOverviewScreen = ({ navigation }) => {
           icon="map-marker-radius"
           value={MOCK_FARM_STATS.totalArea}
           unit="acres"
-          label="Total Area"
+          label={t('farmOverview.totalArea')}
           color={COLORS.primary}
         />
         <StatCard
           icon="sprout"
           value={MOCK_FARM_STATS.activeCrops}
-          label="Active Crops"
+          label={t('farmOverview.activeCrops')}
           color={COLORS.success}
         />
         <StatCard
           icon="water"
           value={MOCK_FARM_STATS.irrigationZones}
-          label="Irrigation Zones"
+          label={t('farmOverview.irrigationZones')}
           color={COLORS.info}
         />
         <StatCard
           icon="devices"
           value={MOCK_FARM_STATS.devices}
-          label="Devices"
+          label={t('farmOverview.devices')}
           color={COLORS.warning}
         />
       </View>
 
       {/* Vegetation Health */}
-      <Text style={styles.sectionTitle}>Vegetation Health</Text>
+      <Text style={styles.sectionTitle}>{t('farmOverview.vegetationHealth')}</Text>
       {zones.map((zone) => (
         <VegetationCard key={zone.id} zone={zone} />
       ))}
 
       {/* Growth Trend */}
-      <Text style={[styles.sectionTitle, { marginTop: SPACING.lg }]}>Growth Trend (Last 7 Days)</Text>
+      <Text style={[styles.sectionTitle, { marginTop: SPACING.lg }]}>{t('farmOverview.growthTrend')}</Text>
       <View style={styles.chartCard}>
         <View style={styles.chartArea}>
           {MOCK_GROWTH_TREND.map((day, index) => (
@@ -208,12 +210,12 @@ const FarmOverviewScreen = ({ navigation }) => {
           ))}
         </View>
         <View style={styles.chartLegendRow}>
-          <Text style={styles.chartLegendText}>Growth Index Range: 0.65 - 0.78</Text>
+          <Text style={styles.chartLegendText}>{t('farmOverview.growthRange')}: 0.65 - 0.78</Text>
         </View>
       </View>
 
       {/* Alerts */}
-      <Text style={styles.sectionTitle}>Farm Alerts</Text>
+      <Text style={styles.sectionTitle}>{t('farmOverview.farmAlerts')}</Text>
       {MOCK_ALERTS.map((alert) => (
         <AlertCard key={alert.id} alert={alert} />
       ))}
@@ -225,7 +227,7 @@ const FarmOverviewScreen = ({ navigation }) => {
         activeOpacity={0.8}
       >
         <MaterialCommunityIcons name="chart-box" size={20} color={COLORS.white} />
-        <Text style={styles.fullAnalyticsBtnText}>View Full Analytics</Text>
+        <Text style={styles.fullAnalyticsBtnText}>{t('farmOverview.viewFullAnalytics')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

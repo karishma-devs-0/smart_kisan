@@ -1,28 +1,26 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 
-const TABS = [
-  { key: 'email', label: 'Email' },
-  { key: 'phone', label: 'Phone' },
-  { key: 'username', label: 'Username' },
-];
+const TAB_KEYS = ['email', 'phone', 'username'];
 
 const LoginTabBar = ({ activeTab, onTabChange }) => {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
-      {TABS.map((tab) => {
-        const isActive = activeTab === tab.key;
+      {TAB_KEYS.map((key) => {
+        const isActive = activeTab === key;
         return (
           <TouchableOpacity
-            key={tab.key}
+            key={key}
             style={[styles.tab, isActive && styles.activeTab]}
-            onPress={() => onTabChange(tab.key)}
+            onPress={() => onTabChange(key)}
           >
             <Text style={[styles.tabText, isActive && styles.activeTabText]}>
-              {tab.label}
+              {t(`login.${key}`)}
             </Text>
           </TouchableOpacity>
         );

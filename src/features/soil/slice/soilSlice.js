@@ -79,6 +79,12 @@ const initialState = {
   phHistory: [],
   npkHistory: [],
   fertilizerHistory: [],
+  soilCrops: [],
+  selectedCropId: null,
+  soilReadings: [],
+  organicCarbon: 0,
+  texture: '',
+  healthScore: 0,
   loading: false,
   error: null,
 };
@@ -86,7 +92,27 @@ const initialState = {
 const soilSlice = createSlice({
   name: 'soil',
   initialState,
-  reducers: {},
+  reducers: {
+    setSelectedCrop(state, action) {
+      state.selectedCropId = action.payload;
+    },
+    addSoilReading(state, action) {
+      state.soilReadings.unshift(action.payload);
+    },
+    deleteSoilReading(state, action) {
+      state.soilReadings = state.soilReadings.filter(
+        (r) => r.id !== action.payload,
+      );
+    },
+    addSoilCrop(state, action) {
+      state.soilCrops.push(action.payload);
+    },
+    removeSoilCrop(state, action) {
+      state.soilCrops = state.soilCrops.filter(
+        (c) => c.id !== action.payload,
+      );
+    },
+  },
   extraReducers: (builder) => {
     // fetchSoilData
     builder
@@ -96,7 +122,12 @@ const soilSlice = createSlice({
       })
       .addCase(fetchSoilData.fulfilled, (state, action) => {
         state.loading = false;
-        state.current = action.payload;
+        state.current = action.payload.current;
+        state.organicCarbon = action.payload.current.organicCarbon ?? 0;
+        state.texture = action.payload.current.texture ?? '';
+        state.healthScore = action.payload.current.healthScore ?? 0;
+        state.soilCrops = action.payload.soilCrops ?? [];
+        state.soilReadings = action.payload.soilReadings ?? [];
       })
       .addCase(fetchSoilData.rejected, (state, action) => {
         state.loading = false;
@@ -164,5 +195,13 @@ const soilSlice = createSlice({
       });
   },
 });
+
+export const {
+  setSelectedCrop,
+  addSoilReading,
+  deleteSoilReading,
+  addSoilCrop,
+  removeSoilCrop,
+} = soilSlice.actions;
 
 export default soilSlice.reducer;

@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS } from '../../../constants/layout';
 
 const UsernameLoginForm = ({ onLogin, loading }) => {
+  const { t } = useTranslation();
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = () => {
-    onLogin({ username, email, password });
+    onLogin({ username, password });
   };
 
   return (
@@ -22,7 +23,7 @@ const UsernameLoginForm = ({ onLogin, loading }) => {
         <MaterialCommunityIcons name="account-outline" size={20} color={COLORS.textTertiary} style={styles.inputIcon} />
         <TextInput
           style={styles.input}
-          placeholder="Username"
+          placeholder={t('login.usernamePlaceholder')}
           placeholderTextColor={COLORS.textTertiary}
           value={username}
           onChangeText={setUsername}
@@ -31,23 +32,10 @@ const UsernameLoginForm = ({ onLogin, loading }) => {
       </View>
 
       <View style={styles.inputContainer}>
-        <MaterialCommunityIcons name="email-outline" size={20} color={COLORS.textTertiary} style={styles.inputIcon} />
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor={COLORS.textTertiary}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
         <MaterialCommunityIcons name="lock-outline" size={20} color={COLORS.textTertiary} style={styles.inputIcon} />
         <TextInput
           style={styles.input}
-          placeholder="Password"
+          placeholder={t('login.passwordPlaceholder')}
           placeholderTextColor={COLORS.textTertiary}
           value={password}
           onChangeText={setPassword}
@@ -64,10 +52,10 @@ const UsernameLoginForm = ({ onLogin, loading }) => {
 
       <View style={styles.row}>
         <TouchableOpacity>
-          <Text style={styles.linkText}>Forgot Password?</Text>
+          <Text style={styles.linkText}>{t('login.forgotPassword')}</Text>
         </TouchableOpacity>
         <TouchableOpacity>
-          <Text style={styles.linkText}>Local Mode</Text>
+          <Text style={styles.linkText}>{t('login.localMode')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -76,7 +64,7 @@ const UsernameLoginForm = ({ onLogin, loading }) => {
         onPress={handleLogin}
         disabled={loading}
       >
-        <Text style={styles.loginButtonText}>{loading ? 'Logging in...' : 'Login'}</Text>
+        <Text style={styles.loginButtonText}>{loading ? t('login.loggingIn') : t('login.loginButton')}</Text>
       </TouchableOpacity>
     </View>
   );

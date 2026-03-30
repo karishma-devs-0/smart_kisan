@@ -1,20 +1,93 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { fetchReports } from '../slice/reportsSlice';
+import { useTranslation } from 'react-i18next';
 
 const ComprehensiveReportScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const reports = useSelector((s) => s.reports);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => { dispatch(fetchReports()); }, [dispatch]);
+
+  const exportCSV = async () => {
+    try {
+      setExporting(true);
+      const csvHeader = 'Category,Metric,Value,Unit,Change\n';
+      const rows = [];
+
+      // General Metrics
+      if (reports.generalMetrics) {
+        const gm = reports.generalMetrics;
+        rows.push(`General,Water Consumption,${gm.waterConsumption.value},${gm.waterConsumption.unit},${gm.waterConsumption.change}%`);
+        rows.push(`General,Total Run Hours,${gm.totalRunHours.value},${gm.totalRunHours.unit},${gm.totalRunHours.change}%`);
+        rows.push(`General,Pump Runtime,${gm.pumpRuntime.value},${gm.pumpRuntime.unit},${gm.pumpRuntime.change}%`);
+        rows.push(`General,Mixing Ratio,${gm.mixingRatio.value},${gm.mixingRatio.unit},${gm.mixingRatio.change}%`);
+      }
+
+      // Water Usage (daily)
+      if (reports.waterUsage?.daily) {
+        reports.waterUsage.daily.forEach((d) => {
+          rows.push(`Water Usage,${d.date},${d.liters},Liters,`);
+        });
+      }
+
+      // Run Hours (daily)
+      if (reports.runHours?.daily) {
+        reports.runHours.daily.forEach((d) => {
+          rows.push(`Run Hours,${d.date},${d.hours},Hours,`);
+        });
+      }
+
+      // Pump Runtime
+      if (reports.pumpRuntime?.length) {
+        reports.pumpRuntime.forEach((p) => {
+          rows.push(`Pump Runtime,${p.name},${p.totalHours},Hours,`);
+        });
+      }
+
+      // Soil Condition
+      if (reports.soilCondition) {
+        const sc = reports.soilCondition;
+        rows.push(`Soil Condition,Overall,${sc.overall},,`);
+        rows.push(`Soil Condition,Moisture,${sc.moisture},,`);
+        rows.push(`Soil Condition,pH,${sc.pH},,`);
+        rows.push(`Soil Condition,Nutrients,${sc.nutrients},,`);
+      }
+
+      // Harvest Performance
+      if (reports.harvestPerformance) {
+        const hp = reports.harvestPerformance;
+        rows.push(`Harvest,Estimated Yield,${hp.estimatedYield},kg,`);
+        rows.push(`Harvest,Actual Yield,${hp.actualYield},kg,`);
+        rows.push(`Harvest,Efficiency,${hp.efficiency},%,`);
+      }
+
+      const csv = csvHeader + rows.join('\n');
+      const fileUri = FileSystem.documentDirectory + 'SmartKisan_Report.csv';
+      await FileSystem.writeAsStringAsync(fileUri, csv);
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/csv',
+        dialogTitle: 'Export SmartKisan Report',
+        UTI: 'public.comma-separated-values-text',
+      });
+    } catch (error) {
+      Alert.alert('Export Failed', 'Could not export the report. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -22,31 +95,31 @@ const ComprehensiveReportScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.titlePrefix}>The</Text>
-        <Text style={styles.titleText}> Report</Text>
+        <Text style={styles.titlePrefix}>{t('reports.thePrefix')}</Text>
+        <Text style={styles.titleText}> {t('reports.title')}</Text>
       </View>
-      <Text style={styles.period}>Last 30 Days</Text>
+      <Text style={styles.period}>{t('reports.last30Days')}</Text>
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <MaterialCommunityIcons name="water" size={24} color={COLORS.info} />
           <Text style={styles.statValue}>1,485</Text>
-          <Text style={styles.statUnit}>Liters</Text>
-          <Text style={styles.statLabel}>Water Usage</Text>
+          <Text style={styles.statUnit}>{t('reports.liters')}</Text>
+          <Text style={styles.statLabel}>{t('reports.waterUsage')}</Text>
         </View>
         <View style={styles.statCard}>
           <MaterialCommunityIcons name="clock-outline" size={24} color={COLORS.primary} />
           <Text style={styles.statValue}>2,600</Text>
-          <Text style={styles.statUnit}>Hours</Text>
-          <Text style={styles.statLabel}>Run Hours</Text>
+          <Text style={styles.statUnit}>{t('reports.hours')}</Text>
+          <Text style={styles.statLabel}>{t('reports.runHours')}</Text>
         </View>
       </View>
       {/* Chart */}
       <View style={styles.chartCard}>
         <View style={styles.chartHeader}>
-          <Text style={styles.chartTitle}>Water Usage Trend</Text>
+          <Text style={styles.chartTitle}>{t('reports.waterUsageTrend')}</Text>
           <View style={styles.chartTabs}>
-            <TouchableOpacity style={styles.tabActive}><Text style={styles.tabTextActive}>Daily</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.tab}><Text style={styles.tabText}>Average</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.tabActive}><Text style={styles.tabTextActive}>{t('reports.daily')}</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.tab}><Text style={styles.tabText}>{t('reports.average')}</Text></TouchableOpacity>
           </View>
         </View>
         <View style={styles.chartArea}>
@@ -56,25 +129,29 @@ const ComprehensiveReportScreen = ({ navigation }) => {
         </View>
       </View>
       {/* Detailed Reports */}
-      <Text style={styles.sectionTitle}>Detailed Reports</Text>
+      <Text style={styles.sectionTitle}>{t('reports.detailedReports')}</Text>
       <TouchableOpacity style={styles.reportRow} onPress={() => navigation.navigate('MetricReports')}>
         <MaterialCommunityIcons name="chart-bar" size={22} color={COLORS.primary} />
-        <Text style={styles.reportLabel}>Pump Performance Analysis</Text>
+        <Text style={styles.reportLabel}>{t('reports.pumpPerformance')}</Text>
         <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.textTertiary} />
       </TouchableOpacity>
       <TouchableOpacity style={styles.reportRow} onPress={() => navigation.navigate('TrendReports')}>
         <MaterialCommunityIcons name="chart-line" size={22} color={COLORS.info} />
-        <Text style={styles.reportLabel}>Water Consumption Details</Text>
+        <Text style={styles.reportLabel}>{t('reports.waterConsumption')}</Text>
         <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.textTertiary} />
       </TouchableOpacity>
       <TouchableOpacity style={styles.reportRow} onPress={() => navigation.navigate('SoilHarvestReport')}>
         <MaterialCommunityIcons name="leaf" size={22} color={COLORS.success} />
-        <Text style={styles.reportLabel}>Soil & Harvest Report</Text>
+        <Text style={styles.reportLabel}>{t('reports.soilHarvest')}</Text>
         <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.textTertiary} />
       </TouchableOpacity>
-      <TouchableOpacity style={styles.exportBtn}>
-        <MaterialCommunityIcons name="download" size={20} color={COLORS.white} />
-        <Text style={styles.exportText}>Export Reports</Text>
+      <TouchableOpacity style={styles.exportBtn} onPress={exportCSV} disabled={exporting}>
+        {exporting ? (
+          <ActivityIndicator size="small" color={COLORS.white} />
+        ) : (
+          <MaterialCommunityIcons name="download" size={20} color={COLORS.white} />
+        )}
+        <Text style={styles.exportText}>{exporting ? t('reports.exporting', 'Exporting...') : t('reports.exportReports')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

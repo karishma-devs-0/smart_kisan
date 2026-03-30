@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { mockDelay } from '../../../utils/mockDelay';
-import { MOCK_DEVICES } from '../mock/devicesMockData';
+import { deviceService } from '../../../services/api';
 
 // ─── Async Thunks ────────────────────────────────────────────────────────────
 
@@ -8,8 +7,7 @@ export const fetchDevices = createAsyncThunk(
   'devices/fetchDevices',
   async (_, { rejectWithValue }) => {
     try {
-      await mockDelay(600);
-      return [...MOCK_DEVICES];
+      return await deviceService.fetchDevices();
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -21,8 +19,10 @@ export const fetchDevices = createAsyncThunk(
 const initialState = {
   devices: [],
   selectedDevice: null,
+  calibrations: [],
   loading: false,
   error: null,
+  alertRules: [],
 };
 
 const devicesSlice = createSlice({
@@ -40,6 +40,21 @@ const devicesSlice = createSlice({
     },
     removeDevice: (state, action) => {
       state.devices = state.devices.filter((d) => d.id !== action.payload);
+    },
+    addAlertRule: (state, action) => {
+      state.alertRules.push(action.payload);
+    },
+    removeAlertRule: (state, action) => {
+      state.alertRules = state.alertRules.filter((r) => r.id !== action.payload);
+    },
+    toggleAlertRule: (state, action) => {
+      const rule = state.alertRules.find((r) => r.id === action.payload);
+      if (rule) {
+        rule.active = !rule.active;
+      }
+    },
+    saveCalibration: (state, action) => {
+      state.calibrations.push(action.payload);
     },
   },
   extraReducers: (builder) => {
@@ -60,5 +75,5 @@ const devicesSlice = createSlice({
   },
 });
 
-export const { selectDevice, clearSelectedDevice, addDevice, removeDevice } = devicesSlice.actions;
+export const { selectDevice, clearSelectedDevice, addDevice, removeDevice, addAlertRule, removeAlertRule, toggleAlertRule, saveCalibration } = devicesSlice.actions;
 export default devicesSlice.reducer;

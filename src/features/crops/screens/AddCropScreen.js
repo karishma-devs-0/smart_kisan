@@ -8,15 +8,17 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { addCrop } from '../slice/cropsSlice';
+import { useTranslation } from 'react-i18next';
 
 const AddCropScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [variety, setVariety] = useState('');
 
   const handleCreate = () => {
-    if (!name.trim()) { Alert.alert('Error', 'Plant name is required'); return; }
+    if (!name.trim()) { Alert.alert(t('common.error'), t('crops.plantNameRequired')); return; }
     dispatch(addCrop({ name: name.trim(), variety: variety.trim(), sowingDate: new Date().toISOString().split('T')[0], status: 'growing' }));
     navigation.goBack();
   };
@@ -27,20 +29,20 @@ const AddCropScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
           <MaterialCommunityIcons name="close" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>New Plant</Text>
+        <Text style={styles.title}>{t('crops.newPlant')}</Text>
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <TouchableOpacity style={styles.imagePicker} onPress={() => Alert.alert('Image Picker', 'Camera/gallery would open here')}>
           <View style={styles.imageIcon}><MaterialCommunityIcons name="camera" size={32} color={COLORS.textSecondary} /></View>
-          <Text style={styles.imageText}>Add photo</Text>
+          <Text style={styles.imageText}>{t('crops.addPhoto')}</Text>
         </TouchableOpacity>
-        <Text style={styles.label}>Plant name *</Text>
-        <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Enter plant name" placeholderTextColor={COLORS.textTertiary} />
-        <Text style={styles.label}>Variety</Text>
-        <TextInput style={styles.input} value={variety} onChangeText={setVariety} placeholder="Enter variety" placeholderTextColor={COLORS.textTertiary} />
+        <Text style={styles.label}>{t('crops.plantName')} *</Text>
+        <TextInput style={styles.input} value={name} onChangeText={setName} placeholder={t('crops.plantNamePlaceholder')} placeholderTextColor={COLORS.textTertiary} />
+        <Text style={styles.label}>{t('crops.variety')}</Text>
+        <TextInput style={styles.input} value={variety} onChangeText={setVariety} placeholder={t('crops.varietyPlaceholder')} placeholderTextColor={COLORS.textTertiary} />
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.createBtn} onPress={handleCreate}><Text style={styles.createText}>Create</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}><Text style={styles.cancelText}>{t('common.cancel')}</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.createBtn} onPress={handleCreate}><Text style={styles.createText}>{t('common.create')}</Text></TouchableOpacity>
         </View>
       </ScrollView>
     </View>

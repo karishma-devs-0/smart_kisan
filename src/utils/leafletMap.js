@@ -11,8 +11,8 @@ import { MOCK_DEVICE_TYPES } from '../features/devices/mock/devicesMockData';
  * @param {boolean} options.tapToPlace - Enable tap-to-place mode (sends lat/lng via postMessage)
  * @returns {string} Complete HTML string for WebView
  */
-export function generateMapHTML({ fields = [], devices = [], interactive = true, zoom = 15, tapToPlace = false }) {
-  // Calculate center from all points
+export function generateMapHTML({ fields = [], devices = [], interactive = true, zoom = 15, tapToPlace = false, defaultCenter = null }) {
+  // Calculate center from all points, fall back to defaultCenter or hardcoded default
   const allLats = [
     ...fields.map((f) => f.location?.lat).filter(Boolean),
     ...devices.map((d) => d.coordinates?.lat).filter(Boolean),
@@ -22,8 +22,10 @@ export function generateMapHTML({ fields = [], devices = [], interactive = true,
     ...devices.map((d) => d.coordinates?.lng).filter(Boolean),
   ];
 
-  const centerLat = allLats.length ? allLats.reduce((a, b) => a + b, 0) / allLats.length : 23.258;
-  const centerLng = allLngs.length ? allLngs.reduce((a, b) => a + b, 0) / allLngs.length : 77.411;
+  const fallbackLat = defaultCenter?.lat || 23.258;
+  const fallbackLng = defaultCenter?.lng || 77.411;
+  const centerLat = allLats.length ? allLats.reduce((a, b) => a + b, 0) / allLats.length : fallbackLat;
+  const centerLng = allLngs.length ? allLngs.reduce((a, b) => a + b, 0) / allLngs.length : fallbackLng;
 
   // Build field markers JS
   const fieldMarkersJS = fields.map((f) => {

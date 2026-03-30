@@ -15,6 +15,7 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { fetchAnalytics } from '../slice/analyticsSlice';
+import { useTranslation } from 'react-i18next';
 
 const getHealthColor = (index) => {
   if (index > 70) return COLORS.success;
@@ -22,10 +23,10 @@ const getHealthColor = (index) => {
   return COLORS.danger;
 };
 
-const getStatusLabel = (status) => {
-  if (status === 'healthy') return 'Healthy';
-  if (status === 'warning') return 'Warning';
-  return 'Critical';
+const getStatusLabel = (status, t) => {
+  if (status === 'healthy') return t('analytics.healthy');
+  if (status === 'warning') return t('analytics.warning');
+  return t('analytics.critical');
 };
 
 const formatTimestamp = (isoString) => {
@@ -47,24 +48,24 @@ const getInsightTypeIcon = (type) => {
   return 'information';
 };
 
-const CropHealthRing = ({ score }) => {
+const CropHealthRing = ({ score, t }) => {
   const color = getHealthColor(score);
   return (
     <View style={[styles.healthRing, { borderColor: color }]}>
       <Text style={[styles.healthScore, { color }]}>{score}%</Text>
-      <Text style={styles.healthScoreLabel}>Overall</Text>
+      <Text style={styles.healthScoreLabel}>{t('analytics.overall')}</Text>
     </View>
   );
 };
 
-const FieldHealthCard = ({ field }) => {
+const FieldHealthCard = ({ field, t }) => {
   const color = getHealthColor(field.healthIndex);
   return (
     <View style={styles.fieldCard}>
       <View style={styles.fieldCardHeader}>
         <Text style={styles.fieldName}>{field.fieldName}</Text>
         <View style={[styles.statusBadge, { backgroundColor: color + '20' }]}>
-          <Text style={[styles.statusBadgeText, { color }]}>{getStatusLabel(field.status)}</Text>
+          <Text style={[styles.statusBadgeText, { color }]}>{getStatusLabel(field.status, t)}</Text>
         </View>
       </View>
       <Text style={styles.fieldCropType}>{field.cropType}</Text>
@@ -86,7 +87,7 @@ const FieldHealthCard = ({ field }) => {
   );
 };
 
-const InsightCard = ({ insight }) => (
+const InsightCard = ({ insight, t }) => (
   <View style={styles.insightCard}>
     <View style={[styles.insightIconContainer, { backgroundColor: insight.color + '15' }]}>
       <MaterialCommunityIcons name={insight.icon} size={24} color={insight.color} />
@@ -104,7 +105,7 @@ const InsightCard = ({ insight }) => (
       <Text style={styles.insightTitle}>{insight.title}</Text>
       <Text style={styles.insightDescription} numberOfLines={2}>{insight.description}</Text>
       <View style={styles.confidenceRow}>
-        <Text style={styles.confidenceLabel}>Confidence</Text>
+        <Text style={styles.confidenceLabel}>{t('analytics.confidence')}</Text>
         <View style={styles.confidenceBarContainer}>
           <View style={[styles.confidenceBarFill, { width: `${insight.confidence}%` }]} />
         </View>
@@ -124,6 +125,7 @@ const QuickActionButton = ({ icon, label, onPress }) => (
 );
 
 const FarmAnalyticsScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { cropHealth, aiInsights, loading } = useSelector((state) => state.analytics);
@@ -154,37 +156,37 @@ const FarmAnalyticsScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.titlePrefix}>Farm</Text>
-        <Text style={styles.titleText}> Analytics</Text>
+        <Text style={styles.titlePrefix}>{t('analytics.farmPrefix')}</Text>
+        <Text style={styles.titleText}> {t('analytics.title')}</Text>
       </View>
 
       {/* Crop Health Index */}
       <View style={styles.healthCard}>
-        <Text style={styles.sectionTitle}>Crop Health Index</Text>
+        <Text style={styles.sectionTitle}>{t('analytics.cropHealthIndex')}</Text>
         <View style={styles.healthOverview}>
-          <CropHealthRing score={healthData.overall} />
+          <CropHealthRing score={healthData.overall} t={t} />
           <View style={styles.healthSummary}>
-            <Text style={styles.healthSummaryTitle}>Farm Health Status</Text>
+            <Text style={styles.healthSummaryTitle}>{t('analytics.farmHealthStatus')}</Text>
             <Text style={styles.healthSummaryText}>
-              {healthData.overall > 70 ? 'Your farm is in good condition' : 'Some fields need attention'}
+              {healthData.overall > 70 ? t('analytics.goodCondition') : t('analytics.needsAttention')}
             </Text>
             <View style={styles.healthStatsRow}>
               <View style={styles.healthStat}>
                 <View style={[styles.healthStatDot, { backgroundColor: COLORS.success }]} />
                 <Text style={styles.healthStatText}>
-                  {healthData.fields.filter((f) => f.status === 'healthy').length} Healthy
+                  {healthData.fields.filter((f) => f.status === 'healthy').length} {t('analytics.healthy')}
                 </Text>
               </View>
               <View style={styles.healthStat}>
                 <View style={[styles.healthStatDot, { backgroundColor: COLORS.warning }]} />
                 <Text style={styles.healthStatText}>
-                  {healthData.fields.filter((f) => f.status === 'warning').length} Warning
+                  {healthData.fields.filter((f) => f.status === 'warning').length} {t('analytics.warning')}
                 </Text>
               </View>
               <View style={styles.healthStat}>
                 <View style={[styles.healthStatDot, { backgroundColor: COLORS.danger }]} />
                 <Text style={styles.healthStatText}>
-                  {healthData.fields.filter((f) => f.status === 'critical').length} Critical
+                  {healthData.fields.filter((f) => f.status === 'critical').length} {t('analytics.critical')}
                 </Text>
               </View>
             </View>
@@ -193,38 +195,38 @@ const FarmAnalyticsScreen = ({ navigation }) => {
       </View>
 
       {/* Field Health Breakdown */}
-      <Text style={styles.sectionTitle}>Field Health Breakdown</Text>
+      <Text style={styles.sectionTitle}>{t('analytics.fieldHealthBreakdown')}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.fieldScrollView}>
         {healthData.fields.map((field, index) => (
-          <FieldHealthCard key={index} field={field} />
+          <FieldHealthCard key={index} field={field} t={t} />
         ))}
       </ScrollView>
 
       {/* AI Insights */}
       <View style={styles.sectionHeaderRow}>
         <MaterialCommunityIcons name="brain" size={22} color={COLORS.primary} />
-        <Text style={styles.sectionTitle}>AI Insights</Text>
+        <Text style={styles.sectionTitle}>{t('analytics.aiInsights')}</Text>
       </View>
       {insights.map((insight) => (
-        <InsightCard key={insight.id} insight={insight} />
+        <InsightCard key={insight.id} insight={insight} t={t} />
       ))}
 
       {/* Quick Actions */}
-      <Text style={styles.sectionTitle}>Quick Actions</Text>
+      <Text style={styles.sectionTitle}>{t('analytics.quickActions')}</Text>
       <View style={styles.quickActionsRow}>
         <QuickActionButton
           icon="satellite-variant"
-          label="NDVI Map"
+          label={t('analytics.ndviMap')}
           onPress={() => navigation.navigate('NDVIMap')}
         />
         <QuickActionButton
           icon="chart-line"
-          label="Yield Forecast"
+          label={t('analytics.yieldForecast')}
           onPress={() => navigation.navigate('YieldPrediction')}
         />
         <QuickActionButton
           icon="calendar-clock"
-          label="Schedule"
+          label={t('analytics.schedule')}
           onPress={() => navigation.navigate('YieldPrediction')}
         />
       </View>
