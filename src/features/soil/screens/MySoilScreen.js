@@ -254,8 +254,12 @@ const MySoilScreen = ({ navigation }) => {
 
   const { current, soilCrops = [], selectedCropId, soilReadings = [], loading } = soil;
 
-  const healthScore = current?.healthScore ?? 0;
-  const isEmpty = !current && !loading;
+  const hasData = current && (
+    current.moisture > 0 || current.pH > 0 || current.nitrogen > 0 ||
+    current.phosphorus > 0 || current.potassium > 0
+  );
+  const healthScore = hasData ? (current?.healthScore ?? 0) : 0;
+  const isEmpty = (!current || !hasData) && !loading;
 
   const selectedCrop = useMemo(() => {
     if (selectedCropId) return soilCrops.find((c) => c.id === selectedCropId) || soilCrops[0];

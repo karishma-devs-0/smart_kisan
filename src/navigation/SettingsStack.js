@@ -16,6 +16,8 @@ import DiseaseDetectionHomeScreen from '../features/diseaseDetection/screens/Dis
 import ScanResultScreen from '../features/diseaseDetection/screens/ScanResultScreen';
 import FertilizerCalculatorScreen from '../features/fertilizerCalc/screens/FertilizerCalculatorScreen';
 import NotificationSettingsScreen from '../features/settings/screens/NotificationSettingsScreen';
+import GovernmentSchemesScreen from '../features/schemes/screens/GovernmentSchemesScreen';
+import SchemeDetailScreen from '../features/schemes/screens/SchemeDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -48,6 +50,9 @@ const SettingsStack = () => {
       <Stack.Screen name="ScanResult" component={ScanResultScreen} />
       {/* Fertilizer Calculator */}
       <Stack.Screen name="FertilizerCalculator" component={FertilizerCalculatorScreen} />
+      {/* Government Schemes */}
+      <Stack.Screen name="GovernmentSchemes" component={GovernmentSchemesScreen} />
+      <Stack.Screen name="SchemeDetail" component={SchemeDetailScreen} />
     </Stack.Navigator>
   );
 };

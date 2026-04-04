@@ -26,7 +26,7 @@ const WeatherTodayScreen = ({ navigation }) => {
   const current = weather.current || { temp: 39, humidity: 71, windSpeed: 11, precipitation: 0, condition: 'Sunny', feelsLike: 42, uvIndex: 8 };
   const forecast = weather.forecast || [];
 
-  const isDefaultLocation = location?.lat === 21.1458 && location?.lng === 79.0882;
+  const isDefaultLocation = !location || (location?.lat === 21.1458 && location?.lng === 79.0882);
 
   useEffect(() => {
     dispatch(fetchCurrentWeather());
@@ -45,7 +45,7 @@ const WeatherTodayScreen = ({ navigation }) => {
           <MaterialCommunityIcons name="chevron-right" size={18} color={COLORS.textSecondary} />
         </TouchableOpacity>
       )}
-      <Text style={styles.locationText}>{location?.name || 'Nagpur, Maharashtra'}</Text>
+      <Text style={styles.locationText}>{location?.name || t('weather.setFarmLocation', 'Set your farm location')}</Text>
       {/* Today's Weather */}
       <View style={styles.todayCard}>
         <Text style={styles.todayLabel}>{t('weather.today')}</Text>

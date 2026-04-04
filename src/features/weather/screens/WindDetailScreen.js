@@ -23,7 +23,7 @@ const WindDetailScreen = ({ navigation }) => {
         <Text style={styles.titleText}>{' ' + t('weather.title')}</Text>
       </View>
       <Text style={styles.subtitle}>{t('windDetail.windSpeed')}</Text>
-      <Text style={styles.location}>{(location?.name || 'Nagpur, Maharashtra') + ' · ' + t('windDetail.today')}</Text>
+      <Text style={styles.location}>{(location?.name || 'Set your farm location') + ' · ' + t('windDetail.today')}</Text>
       <View style={styles.bigValueCard}>
         <MaterialCommunityIcons name="weather-windy" size={40} color={COLORS.textSecondary} />
         <Text style={styles.bigValue}>13 km/h</Text>

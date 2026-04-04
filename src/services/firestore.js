@@ -16,6 +16,7 @@ import { db, auth } from './firebase';
  */
 const userCollection = (collectionName) => {
   const uid = auth.currentUser?.uid;
+  if (__DEV__) console.log(`[Firestore] ${collectionName} — uid: ${uid || 'NULL (not authenticated)'}`);
   if (!uid) throw new Error('Not authenticated');
   return collection(db, 'users', uid, collectionName);
 };

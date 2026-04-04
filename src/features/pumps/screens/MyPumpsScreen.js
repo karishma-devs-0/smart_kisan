@@ -314,7 +314,7 @@ const MyPumpsScreen = ({ navigation }) => {
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons name="view-grid-outline" size={16} color={COLORS.primaryLight} />
-          <Text style={styles.groupsButtonText}>{t('pumps.groups', 'Groups')}</Text>
+          <Text style={styles.groupsButtonText}>{t('pumps.groups.title', 'Groups')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -346,7 +346,7 @@ const MyPumpsScreen = ({ navigation }) => {
       title={t('pumps.title', 'Pumps')}
       scrollable={false}
       renderBottomOverlay={({ tabBarBottomPadding }) => (
-        <View style={{ position: 'absolute', right: SPACING.lg, bottom: tabBarBottomPadding + 8, alignItems: 'center', gap: SPACING.md }}>
+        <View style={{ position: 'absolute', right: SPACING.lg, bottom: tabBarBottomPadding + 20, alignItems: 'center', gap: SPACING.md }}>
           {/* FAB - Add pump */}
           <TouchableOpacity
             style={styles.fab}

@@ -16,16 +16,26 @@ import { seedUserData } from './src/services/seedData';
 import { connect as mqttConnect, disconnect as mqttDisconnect } from './src/services/mqtt';
 import { registerForPushNotifications } from './src/services/notifications';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
+import OfflineBanner from './src/components/common/OfflineBanner';
+import { initNetworkListener } from './src/services/network';
 import './src/i18n';
 
 // Load settings immediately on app start (from AsyncStorage — no auth needed)
 store.dispatch(loadSettings());
 
+// Start monitoring network connectivity
+initNetworkListener();
+
 function AuthGate({ children }) {
   useEffect(() => {
-    if (!FIREBASE_ENABLED || !auth) return;
+    if (!FIREBASE_ENABLED || !auth) {
+      if (__DEV__) console.log('[Auth] Firebase not enabled or auth not available');
+      return;
+    }
+    if (__DEV__) console.log('[Auth] Setting up onAuthStateChanged listener');
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        if (__DEV__) console.log('[Auth] User signed in:', user.uid, user.email);
         const token = await user.getIdToken();
         store.dispatch(
           restoreSession({
@@ -41,17 +51,20 @@ function AuthGate({ children }) {
         );
         // Load onboarding status & seed Firestore on first login
         store.dispatch(loadOnboardingStatus());
-        seedUserData().catch(() => {});
+        seedUserData().catch((e) => {
+          if (__DEV__) console.log('[Seed] Seed failed:', e.message);
+        });
 
         // Connect MQTT for real-time device communication
-        try { mqttConnect(user.uid); } catch (e) {
-          if (__DEV__) console.warn('MQTT connect failed:', e);
+        try {
+          mqttConnect(user.uid);
+          if (__DEV__) console.log('[MQTT] Connected with uid:', user.uid);
+        } catch (e) {
+          if (__DEV__) console.warn('[MQTT] Connect failed:', e.message);
         }
       } else {
-        // User logged out
-        try { mqttDisconnect(); } catch (e) {
-          if (__DEV__) console.warn('MQTT disconnect failed:', e);
-        }
+        if (__DEV__) console.log('[Auth] User signed out');
+        try { mqttDisconnect(); } catch (e) {}
       }
     });
     return unsubscribe;
@@ -67,25 +80,34 @@ export default function App() {
     // Register for push notifications
     registerForPushNotifications().catch(() => {});
 
-    // Listen for incoming notifications while app is foregrounded
-    notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
-      // Notification received in foreground — can be logged or handled
-      console.log('Notification received:', notification.request.content.title);
-    });
+    // Listen for incoming notifications (guard for Expo Go compatibility)
+    try {
+      if (Notifications.addNotificationReceivedListener) {
+        notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
+          if (__DEV__) console.log('Notification received:', notification.request.content.title);
+        });
+      }
 
-    // Listen for user tapping on a notification
-    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data;
-      console.log('Notification tapped:', data);
-      // Navigation based on notification type can be handled here
-    });
+      if (Notifications.addNotificationResponseReceivedListener) {
+        responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+          const data = response.notification.request.content.data;
+          if (__DEV__) console.log('Notification tapped:', data);
+        });
+      }
+    } catch (e) {
+      // Notifications not supported in this environment (Expo Go)
+    }
 
     return () => {
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+      try {
+        if (notificationListener.current?.remove) {
+          notificationListener.current.remove();
+        }
+        if (responseListener.current?.remove) {
+          responseListener.current.remove();
+        }
+      } catch (e) {
+        // Cleanup failed — not critical
       }
     };
   }, []);
@@ -97,6 +119,7 @@ export default function App() {
           <ErrorBoundary>
             <NavigationContainer>
               <StatusBar style="auto" />
+              {/* <OfflineBanner /> — disabled: unreliable in Expo Go */}
               <AuthGate>
                 <RootNavigator />
               </AuthGate>

@@ -53,7 +53,17 @@ const HomeScreen = ({ navigation }) => {
   const user = useSelector((state) => state.auth.user);
   const fields = useSelector((state) => state.fields.fields);
   const devices = useSelector((state) => state.devices.devices);
+  const pumps = useSelector((state) => state.pumps.pumps);
+  const soilCurrent = useSelector((state) => state.soil.current);
+  const weatherCurrent = useSelector((state) => state.weather.current);
+  const pumpHistory = useSelector((state) => state.pumps.history);
   const [refreshing, setRefreshing] = React.useState(false);
+
+  // Derived values from Redux state
+  const activePumps = pumps.filter((p) => p.status === 'on').length;
+  const totalPumps = pumps.length;
+  const soilMoisture = soilCurrent?.moisture;
+  const temperature = weatherCurrent?.temp ?? soilCurrent?.temperature;
 
   useEffect(() => {
     dispatch(fetchFields());
@@ -104,16 +114,16 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.statusItem}>
           <MaterialCommunityIcons name="water-pump" size={20} color={COLORS.info} />
           <Text style={styles.statusText}>{t('home.pump')}: </Text>
-          <Text style={[styles.statusValue, { color: COLORS.info }]}>2 {t('home.active')}</Text>
+          <Text style={[styles.statusValue, { color: COLORS.info }]}>{activePumps > 0 ? `${activePumps} ${t('home.active')}` : t('home.noneActive', 'None')}</Text>
         </View>
       </View>
 
       {/* Quick Stats */}
       <Text style={styles.sectionTitle}>{t('home.overview')}</Text>
       <View style={styles.statsRow}>
-        <QuickStatCard icon="water-pump" label={t('home.activePumps')} value="2/6" color={COLORS.primary} />
-        <QuickStatCard icon="water-percent" label={t('home.soilMoisture')} value="45%" color={COLORS.info} />
-        <QuickStatCard icon="thermometer" label={t('home.temperature')} value="32°C" color={COLORS.warning} />
+        <QuickStatCard icon="water-pump" label={t('home.activePumps')} value={totalPumps > 0 ? `${activePumps}/${totalPumps}` : '\u2014'} color={COLORS.primary} />
+        <QuickStatCard icon="water-percent" label={t('home.soilMoisture')} value={soilMoisture ? `${soilMoisture}%` : '\u2014'} color={COLORS.info} />
+        <QuickStatCard icon="thermometer" label={t('home.temperature')} value={temperature != null ? `${temperature}\u00B0C` : '\u2014'} color={COLORS.warning} />
       </View>
 
       {/* Farm Map Widget — fields only, devices shown on full map */}
@@ -147,17 +157,17 @@ const HomeScreen = ({ navigation }) => {
         </View>
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>4.5 hrs</Text>
+            <Text style={styles.summaryValue}>{totalPumps > 0 ? `${(activePumps * 1.5).toFixed(1)} hrs` : '\u2014'}</Text>
             <Text style={styles.summaryLabel}>{t('home.runHours')}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>2,450 L</Text>
+            <Text style={styles.summaryValue}>{totalPumps > 0 ? `${(activePumps * 500).toLocaleString()} L` : '\u2014'}</Text>
             <Text style={styles.summaryLabel}>{t('home.waterUsed')}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>12 kWh</Text>
+            <Text style={styles.summaryValue}>{totalPumps > 0 ? `${(activePumps * 3)} kWh` : '\u2014'}</Text>
             <Text style={styles.summaryLabel}>{t('home.powerUsed')}</Text>
           </View>
         </View>
@@ -166,10 +176,33 @@ const HomeScreen = ({ navigation }) => {
       {/* Recent Activity */}
       <Text style={styles.sectionTitle}>{t('home.recentActivity')}</Text>
       <View style={styles.activityCard}>
-        <ActivityItem icon="water-pump" message="Pump 1 turned on - Field A" time="2 hours ago" color={COLORS.success} />
-        <ActivityItem icon="alert" message="Soil moisture dropped to 42%" time="3 hours ago" color={COLORS.warning} />
-        <ActivityItem icon="water-pump" message="Pump 3 completed timer (30 min)" time="5 hours ago" color={COLORS.info} />
-        <ActivityItem icon="weather-rainy" message="Rain expected tomorrow - 70% chance" time="6 hours ago" color={COLORS.info} />
+        {(() => {
+          // Gather recent activity from pump history
+          const activities = [];
+          if (pumpHistory && typeof pumpHistory === 'object') {
+            Object.entries(pumpHistory).forEach(([pumpId, entries]) => {
+              if (Array.isArray(entries)) {
+                entries.forEach((entry) => {
+                  activities.push({
+                    message: entry.message || `Pump ${pumpId} - ${entry.action || 'activity'}`,
+                    time: entry.time || entry.timestamp || '',
+                    color: entry.action === 'on' ? COLORS.success : entry.action === 'off' ? COLORS.info : COLORS.warning,
+                  });
+                });
+              }
+            });
+          }
+          if (activities.length === 0) {
+            return (
+              <View style={{ padding: SPACING.lg, alignItems: 'center' }}>
+                <Text style={{ fontSize: FONT_SIZES.sm, color: COLORS.textTertiary }}>{t('home.noRecentActivity', 'No recent activity')}</Text>
+              </View>
+            );
+          }
+          return activities.slice(0, 5).map((activity, index) => (
+            <ActivityItem key={index} icon="water-pump" message={activity.message} time={activity.time} color={activity.color} />
+          ));
+        })()}
       </View>
     </ScreenLayout>
   );

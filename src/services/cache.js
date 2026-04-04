@@ -60,6 +60,23 @@ const cache = {
   },
 
   /**
+   * Retrieve a cached value even if expired (for offline/stale use).
+   * Returns null only if key was never cached.
+   * @param {string} key
+   * @returns {Promise<*|null>}
+   */
+  getStale: async (key) => {
+    try {
+      const raw = await AsyncStorage.getItem(CACHE_PREFIX + key);
+      if (!raw) return null;
+      const entry = JSON.parse(raw);
+      return entry.data;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  /**
    * Check if a key exists and is not expired.
    * @param {string} key
    * @returns {Promise<boolean>}

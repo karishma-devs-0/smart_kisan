@@ -5,8 +5,9 @@
 import { auth as firebaseAuth } from './firebase';
 
 // Backend URL - change this when deploying to cloud
+// 10.0.2.2 = Android emulator, 192.168.x.x = real device on same WiFi
 const API_BASE_URL = __DEV__
-  ? 'http://10.0.2.2:5000/api'  // Android emulator -> localhost
+  ? 'http://192.168.1.9:5000/api'  // Local dev — your computer's IP on WiFi
   : 'https://smartkisan-api.up.railway.app/api'; // Production URL (update after deploy)
 
 // Allow overriding via a global (useful for testing)

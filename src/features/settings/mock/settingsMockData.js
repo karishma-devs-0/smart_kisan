@@ -4,11 +4,7 @@ export const MOCK_SETTINGS = {
   units: 'metric',
   offlineMode: false,
   dataSyncEnabled: true,
-  location: {
-    name: 'Nagpur, Maharashtra',
-    lat: 21.1458,
-    lng: 79.0882,
-  },
+  location: null,
 };
 
 export const AVAILABLE_LANGUAGES = [

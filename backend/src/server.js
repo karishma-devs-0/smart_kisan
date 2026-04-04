@@ -23,8 +23,11 @@ const PORT = process.env.PORT || 5000;
 // MIDDLEWARE
 // ============================================================
 
-// Security headers
-app.use(helmet());
+// Security headers (relaxed for mobile app access)
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false,
+}));
 
 // CORS - allow mobile app requests
 app.use(cors({
@@ -80,9 +83,10 @@ app.use((err, req, res, next) => {
 // START SERVER
 // ============================================================
 
-app.listen(PORT, () => {
-  console.log(`\n🚀 SmartKisan API running on http://localhost:${PORT}`);
-  console.log(`   Health check: http://localhost:${PORT}/api/health`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🚀 SmartKisan API running on http://0.0.0.0:${PORT}`);
+  console.log(`   Local: http://localhost:${PORT}/api/health`);
+  console.log(`   Network: http://192.168.1.9:${PORT}/api/health`);
   console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`);
 });
 

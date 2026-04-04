@@ -1,5 +1,6 @@
 import { mockDelay } from '../utils/mockDelay';
 import cache from './cache';
+import { getIsConnected } from './network';
 import { FIREBASE_ENABLED, auth as firebaseAuth } from './firebase';
 import { HUGGINGFACE_SPACE_URL } from '../config/firebase.config';
 import {
@@ -61,6 +62,38 @@ import {
   MOCK_SOIL_PARAMS,
   MOCK_CLIMATE_PARAMS,
 } from '../features/cropRecommend/mock/cropRecommendMockData';
+
+// ─── Offline-aware helper ──────────────────────────────────────────────────
+// Checks settings store for offlineMode OR actual network state.
+// Returns true if the app should avoid network calls.
+const shouldUseOffline = () => {
+  try {
+    const { store } = require('../store/store');
+    const offlineMode = store.getState().settings?.offlineMode;
+    if (offlineMode) return true;
+  } catch (e) {
+    // Store not ready yet
+  }
+  return !getIsConnected();
+};
+
+/**
+ * Try to fetch from cache (even stale) when offline, else run fetcher.
+ * @param {string} cacheKey
+ * @param {Function} fetcher - async function returning data
+ * @param {*} fallback - mock data to return if cache is also empty
+ * @param {number} ttl - cache TTL in seconds
+ */
+const offlineAwareRemember = async (cacheKey, fetcher, fallback, ttl = 3600) => {
+  if (shouldUseOffline()) {
+    // Try stale cache first
+    const stale = await cache.getStale(cacheKey);
+    if (stale !== null) return stale;
+    // Fall back to mock data
+    return typeof fallback === 'function' ? fallback() : fallback;
+  }
+  return cache.remember(cacheKey, fetcher, ttl);
+};
 
 // Lazy-load firestoreService only when Firebase is enabled
 let _firestoreService = null;
@@ -164,15 +197,12 @@ export const authService = {
 };
 
 // ─── Pump Service ────────────────────────────────────────────────────────────
-// Uses backend REST APIs when Firebase is enabled, mock data otherwise
-
-import { pumpAPI, pumpGroupAPI } from './backendApi';
+// Uses Firestore for CRUD when Firebase enabled, mock data otherwise
 
 export const pumpService = {
   fetchPumps: async () => {
     if (FIREBASE_ENABLED) {
-      const data = await pumpAPI.fetchAll();
-      return data.pumps;
+      return offlineAwareRemember('pumps:all', () => getFirestore().getAll('pumps'), 300, [...MOCK_PUMPS]);
     }
     await mockDelay(600);
     return [...MOCK_PUMPS];
@@ -180,8 +210,7 @@ export const pumpService = {
 
   fetchGroups: async () => {
     if (FIREBASE_ENABLED) {
-      const data = await pumpGroupAPI.fetchAll();
-      return data.groups;
+      return offlineAwareRemember('pumps:groups', () => getFirestore().getAll('pump_groups'), 300, [...MOCK_PUMP_GROUPS]);
     }
     await mockDelay(600);
     return [...MOCK_PUMP_GROUPS];
@@ -189,21 +218,42 @@ export const pumpService = {
 
   savePump: async (pump) => {
     if (FIREBASE_ENABLED) {
-      if (pump.id) {
-        return pumpAPI.update(pump.id, pump);
+      if (shouldUseOffline()) {
+        throw new Error('Offline — cannot save pump. Changes will sync when you reconnect.');
       }
-      return pumpAPI.create(pump);
+      try {
+        if (pump.id) {
+          const result = await getFirestore().update('pumps', pump.id, pump);
+          await cache.del('pumps:all');
+          return result;
+        }
+        const result = await getFirestore().create('pumps', pump);
+        await cache.del('pumps:all');
+        return result;
+      } catch (e) {
+        // Fall back to local save if Firebase auth fails (Local Mode)
+        if (__DEV__) console.warn('Firestore save failed, using local:', e.message);
+        if (!pump.id) return { ...pump, id: Date.now().toString() };
+        return { ...pump };
+      }
     }
     await mockDelay(500);
+    if (!pump.id) {
+      return { ...pump, id: Date.now().toString() };
+    }
     return { ...pump };
   },
 
   saveGroup: async (group) => {
     if (FIREBASE_ENABLED) {
       if (group.id) {
-        return pumpGroupAPI.update(group.id, group);
+        const result = await getFirestore().update('pump_groups', group.id, group);
+        await cache.del('pumps:groups');
+        return result;
       }
-      return pumpGroupAPI.create(group);
+      const result = await getFirestore().create('pump_groups', group);
+      await cache.del('pumps:groups');
+      return result;
     }
     await mockDelay(500);
     return { ...group };
@@ -211,7 +261,9 @@ export const pumpService = {
 
   deletePump: async (pumpId) => {
     if (FIREBASE_ENABLED) {
-      return pumpAPI.remove(pumpId);
+      await getFirestore().remove('pumps', pumpId);
+      await cache.del('pumps:all');
+      return { message: 'Pump deleted' };
     }
     await mockDelay(300);
     return { message: 'Pump deleted' };
@@ -219,15 +271,23 @@ export const pumpService = {
 
   deleteGroup: async (groupId) => {
     if (FIREBASE_ENABLED) {
-      return pumpGroupAPI.remove(groupId);
+      await getFirestore().remove('pump_groups', groupId);
+      await cache.del('pumps:groups');
+      return { message: 'Group deleted' };
     }
     await mockDelay(300);
     return { message: 'Group deleted' };
   },
 
   controlPump: async (pumpId, action) => {
+    if (shouldUseOffline()) {
+      throw new Error('Offline — pump control unavailable. Please connect to the internet.');
+    }
     if (FIREBASE_ENABLED) {
-      return pumpAPI.control(pumpId, action);
+      // Update status directly in Firestore
+      await getFirestore().update('pumps', pumpId, { status: action });
+      await cache.del('pumps:all');
+      return { id: pumpId, status: action, message: `Pump turned ${action}` };
     }
     await mockDelay(300);
     return { id: pumpId, status: action, message: `Pump turned ${action}` };
@@ -235,7 +295,9 @@ export const pumpService = {
 
   setTimer: async (pumpId, durationSeconds) => {
     if (FIREBASE_ENABLED) {
-      return pumpAPI.setTimer(pumpId, durationSeconds);
+      await getFirestore().update('pumps', pumpId, { status: 'on', timer: { duration: durationSeconds, active: true } });
+      await cache.del('pumps:all');
+      return { id: pumpId, status: 'on', timer: { duration: durationSeconds } };
     }
     await mockDelay(300);
     return { id: pumpId, status: 'on', timer: { duration: durationSeconds } };
@@ -243,16 +305,17 @@ export const pumpService = {
 
   createSchedule: async (pumpId, schedule) => {
     if (FIREBASE_ENABLED) {
-      return pumpAPI.createSchedule(pumpId, schedule);
+      const result = await getFirestore().create('pump_schedules', { pumpId, ...schedule });
+      return { id: result.id || Date.now().toString(), pumpId, ...schedule };
     }
     await mockDelay(300);
-    return { id: 'mock-schedule', pumpId, ...schedule };
+    return { id: Date.now().toString(), pumpId, ...schedule };
   },
 
   fetchSchedules: async (pumpId) => {
     if (FIREBASE_ENABLED) {
-      const data = await pumpAPI.fetchSchedules(pumpId);
-      return data.schedules;
+      const all = await getFirestore().getAll('pump_schedules');
+      return (all || []).filter((s) => s.pumpId === pumpId);
     }
     await mockDelay(300);
     return [];
@@ -260,16 +323,17 @@ export const pumpService = {
 
   deleteSchedule: async (pumpId, scheduleId) => {
     if (FIREBASE_ENABLED) {
-      return pumpAPI.deleteSchedule(pumpId, scheduleId);
+      await getFirestore().remove('pump_schedules', scheduleId);
+      return { message: 'Schedule deleted' };
     }
     await mockDelay(300);
     return { message: 'Schedule deleted' };
   },
 
-  fetchHistory: async (pumpId, limit = 50) => {
+  fetchHistory: async (pumpId) => {
     if (FIREBASE_ENABLED) {
-      const data = await pumpAPI.fetchHistory(pumpId, limit);
-      return data.history;
+      const all = await getFirestore().getAll('pump_history');
+      return (all || []).filter((h) => h.pumpId === pumpId);
     }
     await mockDelay(300);
     return [];
@@ -277,18 +341,30 @@ export const pumpService = {
 
   controlGroup: async (groupId, action) => {
     if (FIREBASE_ENABLED) {
-      return pumpGroupAPI.control(groupId, action);
+      const groups = await getFirestore().getAll('pump_groups');
+      const group = (groups || []).find((g) => g.id === groupId);
+      if (group && group.pumpIds) {
+        await Promise.all(
+          group.pumpIds.map((id) => getFirestore().update('pumps', id, { status: action })),
+        );
+        await cache.del('pumps:all');
+      }
+      return { groupId, action, message: `All pumps turned ${action}` };
     }
     await mockDelay(500);
     return { groupId, action, message: `All pumps turned ${action}` };
   },
 
   stopAllPumps: async (pumpIds) => {
+    if (shouldUseOffline()) {
+      throw new Error('Offline — pump control unavailable. Please connect to the internet.');
+    }
     if (FIREBASE_ENABLED) {
-      const results = await Promise.all(
-        pumpIds.map((id) => pumpAPI.control(id, 'off')),
+      await Promise.all(
+        pumpIds.map((id) => getFirestore().update('pumps', id, { status: 'off' })),
       );
-      return results;
+      await cache.del('pumps:all');
+      return pumpIds.map((id) => ({ id, status: 'off' }));
     }
     await mockDelay(500);
     return pumpIds.map((id) => ({ id, status: 'off' }));
@@ -300,13 +376,16 @@ export const pumpService = {
 export const cropService = {
   fetchCrops: async () => {
     if (FIREBASE_ENABLED) {
-      return cache.remember('crops:all', () => getFirestore().getAll('crops'), 300);
+      return offlineAwareRemember('crops:all', () => getFirestore().getAll('crops'), [...MOCK_CROPS], 300);
     }
     await mockDelay(600);
     return [...MOCK_CROPS];
   },
 
   addCrop: async (crop) => {
+    if (FIREBASE_ENABLED && shouldUseOffline()) {
+      throw new Error('Offline — cannot add crop. Changes will sync when you reconnect.');
+    }
     if (FIREBASE_ENABLED) {
       const result = await getFirestore().create('crops', crop);
       await cache.del('crops:all');
@@ -317,6 +396,9 @@ export const cropService = {
   },
 
   updateCrop: async (crop) => {
+    if (FIREBASE_ENABLED && shouldUseOffline()) {
+      throw new Error('Offline — cannot update crop. Changes will sync when you reconnect.');
+    }
     if (FIREBASE_ENABLED) {
       const result = await getFirestore().update('crops', crop.id, crop);
       await cache.del('crops:all');
@@ -327,6 +409,9 @@ export const cropService = {
   },
 
   deleteCrop: async (id) => {
+    if (FIREBASE_ENABLED && shouldUseOffline()) {
+      throw new Error('Offline — cannot delete crop. Changes will sync when you reconnect.');
+    }
     if (FIREBASE_ENABLED) {
       await getFirestore().remove('crops', id);
       await cache.del('crops:all');
@@ -342,7 +427,8 @@ export const cropService = {
 export const soilService = {
   fetchSoilData: async () => {
     if (FIREBASE_ENABLED) {
-      return cache.remember('soil:current', () => getFirestore().getSingleton('soil', 'current'), 300);
+      const fallback = { current: { ...MOCK_SOIL_CURRENT }, soilCrops: SOIL_CROPS.slice(0, 5), soilReadings: [...MOCK_SOIL_READINGS] };
+      return offlineAwareRemember('soil:current', () => getFirestore().getSingleton('soil', 'current'), fallback, 300);
     }
     await mockDelay(600);
     return {
@@ -354,7 +440,7 @@ export const soilService = {
 
   fetchMoistureHistory: async () => {
     if (FIREBASE_ENABLED) {
-      return cache.remember('soil:moisture', () => getFirestore().getAll('soil_moisture'), 300);
+      return offlineAwareRemember('soil:moisture', () => getFirestore().getAll('soil_moisture'), [...MOCK_MOISTURE_HISTORY], 300);
     }
     await mockDelay(500);
     return [...MOCK_MOISTURE_HISTORY];
@@ -362,7 +448,7 @@ export const soilService = {
 
   fetchPhHistory: async () => {
     if (FIREBASE_ENABLED) {
-      return cache.remember('soil:ph', () => getFirestore().getAll('soil_ph'), 300);
+      return offlineAwareRemember('soil:ph', () => getFirestore().getAll('soil_ph'), [...MOCK_PH_HISTORY], 300);
     }
     await mockDelay(500);
     return [...MOCK_PH_HISTORY];
@@ -370,7 +456,7 @@ export const soilService = {
 
   fetchNpkHistory: async () => {
     if (FIREBASE_ENABLED) {
-      return cache.remember('soil:npk', () => getFirestore().getAll('soil_npk'), 300);
+      return offlineAwareRemember('soil:npk', () => getFirestore().getAll('soil_npk'), [...MOCK_NPK_HISTORY], 300);
     }
     await mockDelay(500);
     return [...MOCK_NPK_HISTORY];
@@ -378,7 +464,7 @@ export const soilService = {
 
   fetchFertilizerHistory: async () => {
     if (FIREBASE_ENABLED) {
-      return cache.remember('soil:fertilizer', () => getFirestore().getAll('soil_fertilizer'), 300);
+      return offlineAwareRemember('soil:fertilizer', () => getFirestore().getAll('soil_fertilizer'), [...MOCK_FERTILIZER_HISTORY], 300);
     }
     await mockDelay(500);
     return [...MOCK_FERTILIZER_HISTORY];
@@ -404,62 +490,57 @@ export const soilService = {
 
 export const weatherService = {
   fetchCurrentWeather: async (location) => {
+    const key = location?.lat ? `weather:current:${location.lat}:${location.lng}` : 'weather:current';
     if (weatherAPI.isWeatherAPIEnabled() && location?.lat) {
-      return cache.remember(`weather:current:${location.lat}:${location.lng}`, async () => {
-        return weatherAPI.fetchCurrentWeather(location.lat, location.lng);
-      }, 1800);
+      return offlineAwareRemember(key, () => weatherAPI.fetchCurrentWeather(location.lat, location.lng), { ...MOCK_CURRENT_WEATHER }, 1800);
     }
-    return cache.remember('weather:current', async () => {
+    return offlineAwareRemember(key, async () => {
       await mockDelay(600);
       return { ...MOCK_CURRENT_WEATHER };
-    }, 1800);
+    }, { ...MOCK_CURRENT_WEATHER }, 1800);
   },
 
   fetchForecast: async (location) => {
+    const key = location?.lat ? `weather:forecast:${location.lat}:${location.lng}` : 'weather:forecast';
     if (weatherAPI.isWeatherAPIEnabled() && location?.lat) {
-      return cache.remember(`weather:forecast:${location.lat}:${location.lng}`, async () => {
-        return weatherAPI.fetchForecast(location.lat, location.lng);
-      }, 3600);
+      return offlineAwareRemember(key, () => weatherAPI.fetchForecast(location.lat, location.lng), [...MOCK_FORECAST], 3600);
     }
-    return cache.remember('weather:forecast', async () => {
+    return offlineAwareRemember(key, async () => {
       await mockDelay(600);
       return [...MOCK_FORECAST];
-    }, 3600);
+    }, [...MOCK_FORECAST], 3600);
   },
 
   fetchHistoricalWeather: async () => {
-    // Historical data not available on OWM free tier — always mock
-    return cache.remember('weather:historical', async () => {
+    return offlineAwareRemember('weather:historical', async () => {
       await mockDelay(700);
       return {
         yesterday: { ...MOCK_HISTORICAL_YESTERDAY },
         week: [...MOCK_HISTORICAL_WEEK],
       };
-    }, 3600);
+    }, { yesterday: { ...MOCK_HISTORICAL_YESTERDAY }, week: [...MOCK_HISTORICAL_WEEK] }, 3600);
   },
 
   fetchWindHistory: async (location) => {
+    const key = location?.lat ? `weather:wind:${location.lat}:${location.lng}` : 'weather:wind';
     if (weatherAPI.isWeatherAPIEnabled() && location?.lat) {
-      return cache.remember(`weather:wind:${location.lat}:${location.lng}`, async () => {
-        return weatherAPI.fetchWindHistory(location.lat, location.lng);
-      }, 1800);
+      return offlineAwareRemember(key, () => weatherAPI.fetchWindHistory(location.lat, location.lng), [...MOCK_WIND_HISTORY], 1800);
     }
-    return cache.remember('weather:wind', async () => {
+    return offlineAwareRemember(key, async () => {
       await mockDelay(500);
       return [...MOCK_WIND_HISTORY];
-    }, 1800);
+    }, [...MOCK_WIND_HISTORY], 1800);
   },
 
   fetchHumidityHistory: async (location) => {
+    const key = location?.lat ? `weather:humidity:${location.lat}:${location.lng}` : 'weather:humidity';
     if (weatherAPI.isWeatherAPIEnabled() && location?.lat) {
-      return cache.remember(`weather:humidity:${location.lat}:${location.lng}`, async () => {
-        return weatherAPI.fetchHumidityHistory(location.lat, location.lng);
-      }, 1800);
+      return offlineAwareRemember(key, () => weatherAPI.fetchHumidityHistory(location.lat, location.lng), [...MOCK_HUMIDITY_HISTORY], 1800);
     }
-    return cache.remember('weather:humidity', async () => {
+    return offlineAwareRemember(key, async () => {
       await mockDelay(500);
       return [...MOCK_HUMIDITY_HISTORY];
-    }, 1800);
+    }, [...MOCK_HUMIDITY_HISTORY], 1800);
   },
 };
 
@@ -485,13 +566,16 @@ export const reportService = {
 export const deviceService = {
   fetchDevices: async () => {
     if (FIREBASE_ENABLED) {
-      return cache.remember('devices:all', () => getFirestore().getAll('devices'), 300);
+      return offlineAwareRemember('devices:all', () => getFirestore().getAll('devices'), [...MOCK_DEVICES], 300);
     }
     await mockDelay(600);
     return [...MOCK_DEVICES];
   },
 
   updateDevice: async (id, updates) => {
+    if (FIREBASE_ENABLED && shouldUseOffline()) {
+      throw new Error('Offline — cannot update device. Changes will sync when you reconnect.');
+    }
     if (FIREBASE_ENABLED) {
       const result = await getFirestore().update('devices', id, updates);
       await cache.del('devices:all');
@@ -525,8 +609,8 @@ export const farmService = {
   fetchFarmData: async () => {
     if (FIREBASE_ENABLED) {
       const [tasks, categories] = await Promise.all([
-        cache.remember('farm:tasks', () => getFirestore().getAll('farm_tasks'), 300),
-        cache.remember('farm:categories', async () => [...MOCK_FARM_CATEGORIES], 3600),
+        offlineAwareRemember('farm:tasks', () => getFirestore().getAll('farm_tasks'), [...MOCK_FARM_TASKS], 300),
+        offlineAwareRemember('farm:categories', async () => [...MOCK_FARM_CATEGORIES], [...MOCK_FARM_CATEGORIES], 3600),
       ]);
       return {
         tasks,
@@ -543,6 +627,9 @@ export const farmService = {
   },
 
   updateTask: async (id, updates) => {
+    if (FIREBASE_ENABLED && shouldUseOffline()) {
+      throw new Error('Offline — cannot update task. Changes will sync when you reconnect.');
+    }
     if (FIREBASE_ENABLED) {
       const result = await getFirestore().update('farm_tasks', id, updates);
       await cache.del('farm:tasks');
@@ -558,7 +645,7 @@ export const farmService = {
 export const fieldsService = {
   fetchFields: async () => {
     if (FIREBASE_ENABLED) {
-      const fields = await cache.remember('fields:all', () => getFirestore().getAll('fields'), 300);
+      const fields = await offlineAwareRemember('fields:all', () => getFirestore().getAll('fields'), [...MOCK_FIELDS], 300);
       return {
         fields,
         growthData: [...MOCK_FIELD_GROWTH_DATA],
@@ -572,6 +659,9 @@ export const fieldsService = {
   },
 
   updateField: async (id, updates) => {
+    if (FIREBASE_ENABLED && shouldUseOffline()) {
+      throw new Error('Offline — cannot update field. Changes will sync when you reconnect.');
+    }
     if (FIREBASE_ENABLED) {
       const result = await getFirestore().update('fields', id, updates);
       await cache.del('fields:all');
@@ -607,6 +697,11 @@ export const onboardingService = {
 
 export const diseaseDetectionService = {
   scanImage: async (imageUri) => {
+    // Offline check — disease detection requires network
+    if (shouldUseOffline()) {
+      throw new Error('Offline — scan unavailable. Please connect to the internet to use disease detection.');
+    }
+
     // Try real AI model (HuggingFace Space)
     if (HUGGINGFACE_SPACE_URL) {
       try {

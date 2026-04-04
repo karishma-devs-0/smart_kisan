@@ -50,7 +50,9 @@ const EditPumpScreen = ({ navigation, route }) => {
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [imageUri, setImageUri] = useState(pump.imageUri || null);
 
-  const handleSave = () => {
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
     if (!pumpName.trim()) {
       Alert.alert(t('editPump.validationError'), t('editPump.enterPumpName'));
       return;
@@ -63,10 +65,33 @@ const EditPumpScreen = ({ navigation, route }) => {
       type: pumpType,
       mode: pumpMode,
       imageUri,
+      ...(isNewPump && {
+        status: 'off',
+        lastRun: null,
+        nextRun: null,
+      }),
     };
 
-    dispatch(savePump(updatedPump));
-    navigation.goBack();
+    // Remove undefined id so the service layer knows this is a new pump
+    if (!updatedPump.id) {
+      delete updatedPump.id;
+    }
+
+    if (__DEV__) console.log('[Pump] Saving pump:', JSON.stringify(updatedPump, null, 2));
+    setSaving(true);
+    try {
+      const result = await dispatch(savePump(updatedPump)).unwrap();
+      if (__DEV__) console.log('[Pump] Save success:', JSON.stringify(result));
+      navigation.goBack();
+    } catch (error) {
+      if (__DEV__) console.log('[Pump] Save error:', error);
+      Alert.alert(
+        t('common.error') || 'Error',
+        error || t('editPump.saveFailed') || 'Failed to save pump. Please try again.',
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -266,12 +291,13 @@ const EditPumpScreen = ({ navigation, route }) => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.saveButton}
+            style={[styles.saveButton, saving && { opacity: 0.6 }]}
             onPress={handleSave}
             activeOpacity={0.8}
+            disabled={saving}
           >
             <MaterialCommunityIcons name="check" size={20} color={COLORS.white} />
-            <Text style={styles.saveButtonText}>{t('common.save')}</Text>
+            <Text style={styles.saveButtonText}>{saving ? (t('common.saving') || 'Saving...') : t('common.save')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -311,7 +337,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.lg,
-    paddingBottom: SPACING.xxxxl,
+    paddingBottom: 120,
   },
   imagePicker: {
     marginBottom: SPACING.xxl,

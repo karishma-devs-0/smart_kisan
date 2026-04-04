@@ -15,6 +15,7 @@ const getFeatureItems = (t) => [
   { icon: 'sprout', label: t('cropRecommend.title', 'Crop Suitability'), screen: 'CropRecommend', color: '#4CAF50' },
   { icon: 'leaf', label: t('diseaseDetection.title', 'Disease Detection'), screen: 'DiseaseDetection', color: '#F44336' },
   { icon: 'calculator', label: t('fertilizerCalc.title', 'Fertilizer Calculator'), screen: 'FertilizerCalculator', color: '#9C27B0' },
+  { icon: 'bank', label: t('schemes.title', 'Gov Schemes'), screen: 'GovernmentSchemes', color: '#1565C0' },
 ];
 
 const getMenuItems = (t) => [

@@ -839,6 +839,19 @@ export default {
     estimatedTotal: 'Estimated Total Cost',
   },
 
+  // Government Schemes
+  schemes: {
+    title: 'Government Schemes',
+    search: 'Search schemes...',
+    eligibility: 'Eligibility',
+    benefits: 'Benefits',
+    howToApply: 'How to Apply',
+    deadline: 'Deadline',
+    visitWebsite: 'Visit Website',
+    applyNow: 'Apply Now',
+    noResults: 'No schemes found',
+  },
+
   // Profile
   profile: {
     title: 'My Profile',

@@ -23,7 +23,7 @@ const HumidityDetailScreen = ({ navigation }) => {
         <Text style={styles.titleText}>{' ' + t('weather.title')}</Text>
       </View>
       <Text style={styles.subtitle}>{t('humidityDetail.humidity')}</Text>
-      <Text style={styles.location}>{(location?.name || 'Nagpur, Maharashtra') + ' · 38°C'}</Text>
+      <Text style={styles.location}>{(location?.name || 'Set your farm location') + ' · 38°C'}</Text>
       <View style={styles.bigValueCard}>
         <MaterialCommunityIcons name="water-percent" size={40} color={COLORS.info} />
         <Text style={styles.bigValue}>71%</Text>

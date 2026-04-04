@@ -28,6 +28,8 @@ import {
 import { FIREBASE_ENABLED } from '../../../services/firebase';
 import { onPumpStatus, sendPumpCommand } from '../../../services/mqtt';
 
+const EMPTY_SCHEDULES = [];
+
 // ─── Mode constants ─────────────────────────────────────────────────────────
 
 const MODE_COLORS = {
@@ -91,7 +93,8 @@ const PumpDetailScreen = ({ navigation, route }) => {
   };
 
   const activeTimers = useSelector((state) => state.pumps.activeTimers);
-  const schedules = useSelector((state) => state.pumps.schedules[pumpId] || []);
+  const schedulesRaw = useSelector((state) => state.pumps.schedules[pumpId]);
+  const schedules = schedulesRaw || EMPTY_SCHEDULES;
   const mode = pump.mode || 'manual';
 
   // Local state
@@ -824,7 +827,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
 
       {/* Emergency Stop */}
       <TouchableOpacity
-        style={[styles.emergencyButton, { marginBottom: insets.bottom + 8 }]}
+        style={[styles.emergencyButton, { bottom: insets.bottom + 80 }]}
         onPress={handleEmergencyStop}
         activeOpacity={0.8}
       >
@@ -884,7 +887,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.lg,
-    paddingBottom: 100,
+    paddingBottom: 160,
   },
 
   // Status row
@@ -1393,7 +1396,6 @@ const styles = StyleSheet.create({
   // ─── Emergency Stop ────────────────────────────────────────────────────
   emergencyButton: {
     position: 'absolute',
-    bottom: 0,
     left: SPACING.lg,
     right: SPACING.lg,
     flexDirection: 'row',

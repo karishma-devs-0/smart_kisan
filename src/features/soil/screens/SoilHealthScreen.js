@@ -69,9 +69,15 @@ const SoilHealthScreen = ({ navigation }) => {
     dispatch(fetchSoilData());
   }, [dispatch]);
 
+  // Check if we have any real data (not all zeros)
+  const hasData = current && (
+    current.moisture > 0 || current.pH > 0 || current.nitrogen > 0 ||
+    current.phosphorus > 0 || current.potassium > 0
+  );
+
   // Calculate individual scores
   const scores = useMemo(() => {
-    if (!current) return { ph: 0, nutrient: 0, moisture: 0, carbon: 0, overall: 0 };
+    if (!current || !hasData) return { ph: 0, nutrient: 0, moisture: 0, carbon: 0, overall: 0, noData: true };
 
     // pH score: ideal range 6.0-7.5
     let phScore = 0;
@@ -121,8 +127,9 @@ const SoilHealthScreen = ({ navigation }) => {
       moisture: moistureScore,
       carbon: carbonScore,
       overall,
+      noData: false,
     };
-  }, [current, soil.organicCarbon]);
+  }, [current, hasData, soil.organicCarbon]);
 
   // Generate recommendations
   const recommendations = useMemo(() => {
@@ -151,29 +158,41 @@ const SoilHealthScreen = ({ navigation }) => {
     >
       {/* Overall Score */}
       <View style={styles.overallContainer}>
-        <AnimatedCircularProgress
-          size={180}
-          width={14}
-          fill={scores.overall}
-          tintColor={overallColor}
-          backgroundColor={COLORS.border}
-          rotation={0}
-          lineCap="round"
-        >
-          {() => (
-            <View style={styles.scoreCenter}>
-              <Text style={[styles.overallScore, { color: overallColor }]}>{scores.overall}</Text>
-              <Text style={styles.overallLabel}>Health Score</Text>
-            </View>
-          )}
-        </AnimatedCircularProgress>
-        <Text style={styles.overallDescription}>
-          {scores.overall >= 75
-            ? 'Your soil is in excellent health!'
-            : scores.overall >= 50
-              ? 'Your soil health is moderate. See recommendations below.'
-              : 'Your soil needs attention. Follow the recommendations below.'}
-        </Text>
+        {scores.noData ? (
+          <View style={styles.scoreCenter}>
+            <MaterialCommunityIcons name="database-off-outline" size={64} color={COLORS.textTertiary} />
+            <Text style={[styles.overallLabel, { fontSize: FONT_SIZES.xl, marginTop: SPACING.md }]}>No Data Available</Text>
+            <Text style={styles.overallDescription}>
+              Add a soil reading to see your health score.
+            </Text>
+          </View>
+        ) : (
+          <>
+            <AnimatedCircularProgress
+              size={180}
+              width={14}
+              fill={scores.overall}
+              tintColor={overallColor}
+              backgroundColor={COLORS.border}
+              rotation={0}
+              lineCap="round"
+            >
+              {() => (
+                <View style={styles.scoreCenter}>
+                  <Text style={[styles.overallScore, { color: overallColor }]}>{scores.overall}</Text>
+                  <Text style={styles.overallLabel}>Health Score</Text>
+                </View>
+              )}
+            </AnimatedCircularProgress>
+            <Text style={styles.overallDescription}>
+              {scores.overall >= 75
+                ? 'Your soil is in excellent health!'
+                : scores.overall >= 50
+                  ? 'Your soil health is moderate. See recommendations below.'
+                  : 'Your soil needs attention. Follow the recommendations below.'}
+            </Text>
+          </>
+        )}
       </View>
 
       {/* Score Breakdown */}
