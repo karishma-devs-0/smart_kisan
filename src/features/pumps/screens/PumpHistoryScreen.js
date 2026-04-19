@@ -41,7 +41,11 @@ const getTriggerLabel = (triggeredBy, t) => {
     case 'timer': return t('pumps.history.timer', 'Timer');
     case 'group': return t('pumps.history.group', 'Group Control');
     case 'schedule': return t('pumps.history.schedule', 'Schedule');
-    default: return triggeredBy;
+    case 'emergency_stop': return t('pumps.history.emergencyStop', 'Emergency Stop');
+    case 'sensor': return t('pumps.history.sensor', 'Sensor');
+    case 'ai': return t('pumps.history.ai', 'AI');
+    case 'app': return 'App';
+    default: return triggeredBy || 'Unknown';
   }
 };
 

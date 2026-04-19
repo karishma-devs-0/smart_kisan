@@ -7,7 +7,7 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
-import { fetchCrops } from '../slice/cropsSlice';
+import { fetchCrops, deleteCrop } from '../slice/cropsSlice';
 import { useTranslation } from 'react-i18next';
 
 const statusColors = { growing: COLORS.success, ready: COLORS.warning, harvested: COLORS.info };
@@ -62,7 +62,23 @@ const MyCropsScreen = ({ navigation }) => {
       <FlatList
         data={crops}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <CropItem crop={item} onPress={(crop) => Alert.alert(crop.name, `Variety: ${crop.variety}\nSowing Date: ${crop.sowingDate}\nStatus: ${crop.status}`)} />}
+        renderItem={({ item }) => <CropItem crop={item} onPress={(crop) => Alert.alert(
+          crop.name,
+          `Variety: ${crop.variety}\nSowing Date: ${crop.sowingDate}\nStatus: ${crop.status}`,
+          [
+            { text: 'Close', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: () => {
+                Alert.alert('Delete Crop', `Remove ${crop.name}?`, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Delete', style: 'destructive', onPress: () => dispatch(deleteCrop(crop.id)) },
+                ]);
+              },
+            },
+          ],
+        )} />}
         numColumns={2}
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.listContent}

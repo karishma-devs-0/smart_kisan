@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -24,8 +25,8 @@ const getDetailModes = (t) => [
 
 const TIMER_PRESETS = [
   { label: '00:15:00', hours: 0, minutes: 15, seconds: 0 },
-  { label: '00:15:00', hours: 0, minutes: 15, seconds: 0 },
   { label: '00:30:00', hours: 0, minutes: 30, seconds: 0 },
+  { label: '01:00:00', hours: 1, minutes: 0, seconds: 0 },
 ];
 
 const PumpTimerScreen = ({ navigation, route }) => {
@@ -42,8 +43,25 @@ const PumpTimerScreen = ({ navigation, route }) => {
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(0);
   const [seconds, setSeconds] = useState(0);
+  const [editingField, setEditingField] = useState(null);
+  const [editValue, setEditValue] = useState('');
 
   const padTwo = (num) => String(num).padStart(2, '0');
+
+  const handleFieldPress = (field) => {
+    const current = field === 'hours' ? hours : field === 'minutes' ? minutes : seconds;
+    setEditingField(field);
+    setEditValue(String(current));
+  };
+
+  const handleFieldSubmit = () => {
+    const val = parseInt(editValue, 10) || 0;
+    if (editingField === 'hours') setHours(Math.min(99, Math.max(0, val)));
+    else if (editingField === 'minutes') setMinutes(Math.min(59, Math.max(0, val)));
+    else if (editingField === 'seconds') setSeconds(Math.min(59, Math.max(0, val)));
+    setEditingField(null);
+    setEditValue('');
+  };
 
   const incrementHours = () => setHours((prev) => (prev < 99 ? prev + 1 : 0));
   const decrementHours = () => setHours((prev) => (prev > 0 ? prev - 1 : 99));
@@ -150,28 +168,32 @@ const PumpTimerScreen = ({ navigation, route }) => {
           {/* Hours Column */}
           <View style={styles.timeColumn}>
             <Text style={styles.timeColumnLabel}>{t('pumpTimer.hours')}</Text>
-            <TouchableOpacity
-              style={styles.chevronButton}
-              onPress={incrementHours}
-            >
-              <MaterialCommunityIcons
-                name="chevron-up"
-                size={32}
-                color={COLORS.textPrimary}
-              />
+            <TouchableOpacity style={styles.chevronButton} onPress={incrementHours}>
+              <MaterialCommunityIcons name="chevron-up" size={32} color={COLORS.primary} />
             </TouchableOpacity>
-            <View style={styles.timeValueContainer}>
-              <Text style={styles.timeValueText}>{padTwo(hours)}</Text>
-            </View>
             <TouchableOpacity
-              style={styles.chevronButton}
-              onPress={decrementHours}
+              style={[styles.timeValueContainer, editingField === 'hours' && styles.timeValueEditing]}
+              onPress={() => handleFieldPress('hours')}
+              activeOpacity={0.7}
             >
-              <MaterialCommunityIcons
-                name="chevron-down"
-                size={32}
-                color={COLORS.textPrimary}
-              />
+              {editingField === 'hours' ? (
+                <TextInput
+                  style={styles.timeValueInput}
+                  value={editValue}
+                  onChangeText={setEditValue}
+                  onBlur={handleFieldSubmit}
+                  onSubmitEditing={handleFieldSubmit}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  autoFocus
+                  selectTextOnFocus
+                />
+              ) : (
+                <Text style={styles.timeValueText}>{padTwo(hours)}</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.chevronButton} onPress={decrementHours}>
+              <MaterialCommunityIcons name="chevron-down" size={32} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
 
@@ -180,28 +202,32 @@ const PumpTimerScreen = ({ navigation, route }) => {
           {/* Minutes Column */}
           <View style={styles.timeColumn}>
             <Text style={styles.timeColumnLabel}>{t('pumpTimer.minutes')}</Text>
-            <TouchableOpacity
-              style={styles.chevronButton}
-              onPress={incrementMinutes}
-            >
-              <MaterialCommunityIcons
-                name="chevron-up"
-                size={32}
-                color={COLORS.textPrimary}
-              />
+            <TouchableOpacity style={styles.chevronButton} onPress={incrementMinutes}>
+              <MaterialCommunityIcons name="chevron-up" size={32} color={COLORS.primary} />
             </TouchableOpacity>
-            <View style={styles.timeValueContainer}>
-              <Text style={styles.timeValueText}>{padTwo(minutes)}</Text>
-            </View>
             <TouchableOpacity
-              style={styles.chevronButton}
-              onPress={decrementMinutes}
+              style={[styles.timeValueContainer, editingField === 'minutes' && styles.timeValueEditing]}
+              onPress={() => handleFieldPress('minutes')}
+              activeOpacity={0.7}
             >
-              <MaterialCommunityIcons
-                name="chevron-down"
-                size={32}
-                color={COLORS.textPrimary}
-              />
+              {editingField === 'minutes' ? (
+                <TextInput
+                  style={styles.timeValueInput}
+                  value={editValue}
+                  onChangeText={setEditValue}
+                  onBlur={handleFieldSubmit}
+                  onSubmitEditing={handleFieldSubmit}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  autoFocus
+                  selectTextOnFocus
+                />
+              ) : (
+                <Text style={styles.timeValueText}>{padTwo(minutes)}</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.chevronButton} onPress={decrementMinutes}>
+              <MaterialCommunityIcons name="chevron-down" size={32} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
 
@@ -210,28 +236,32 @@ const PumpTimerScreen = ({ navigation, route }) => {
           {/* Seconds Column */}
           <View style={styles.timeColumn}>
             <Text style={styles.timeColumnLabel}>{t('pumpTimer.seconds')}</Text>
-            <TouchableOpacity
-              style={styles.chevronButton}
-              onPress={incrementSeconds}
-            >
-              <MaterialCommunityIcons
-                name="chevron-up"
-                size={32}
-                color={COLORS.textPrimary}
-              />
+            <TouchableOpacity style={styles.chevronButton} onPress={incrementSeconds}>
+              <MaterialCommunityIcons name="chevron-up" size={32} color={COLORS.primary} />
             </TouchableOpacity>
-            <View style={styles.timeValueContainer}>
-              <Text style={styles.timeValueText}>{padTwo(seconds)}</Text>
-            </View>
             <TouchableOpacity
-              style={styles.chevronButton}
-              onPress={decrementSeconds}
+              style={[styles.timeValueContainer, editingField === 'seconds' && styles.timeValueEditing]}
+              onPress={() => handleFieldPress('seconds')}
+              activeOpacity={0.7}
             >
-              <MaterialCommunityIcons
-                name="chevron-down"
-                size={32}
-                color={COLORS.textPrimary}
-              />
+              {editingField === 'seconds' ? (
+                <TextInput
+                  style={styles.timeValueInput}
+                  value={editValue}
+                  onChangeText={setEditValue}
+                  onBlur={handleFieldSubmit}
+                  onSubmitEditing={handleFieldSubmit}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  autoFocus
+                  selectTextOnFocus
+                />
+              ) : (
+                <Text style={styles.timeValueText}>{padTwo(seconds)}</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.chevronButton} onPress={decrementSeconds}>
+              <MaterialCommunityIcons name="chevron-down" size={32} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -405,6 +435,18 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.xxxl,
     fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.textPrimary,
+  },
+  timeValueEditing: {
+    borderColor: COLORS.primary,
+    borderWidth: 2,
+  },
+  timeValueInput: {
+    fontSize: FONT_SIZES.xxxl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.primary,
+    textAlign: 'center',
+    width: '100%',
+    padding: 0,
   },
   timeSeparator: {
     fontSize: FONT_SIZES.xxxl,

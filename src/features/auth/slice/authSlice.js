@@ -1,5 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { authService } from '../../../services/api';
+import { persistSession, clearSession } from '../../../services/secureAuth';
+import cache from '../../../services/cache';
 
 // ─── Async Thunks ────────────────────────────────────────────────────────────
 
@@ -8,6 +10,7 @@ export const loginWithEmail = createAsyncThunk(
   async ({ email, password }, { rejectWithValue }) => {
     try {
       const response = await authService.loginWithEmail(email, password);
+      await persistSession(response.user, response.token);
       return response;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -20,6 +23,7 @@ export const loginWithPhone = createAsyncThunk(
   async ({ phone, otp }, { rejectWithValue }) => {
     try {
       const response = await authService.loginWithPhone(phone, otp);
+      await persistSession(response.user, response.token);
       return response;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -32,6 +36,7 @@ export const loginWithUsername = createAsyncThunk(
   async ({ username, password }, { rejectWithValue }) => {
     try {
       const response = await authService.loginWithUsername(username, password);
+      await persistSession(response.user, response.token);
       return response;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -44,6 +49,7 @@ export const register = createAsyncThunk(
   async (userData, { rejectWithValue }) => {
     try {
       const response = await authService.register(userData);
+      await persistSession(response.user, response.token);
       return response;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -55,7 +61,9 @@ export const loginWithGoogle = createAsyncThunk(
   'auth/loginWithGoogle',
   async (idToken, { rejectWithValue }) => {
     try {
-      return await authService.loginWithGoogle(idToken);
+      const response = await authService.loginWithGoogle(idToken);
+      await persistSession(response.user, response.token);
+      return response;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -64,9 +72,8 @@ export const loginWithGoogle = createAsyncThunk(
 
 export const updateProfile = createAsyncThunk(
   'auth/updateProfile',
-  async (profileData, { getState, rejectWithValue }) => {
+  async (profileData, { rejectWithValue }) => {
     try {
-      // If Firebase is available, persist to Firestore
       const { FIREBASE_ENABLED } = require('../../../config/firebase.config');
       if (FIREBASE_ENABLED) {
         const { firestoreService } = require('../../../services/firestore');
@@ -84,6 +91,10 @@ export const logout = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       await authService.logout();
+      await Promise.all([
+        clearSession(),
+        cache.flush(),
+      ]);
       return null;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -100,6 +111,24 @@ const initialState = {
   loading: false,
   error: null,
   loginMethod: 'email',
+  sessionRestored: false, // true once we've checked for existing session
+};
+
+const handleLoginPending = (state) => {
+  state.loading = true;
+  state.error = null;
+};
+
+const handleLoginFulfilled = (state, action) => {
+  state.loading = false;
+  state.isAuthenticated = true;
+  state.user = action.payload.user;
+  state.token = action.payload.token;
+};
+
+const handleLoginRejected = (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
 };
 
 const authSlice = createSlice({
@@ -116,96 +145,43 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
       state.user = action.payload.user;
       state.token = action.payload.token;
+      state.sessionRestored = true;
       state.loading = false;
     },
+    sessionCheckComplete: (state) => {
+      state.sessionRestored = true;
+    },
+    resetAuthState: () => ({
+      ...initialState,
+      sessionRestored: true,
+    }),
   },
   extraReducers: (builder) => {
-    // loginWithEmail
     builder
-      .addCase(loginWithEmail.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(loginWithEmail.fulfilled, (state, action) => {
-        state.loading = false;
-        state.isAuthenticated = true;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-      })
-      .addCase(loginWithEmail.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
+      .addCase(loginWithEmail.pending, handleLoginPending)
+      .addCase(loginWithEmail.fulfilled, handleLoginFulfilled)
+      .addCase(loginWithEmail.rejected, handleLoginRejected);
 
-    // loginWithPhone
     builder
-      .addCase(loginWithPhone.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(loginWithPhone.fulfilled, (state, action) => {
-        state.loading = false;
-        state.isAuthenticated = true;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-      })
-      .addCase(loginWithPhone.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
+      .addCase(loginWithPhone.pending, handleLoginPending)
+      .addCase(loginWithPhone.fulfilled, handleLoginFulfilled)
+      .addCase(loginWithPhone.rejected, handleLoginRejected);
 
-    // loginWithUsername
     builder
-      .addCase(loginWithUsername.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(loginWithUsername.fulfilled, (state, action) => {
-        state.loading = false;
-        state.isAuthenticated = true;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-      })
-      .addCase(loginWithUsername.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
+      .addCase(loginWithUsername.pending, handleLoginPending)
+      .addCase(loginWithUsername.fulfilled, handleLoginFulfilled)
+      .addCase(loginWithUsername.rejected, handleLoginRejected);
 
-    // loginWithGoogle
     builder
-      .addCase(loginWithGoogle.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(loginWithGoogle.fulfilled, (state, action) => {
-        state.loading = false;
-        state.isAuthenticated = true;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-      })
-      .addCase(loginWithGoogle.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
+      .addCase(loginWithGoogle.pending, handleLoginPending)
+      .addCase(loginWithGoogle.fulfilled, handleLoginFulfilled)
+      .addCase(loginWithGoogle.rejected, handleLoginRejected);
 
-    // register
     builder
-      .addCase(register.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(register.fulfilled, (state, action) => {
-        state.loading = false;
-        state.isAuthenticated = true;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-      })
-      .addCase(register.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
+      .addCase(register.pending, handleLoginPending)
+      .addCase(register.fulfilled, handleLoginFulfilled)
+      .addCase(register.rejected, handleLoginRejected);
 
-    // updateProfile
     builder
       .addCase(updateProfile.pending, (state) => {
         state.loading = true;
@@ -220,7 +196,6 @@ const authSlice = createSlice({
         state.error = action.payload;
       });
 
-    // logout
     builder
       .addCase(logout.pending, (state) => {
         state.loading = true;
@@ -239,5 +214,12 @@ const authSlice = createSlice({
   },
 });
 
-export const { setLoginMethod, clearError, restoreSession } = authSlice.actions;
+export const {
+  setLoginMethod,
+  clearError,
+  restoreSession,
+  sessionCheckComplete,
+  resetAuthState,
+} = authSlice.actions;
+
 export default authSlice.reducer;

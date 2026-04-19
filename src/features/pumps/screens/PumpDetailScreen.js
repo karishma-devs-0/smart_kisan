@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
+import TimePickerModal from '../../../components/common/TimePickerModal';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
@@ -24,9 +25,12 @@ import {
   createSchedule,
   deleteSchedule,
   updatePumpStatusFromMQTT,
+  saveSensorConfig,
+  saveAutoSchedule,
+  fetchSchedules,
 } from '../slice/pumpsSlice';
 import { FIREBASE_ENABLED } from '../../../services/firebase';
-import { onPumpStatus, sendPumpCommand } from '../../../services/mqtt';
+import { onPumpStatus, sendPumpCommand, publish, getTopics } from '../../../services/mqtt';
 
 const EMPTY_SCHEDULES = [];
 
@@ -99,17 +103,77 @@ const PumpDetailScreen = ({ navigation, route }) => {
 
   // Local state
   const [modeModalVisible, setModeModalVisible] = useState(false);
-  const [soilMoistureEnabled, setSoilMoistureEnabled] = useState(false);
-  const [waterLevelEnabled, setWaterLevelEnabled] = useState(false);
+  const sensorCfg = pump.sensorConfig || {};
+  const [soilMoistureEnabled, setSoilMoistureEnabled] = useState(sensorCfg.soilMoistureEnabled || false);
+  const [waterLevelEnabled, setWaterLevelEnabled] = useState(sensorCfg.waterLevelEnabled || false);
+  const [moistureLow, setMoistureLow] = useState(sensorCfg.moistureLow || 30);
+  const [moistureHigh, setMoistureHigh] = useState(sensorCfg.moistureHigh || 60);
+  const [waterLevelMin, setWaterLevelMin] = useState(sensorCfg.waterLevelMin || 20);
+  const autoCfg = pump.autoSchedule || {};
   const [scheduleStart, setScheduleStart] = useState('06:00');
   const [scheduleStop, setScheduleStop] = useState('08:00');
   const [scheduleDays, setScheduleDays] = useState([1, 2, 3, 4, 5]);
-  const [autoStart, setAutoStart] = useState('06:00');
-  const [autoStop, setAutoStop] = useState('07:00');
-  const [autoEnabled, setAutoEnabled] = useState(true);
+  const [autoStart, setAutoStart] = useState(autoCfg.startTime || '06:00');
+  const [autoStop, setAutoStop] = useState(autoCfg.stopTime || '07:00');
+  const [autoEnabled, setAutoEnabled] = useState(autoCfg.enabled !== false);
   const [customHours, setCustomHours] = useState('00');
   const [customMinutes, setCustomMinutes] = useState('30');
   const [customSeconds, setCustomSeconds] = useState('00');
+
+  // Time picker modal state
+  const [timePickerVisible, setTimePickerVisible] = useState(false);
+  const [timePickerTarget, setTimePickerTarget] = useState(null); // 'timer' | 'scheduleStart' | 'scheduleStop' | 'autoStart' | 'autoStop'
+
+  const openTimePicker = (target) => {
+    setTimePickerTarget(target);
+    setTimePickerVisible(true);
+  };
+
+  const getTimePickerProps = () => {
+    switch (timePickerTarget) {
+      case 'timer':
+        return { title: 'Set Timer', showSeconds: true, maxHours: 99, initialHours: parseInt(customHours, 10), initialMinutes: parseInt(customMinutes, 10), initialSeconds: parseInt(customSeconds, 10) };
+      case 'scheduleStart':
+        return { title: 'Start Time', initialHours: parseInt(scheduleStart.split(':')[0], 10), initialMinutes: parseInt(scheduleStart.split(':')[1], 10) };
+      case 'scheduleStop':
+        return { title: 'Stop Time', initialHours: parseInt(scheduleStop.split(':')[0], 10), initialMinutes: parseInt(scheduleStop.split(':')[1], 10) };
+      case 'autoStart':
+        return { title: 'Start Time', initialHours: parseInt(autoStart.split(':')[0], 10), initialMinutes: parseInt(autoStart.split(':')[1], 10) };
+      case 'autoStop':
+        return { title: 'Stop Time', initialHours: parseInt(autoStop.split(':')[0], 10), initialMinutes: parseInt(autoStop.split(':')[1], 10) };
+      default:
+        return {};
+    }
+  };
+
+  const handleTimePickerConfirm = ({ hours: h, minutes: m, seconds: s }) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    switch (timePickerTarget) {
+      case 'timer':
+        setCustomHours(pad(h));
+        setCustomMinutes(pad(m));
+        setCustomSeconds(pad(s));
+        break;
+      case 'scheduleStart':
+        setScheduleStart(`${pad(h)}:${pad(m)}`);
+        break;
+      case 'scheduleStop':
+        setScheduleStop(`${pad(h)}:${pad(m)}`);
+        break;
+      case 'autoStart': {
+        const val = `${pad(h)}:${pad(m)}`;
+        setAutoStart(val);
+        handleAutoScheduleSave({ startTime: val });
+        break;
+      }
+      case 'autoStop': {
+        const val = `${pad(h)}:${pad(m)}`;
+        setAutoStop(val);
+        handleAutoScheduleSave({ stopTime: val });
+        break;
+      }
+    }
+  };
 
   // ─── MQTT subscription ──────────────────────────────────────────────────
 
@@ -122,6 +186,13 @@ const PumpDetailScreen = ({ navigation, route }) => {
     });
     return unsub;
   }, [pumpId, dispatch]);
+
+  // Fetch schedules when viewing schedule mode
+  useEffect(() => {
+    if (mode === 'schedule') {
+      dispatch(fetchSchedules(pumpId));
+    }
+  }, [mode, pumpId, dispatch]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────
 
@@ -254,7 +325,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
               onPress={() =>
                 navigation.navigate('TimerCountdown', {
                   pumpId,
-                  duration: preset.seconds,
+                  totalSeconds: preset.seconds,
                 })
               }
             >
@@ -264,7 +335,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
         </View>
 
         <Text style={styles.sectionTitle}>Custom Timer</Text>
-        <View style={styles.customTimerRow}>
+        <TouchableOpacity style={styles.customTimerRow} onPress={() => openTimePicker('timer')} activeOpacity={0.7}>
           <View style={styles.customTimerBlock}>
             <Text style={styles.customTimerLabel}>HH</Text>
             <View style={styles.customTimerInput}>
@@ -285,7 +356,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
               <Text style={styles.customTimerValue}>{customSeconds}</Text>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: MODE_COLORS.timer }]}
@@ -295,7 +366,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
               parseInt(customMinutes, 10) * 60 +
               parseInt(customSeconds, 10);
             if (totalSec > 0) {
-              navigation.navigate('TimerCountdown', { pumpId, duration: totalSec });
+              navigation.navigate('TimerCountdown', { pumpId, totalSeconds: totalSec });
             }
           }}
         >
@@ -320,7 +391,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
         <View style={styles.scheduleTimeRow}>
           <View style={styles.scheduleTimeBlock}>
             <Text style={styles.scheduleLabel}>Start</Text>
-            <TouchableOpacity style={styles.scheduleTimeBtn}>
+            <TouchableOpacity style={styles.scheduleTimeBtn} onPress={() => openTimePicker('scheduleStart')}>
               <MaterialCommunityIcons name="clock-outline" size={16} color={COLORS.primaryLight} />
               <Text style={styles.scheduleTimeText}>{scheduleStart}</Text>
             </TouchableOpacity>
@@ -328,7 +399,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
           <MaterialCommunityIcons name="arrow-right" size={20} color={COLORS.textSecondary} />
           <View style={styles.scheduleTimeBlock}>
             <Text style={styles.scheduleLabel}>Stop</Text>
-            <TouchableOpacity style={styles.scheduleTimeBtn}>
+            <TouchableOpacity style={styles.scheduleTimeBtn} onPress={() => openTimePicker('scheduleStop')}>
               <MaterialCommunityIcons name="clock-outline" size={16} color={COLORS.danger} />
               <Text style={styles.scheduleTimeText}>{scheduleStop}</Text>
             </TouchableOpacity>
@@ -436,6 +507,26 @@ const PumpDetailScreen = ({ navigation, route }) => {
     </View>
   );
 
+  const handleSensorConfigSave = (overrides = {}) => {
+    const config = {
+      soilMoistureEnabled,
+      waterLevelEnabled,
+      moistureLow,
+      moistureHigh,
+      waterLevelMin,
+      ...overrides,
+    };
+    dispatch(saveSensorConfig({ pumpId, sensorConfig: config }));
+    // Publish sensor config to device via MQTT
+    publish(getTopics().pumpCommand(pumpId), {
+      action: 'sensor_config',
+      pumpId,
+      sensorConfig: config,
+      timestamp: new Date().toISOString(),
+      source: 'app',
+    });
+  };
+
   const renderSensorMode = () => (
     <View style={styles.modeContent}>
       <Text style={styles.sectionTitle}>Sensor Readings</Text>
@@ -452,7 +543,10 @@ const PumpDetailScreen = ({ navigation, route }) => {
           </View>
           <Switch
             value={soilMoistureEnabled}
-            onValueChange={setSoilMoistureEnabled}
+            onValueChange={(val) => {
+              setSoilMoistureEnabled(val);
+              handleSensorConfigSave({ soilMoistureEnabled: val });
+            }}
             trackColor={{ false: COLORS.background, true: COLORS.primaryLight }}
             thumbColor={COLORS.white}
           />
@@ -460,7 +554,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
         {soilMoistureEnabled && (
           <View style={styles.thresholdInfo}>
             <Text style={styles.thresholdText}>
-              Turn ON below 30% \u2022 Turn OFF above 60%
+              Turn ON below {moistureLow}% \u2022 Turn OFF above {moistureHigh}%
             </Text>
             <TouchableOpacity
               style={styles.thresholdButton}
@@ -485,7 +579,10 @@ const PumpDetailScreen = ({ navigation, route }) => {
           </View>
           <Switch
             value={waterLevelEnabled}
-            onValueChange={setWaterLevelEnabled}
+            onValueChange={(val) => {
+              setWaterLevelEnabled(val);
+              handleSensorConfigSave({ waterLevelEnabled: val });
+            }}
             trackColor={{ false: COLORS.background, true: COLORS.primaryLight }}
             thumbColor={COLORS.white}
           />
@@ -493,7 +590,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
         {waterLevelEnabled && (
           <View style={styles.thresholdInfo}>
             <Text style={styles.thresholdText}>
-              Stop pump when water level below 20%
+              Stop pump when water level below {waterLevelMin}%
             </Text>
           </View>
         )}
@@ -581,6 +678,24 @@ const PumpDetailScreen = ({ navigation, route }) => {
     </View>
   );
 
+  const handleAutoScheduleSave = (overrides = {}) => {
+    const schedule = {
+      enabled: autoEnabled,
+      startTime: autoStart,
+      stopTime: autoStop,
+      ...overrides,
+    };
+    dispatch(saveAutoSchedule({ pumpId, autoSchedule: schedule }));
+    // Publish auto-schedule config to device via MQTT
+    publish(getTopics().pumpCommand(pumpId), {
+      action: 'auto_schedule',
+      pumpId,
+      autoSchedule: schedule,
+      timestamp: new Date().toISOString(),
+      source: 'app',
+    });
+  };
+
   const renderAutomaticMode = () => (
     <View style={styles.modeContent}>
       <View style={styles.autoCard}>
@@ -588,7 +703,10 @@ const PumpDetailScreen = ({ navigation, route }) => {
           <Text style={styles.sectionTitle}>Daily Schedule</Text>
           <Switch
             value={autoEnabled}
-            onValueChange={setAutoEnabled}
+            onValueChange={(val) => {
+              setAutoEnabled(val);
+              handleAutoScheduleSave({ enabled: val });
+            }}
             trackColor={{ false: COLORS.background, true: MODE_COLORS.automatic }}
             thumbColor={COLORS.white}
           />
@@ -597,7 +715,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
         <View style={[styles.scheduleTimeRow, { opacity: autoEnabled ? 1 : 0.5 }]}>
           <View style={styles.scheduleTimeBlock}>
             <Text style={styles.scheduleLabel}>Start</Text>
-            <TouchableOpacity style={styles.scheduleTimeBtn} disabled={!autoEnabled}>
+            <TouchableOpacity style={styles.scheduleTimeBtn} onPress={() => autoEnabled && openTimePicker('autoStart')} disabled={!autoEnabled}>
               <MaterialCommunityIcons name="clock-outline" size={16} color={MODE_COLORS.automatic} />
               <Text style={styles.scheduleTimeText}>{autoStart}</Text>
             </TouchableOpacity>
@@ -605,7 +723,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
           <MaterialCommunityIcons name="arrow-right" size={20} color={COLORS.textSecondary} />
           <View style={styles.scheduleTimeBlock}>
             <Text style={styles.scheduleLabel}>Stop</Text>
-            <TouchableOpacity style={styles.scheduleTimeBtn} disabled={!autoEnabled}>
+            <TouchableOpacity style={styles.scheduleTimeBtn} onPress={() => autoEnabled && openTimePicker('autoStop')} disabled={!autoEnabled}>
               <MaterialCommunityIcons name="clock-outline" size={16} color={COLORS.danger} />
               <Text style={styles.scheduleTimeText}>{autoStop}</Text>
             </TouchableOpacity>
@@ -747,6 +865,12 @@ const PumpDetailScreen = ({ navigation, route }) => {
         </Text>
         <TouchableOpacity
           style={styles.headerBtn}
+          onPress={() => navigation.navigate('PumpHistory', { pumpId })}
+        >
+          <MaterialCommunityIcons name="history" size={18} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.headerBtn}
           onPress={() => navigation.navigate('EditPump', { pumpId })}
         >
           <MaterialCommunityIcons name="pencil" size={18} color={COLORS.textSecondary} />
@@ -837,6 +961,14 @@ const PumpDetailScreen = ({ navigation, route }) => {
 
       {/* Mode change modal */}
       {renderModeModal()}
+
+      {/* Time Picker Modal */}
+      <TimePickerModal
+        visible={timePickerVisible}
+        onClose={() => setTimePickerVisible(false)}
+        onConfirm={handleTimePickerConfirm}
+        {...getTimePickerProps()}
+      />
     </View>
   );
 };

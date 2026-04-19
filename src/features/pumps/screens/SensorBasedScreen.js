@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
-import { stopAllPumps } from '../slice/pumpsSlice';
+import { stopAllPumps, stopAllPumpsAsync } from '../slice/pumpsSlice';
+import { FIREBASE_ENABLED } from '../../../services/firebase';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
@@ -16,8 +17,9 @@ const SensorBasedScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
   const { pumpId } = route.params || {};
   const pump = useSelector((s) => s.pumps.pumps.find((p) => p.id === pumpId)) || { name: 'Pump 1' };
-  const [moistureEnabled, setMoistureEnabled] = useState(true);
-  const [waterLevelEnabled, setWaterLevelEnabled] = useState(false);
+  const sensorCfg = pump.sensorConfig || {};
+  const [moistureEnabled, setMoistureEnabled] = useState(sensorCfg.soilMoistureEnabled || false);
+  const [waterLevelEnabled, setWaterLevelEnabled] = useState(sensorCfg.waterLevelEnabled || false);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -45,8 +47,8 @@ const SensorBasedScreen = ({ navigation, route }) => {
             <View style={styles.thresholdContainer}>
               <View style={styles.thresholdBar}>
                 <View style={styles.thresholdFill} />
-                <View style={[styles.thresholdMarker, { left: '30%' }]}><Text style={styles.markerText}>30%</Text></View>
-                <View style={[styles.thresholdMarker, { left: '60%' }]}><Text style={styles.markerText}>60%</Text></View>
+                <View style={[styles.thresholdMarker, { left: `${sensorCfg.moistureLow || 30}%` }]}><Text style={styles.markerText}>{sensorCfg.moistureLow || 30}%</Text></View>
+                <View style={[styles.thresholdMarker, { left: `${sensorCfg.moistureHigh || 60}%` }]}><Text style={styles.markerText}>{sensorCfg.moistureHigh || 60}%</Text></View>
               </View>
               <View style={styles.thresholdLabels}>
                 <Text style={styles.thresholdLabel}>{t('sensorBased.start')}</Text>
@@ -82,9 +84,9 @@ const SensorBasedScreen = ({ navigation, route }) => {
         </View>
       </ScrollView>
       <TouchableOpacity style={[styles.emergencyBtn, { marginBottom: insets.bottom + 8 }]} onPress={() => {
-        Alert.alert('Emergency Stop', 'Are you sure you want to stop all pumps?', [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Stop All', style: 'destructive', onPress: () => dispatch(stopAllPumps()) },
+        Alert.alert(t('pumps.detail.emergencyStop'), t('pumps.detail.emergencyStopConfirm', { defaultValue: 'Are you sure you want to stop all pumps?' }), [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('pumps.detail.stopAll', { defaultValue: 'Stop All' }), style: 'destructive', onPress: () => FIREBASE_ENABLED ? dispatch(stopAllPumpsAsync()) : dispatch(stopAllPumps()) },
         ]);
       }}>
         <MaterialCommunityIcons name="stop-circle" size={20} color={COLORS.white} />

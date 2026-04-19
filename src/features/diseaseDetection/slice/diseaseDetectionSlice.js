@@ -7,7 +7,10 @@ export const scanImage = createAsyncThunk(
   'diseaseDetection/scanImage',
   async (imageUri, { rejectWithValue }) => {
     try {
-      return await diseaseDetectionService.scanImage(imageUri);
+      const result = await diseaseDetectionService.scanImage(imageUri);
+      // Persist scan result to Firestore (best-effort)
+      diseaseDetectionService.saveScanResult(result).catch(() => {});
+      return result;
     } catch (error) {
       return rejectWithValue(error.message);
     }

@@ -17,6 +17,9 @@ import ScreenLayout from '../../../components/common/ScreenLayout';
 import FarmMapWidget from '../../../components/farm/FarmMapWidget';
 import { fetchFields } from '../../fields/slice/fieldsSlice';
 import { fetchDevices } from '../../devices/slice/devicesSlice';
+import { fetchPumps } from '../../pumps/slice/pumpsSlice';
+import { fetchSoilData } from '../../soil/slice/soilSlice';
+import { fetchCurrentWeather } from '../../weather/slice/weatherSlice';
 
 const QuickStatCard = ({ icon, label, value, color, onPress }) => (
   <TouchableOpacity style={styles.statCard} onPress={onPress}>
@@ -65,14 +68,22 @@ const HomeScreen = ({ navigation }) => {
   const soilMoisture = soilCurrent?.moisture;
   const temperature = weatherCurrent?.temp ?? soilCurrent?.temperature;
 
-  useEffect(() => {
+  const loadAllData = () => {
     dispatch(fetchFields());
     dispatch(fetchDevices());
+    dispatch(fetchPumps());
+    dispatch(fetchSoilData());
+    dispatch(fetchCurrentWeather());
+  };
+
+  useEffect(() => {
+    loadAllData();
   }, [dispatch]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
+    loadAllData();
+    setTimeout(() => setRefreshing(false), 1500);
   };
 
   const getGreeting = () => {

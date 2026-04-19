@@ -43,7 +43,8 @@
           "cameraPermission": "SmartKisan needs camera access to scan plant leaves for disease detection.",
           "photosPermission": "SmartKisan needs photo library access to upload plant leaf images."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

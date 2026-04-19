@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,12 +7,25 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS } from '../../../constants/layout';
 import { useTranslation } from 'react-i18next';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchHumidityHistory } from '../slice/weatherSlice';
 
 const HumidityDetailScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const dispatch = useDispatch();
   const location = useSelector((s) => s.settings.location);
+  const current = useSelector((s) => s.weather.current);
+  const humidityHistory = useSelector((s) => s.weather.humidityHistory);
+
+  useEffect(() => {
+    dispatch(fetchHumidityHistory());
+  }, [dispatch]);
+
+  const humidity = current?.humidity ?? 71;
+  const temp = current?.temp ?? current?.temperature ?? 38;
+  const windSpeed = current?.wind_speed ?? current?.windSpeed ?? 13;
+  const windDir = current?.wind_direction ?? current?.windDir ?? 'E';
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
@@ -23,25 +36,25 @@ const HumidityDetailScreen = ({ navigation }) => {
         <Text style={styles.titleText}>{' ' + t('weather.title')}</Text>
       </View>
       <Text style={styles.subtitle}>{t('humidityDetail.humidity')}</Text>
-      <Text style={styles.location}>{(location?.name || 'Set your farm location') + ' · 38°C'}</Text>
+      <Text style={styles.location}>{(location?.name || 'Set your farm location') + ` · ${temp}°C`}</Text>
       <View style={styles.bigValueCard}>
         <MaterialCommunityIcons name="water-percent" size={40} color={COLORS.info} />
-        <Text style={styles.bigValue}>71%</Text>
+        <Text style={styles.bigValue}>{humidity}%</Text>
         <Text style={styles.bigLabel}>{t('humidityDetail.currentHumidity')}</Text>
       </View>
       <View style={styles.chartCard}>
         <Text style={styles.chartTitle}>{t('humidityDetail.humidityOverTime')}</Text>
         <View style={styles.chartArea}>
-          {[65, 68, 70, 72, 71, 73, 70, 68, 65, 67, 71, 69].map((v, i) => (
+          {(humidityHistory.length > 0 ? humidityHistory.slice(0, 12).map((h) => h.humidity || h.value || 70) : [65, 68, 70, 72, 71, 73, 70, 68, 65, 67, 71, 69]).map((v, i) => (
             <View key={i} style={[styles.chartBar, { height: `${v}%` }]} />
           ))}
         </View>
       </View>
       <View style={styles.statsGrid}>
-        <View style={styles.statRow}><MaterialCommunityIcons name="compass" size={20} color={COLORS.textSecondary} /><Text style={styles.statLabel}>{t('humidityDetail.windDirection')}</Text><Text style={styles.statValue}>{t('humidityDetail.east')}</Text></View>
-        <View style={styles.statRow}><MaterialCommunityIcons name="water-percent" size={20} color={COLORS.info} /><Text style={styles.statLabel}>{t('weather.humidity')}</Text><Text style={styles.statValue}>71%</Text></View>
-        <View style={styles.statRow}><MaterialCommunityIcons name="thermometer" size={20} color={COLORS.warning} /><Text style={styles.statLabel}>{t('home.temperature')}</Text><Text style={styles.statValue}>38°C</Text></View>
-        <View style={styles.statRow}><MaterialCommunityIcons name="weather-windy" size={20} color={COLORS.textSecondary} /><Text style={styles.statLabel}>{t('weather.windSpeed')}</Text><Text style={styles.statValue}>13km/h</Text></View>
+        <View style={styles.statRow}><MaterialCommunityIcons name="compass" size={20} color={COLORS.textSecondary} /><Text style={styles.statLabel}>{t('humidityDetail.windDirection')}</Text><Text style={styles.statValue}>{windDir}</Text></View>
+        <View style={styles.statRow}><MaterialCommunityIcons name="water-percent" size={20} color={COLORS.info} /><Text style={styles.statLabel}>{t('weather.humidity')}</Text><Text style={styles.statValue}>{humidity}%</Text></View>
+        <View style={styles.statRow}><MaterialCommunityIcons name="thermometer" size={20} color={COLORS.warning} /><Text style={styles.statLabel}>{t('home.temperature')}</Text><Text style={styles.statValue}>{temp}°C</Text></View>
+        <View style={styles.statRow}><MaterialCommunityIcons name="weather-windy" size={20} color={COLORS.textSecondary} /><Text style={styles.statLabel}>{t('weather.windSpeed')}</Text><Text style={styles.statValue}>{windSpeed}km/h</Text></View>
       </View>
     </ScrollView>
   );

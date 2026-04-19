@@ -48,6 +48,8 @@ export default function useGoogleAuth() {
     try {
       setLoading(true);
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      // Sign out first so Google shows the account picker every time
+      try { await GoogleSignin.signOut(); } catch {}
       const response = await GoogleSignin.signIn();
       // Try multiple paths — library versions return token in different locations
       const idToken = response?.data?.idToken || response?.idToken || response?.user?.idToken;

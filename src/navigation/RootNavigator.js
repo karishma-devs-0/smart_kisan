@@ -5,10 +5,13 @@ import MainTabNavigator from './MainTabNavigator';
 import OnboardingScreen from '../features/onboarding/screens/OnboardingScreen';
 
 const RootNavigator = () => {
-  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const { isAuthenticated, sessionRestored } = useAppSelector((state) => state.auth);
   const { completed: onboardingDone, loaded: onboardingLoaded } = useAppSelector(
     (state) => state.onboarding,
   );
+
+  // Wait for session check before rendering anything
+  if (!sessionRestored) return null;
 
   if (!isAuthenticated) {
     return <AuthStack />;

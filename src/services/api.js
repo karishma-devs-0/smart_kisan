@@ -62,6 +62,8 @@ import {
   MOCK_SOIL_PARAMS,
   MOCK_CLIMATE_PARAMS,
 } from '../features/cropRecommend/mock/cropRecommendMockData';
+import { calculateRecommendations } from './cropRecommendEngine';
+import { generateIrrigationSchedule, calculateETSummary } from './irrigationEngine';
 
 // ─── Offline-aware helper ──────────────────────────────────────────────────
 // Checks settings store for offlineMode OR actual network state.
@@ -202,7 +204,7 @@ export const authService = {
 export const pumpService = {
   fetchPumps: async () => {
     if (FIREBASE_ENABLED) {
-      return offlineAwareRemember('pumps:all', () => getFirestore().getAll('pumps'), 300, [...MOCK_PUMPS]);
+      return offlineAwareRemember('pumps:all', () => getFirestore().getAll('pumps'), [...MOCK_PUMPS], 300);
     }
     await mockDelay(600);
     return [...MOCK_PUMPS];
@@ -210,7 +212,7 @@ export const pumpService = {
 
   fetchGroups: async () => {
     if (FIREBASE_ENABLED) {
-      return offlineAwareRemember('pumps:groups', () => getFirestore().getAll('pump_groups'), 300, [...MOCK_PUMP_GROUPS]);
+      return offlineAwareRemember('pumps:groups', () => getFirestore().getAll('pump_groups'), [...MOCK_PUMP_GROUPS], 300);
     }
     await mockDelay(600);
     return [...MOCK_PUMP_GROUPS];
@@ -280,12 +282,25 @@ export const pumpService = {
   },
 
   controlPump: async (pumpId, action) => {
+    if (__DEV__) console.log(`[Pump] controlPump: ${pumpId} → ${action}`);
     if (shouldUseOffline()) {
       throw new Error('Offline — pump control unavailable. Please connect to the internet.');
     }
     if (FIREBASE_ENABLED) {
-      // Update status directly in Firestore
-      await getFirestore().update('pumps', pumpId, { status: action });
+      const timestamp = new Date().toISOString();
+      // Update status in Firestore
+      await getFirestore().update('pumps', pumpId, {
+        status: action,
+        [`last${action === 'on' ? 'TurnedOn' : 'TurnedOff'}`]: timestamp,
+      });
+      // Log to pump history
+      getFirestore().create('pump_history', {
+        pumpId,
+        action,
+        timestamp,
+        triggeredBy: 'manual',
+        source: 'app',
+      }).catch(() => {}); // best-effort
       await cache.del('pumps:all');
       return { id: pumpId, status: action, message: `Pump turned ${action}` };
     }
@@ -294,8 +309,23 @@ export const pumpService = {
   },
 
   setTimer: async (pumpId, durationSeconds) => {
+    if (__DEV__) console.log(`[Pump] setTimer: ${pumpId} → ${durationSeconds}s`);
     if (FIREBASE_ENABLED) {
-      await getFirestore().update('pumps', pumpId, { status: 'on', timer: { duration: durationSeconds, active: true } });
+      const timestamp = new Date().toISOString();
+      await getFirestore().update('pumps', pumpId, {
+        status: 'on',
+        timer: { duration: durationSeconds, active: true, startedAt: timestamp },
+        lastTurnedOn: timestamp,
+      });
+      // Log timer start to history
+      getFirestore().create('pump_history', {
+        pumpId,
+        action: 'timer_started',
+        duration: durationSeconds,
+        timestamp,
+        triggeredBy: 'timer',
+        source: 'app',
+      }).catch(() => {});
       await cache.del('pumps:all');
       return { id: pumpId, status: 'on', timer: { duration: durationSeconds } };
     }
@@ -319,6 +349,14 @@ export const pumpService = {
     }
     await mockDelay(300);
     return [];
+  },
+
+  addSchedule: async (pumpId, schedule) => {
+    if (FIREBASE_ENABLED) {
+      return getFirestore().create('pump_schedules', { ...schedule, pumpId });
+    }
+    await mockDelay(300);
+    return { ...schedule, pumpId, id: Date.now().toString() };
   },
 
   deleteSchedule: async (pumpId, scheduleId) => {
@@ -355,14 +393,50 @@ export const pumpService = {
     return { groupId, action, message: `All pumps turned ${action}` };
   },
 
+  saveSensorConfig: async (pumpId, sensorConfig) => {
+    if (__DEV__) console.log(`[Pump] saveSensorConfig: ${pumpId}`, sensorConfig);
+    if (FIREBASE_ENABLED) {
+      await getFirestore().update('pumps', pumpId, { sensorConfig });
+      await cache.del('pumps:all');
+      return { id: pumpId, sensorConfig };
+    }
+    await mockDelay(300);
+    return { id: pumpId, sensorConfig };
+  },
+
+  saveAutoSchedule: async (pumpId, autoSchedule) => {
+    if (__DEV__) console.log(`[Pump] saveAutoSchedule: ${pumpId}`, autoSchedule);
+    if (FIREBASE_ENABLED) {
+      await getFirestore().update('pumps', pumpId, { autoSchedule });
+      await cache.del('pumps:all');
+      return { id: pumpId, autoSchedule };
+    }
+    await mockDelay(300);
+    return { id: pumpId, autoSchedule };
+  },
+
   stopAllPumps: async (pumpIds) => {
+    if (__DEV__) console.log(`[Pump] EMERGENCY STOP: ${pumpIds.length} pumps`, pumpIds);
     if (shouldUseOffline()) {
       throw new Error('Offline — pump control unavailable. Please connect to the internet.');
     }
     if (FIREBASE_ENABLED) {
+      const timestamp = new Date().toISOString();
       await Promise.all(
-        pumpIds.map((id) => getFirestore().update('pumps', id, { status: 'off' })),
+        pumpIds.map((id) => getFirestore().update('pumps', id, { status: 'off', lastTurnedOff: timestamp })),
       );
+      // Log emergency stop for each pump
+      Promise.all(
+        pumpIds.map((id) =>
+          getFirestore().create('pump_history', {
+            pumpId: id,
+            action: 'off',
+            timestamp,
+            triggeredBy: 'emergency_stop',
+            source: 'app',
+          }),
+        ),
+      ).catch(() => {});
       await cache.del('pumps:all');
       return pumpIds.map((id) => ({ id, status: 'off' }));
     }
@@ -548,7 +622,37 @@ export const weatherService = {
 
 export const reportService = {
   fetchReports: async () => {
-    // Reports are computed/aggregated — keep mock for now, will connect to analytics later
+    if (FIREBASE_ENABLED) {
+      try {
+        const [pumps, history, soil] = await Promise.all([
+          cache.remember('pumps:all', () => getFirestore().getAll('pumps'), 300),
+          cache.remember('report:history', () => getFirestore().getAll('pump_history'), 300),
+          cache.remember('soil:current', () => getFirestore().getSingleton('soil', 'current'), 300),
+        ]);
+
+        // Compute pump runtime from history
+        const totalRuns = (history || []).filter((h) => h.action === 'on').length;
+        const totalStops = (history || []).filter((h) => h.action === 'off').length;
+        const timerRuns = (history || []).filter((h) => h.action === 'timer_started');
+        const totalTimerSec = timerRuns.reduce((sum, h) => sum + (h.duration || 0), 0);
+
+        return {
+          waterUsage: { ...MOCK_WATER_USAGE, totalLiters: totalTimerSec * 2 }, // rough estimate
+          runHours: { ...MOCK_RUN_HOURS, total: Math.round(totalTimerSec / 3600 * 10) / 10, sessions: totalRuns },
+          pumpRuntime: (pumps || []).map((p) => ({
+            id: p.id,
+            name: p.name,
+            status: p.status,
+            lastRun: p.lastTurnedOn || p.lastRun,
+          })),
+          soilCondition: soil ? { ...MOCK_SOIL_CONDITION, moisture: soil.moisture, ph: soil.ph, nitrogen: soil.nitrogen } : { ...MOCK_SOIL_CONDITION },
+          harvestPerformance: { ...MOCK_HARVEST_PERFORMANCE },
+          generalMetrics: { ...MOCK_GENERAL_METRICS, totalPumps: (pumps || []).length, activePumps: (pumps || []).filter((p) => p.status === 'on').length },
+        };
+      } catch (e) {
+        if (__DEV__) console.warn('[Reports] Firestore fetch failed, falling back to mock', e.message);
+      }
+    }
     await mockDelay(800);
     return {
       waterUsage: { ...MOCK_WATER_USAGE },
@@ -589,17 +693,37 @@ export const deviceService = {
 // ─── Analytics Service ──────────────────────────────────────────────────────
 
 export const analyticsService = {
-  fetchAnalytics: async () => {
-    // Analytics are AI/ML computed — keep mock for now
-    await mockDelay(800);
+  fetchAnalytics: async (options = {}) => {
+    const { forecast, soilData, fields, location } = options;
+
+    // Generate real irrigation schedule if we have weather data
+    let irrigationSchedule;
+    try {
+      if (forecast || soilData) {
+        irrigationSchedule = generateIrrigationSchedule({
+          forecast: forecast || [],
+          soilData: soilData || {},
+          fields: fields || [],
+          location,
+        });
+      }
+    } catch (e) {
+      if (__DEV__) console.warn('Irrigation engine error:', e.message);
+    }
+
+    await mockDelay(400);
     return {
       cropHealth: { ...MOCK_CROP_HEALTH },
       aiInsights: [...MOCK_AI_INSIGHTS],
       ndviData: { ...MOCK_NDVI_DATA },
       yieldPrediction: { ...MOCK_YIELD_PREDICTION },
-      irrigationSchedule: [...MOCK_IRRIGATION_SCHEDULE],
+      irrigationSchedule: irrigationSchedule || [...MOCK_IRRIGATION_SCHEDULE],
       expertNetwork: [...MOCK_EXPERT_NETWORK],
     };
+  },
+
+  fetchETSummary: async (forecast, location) => {
+    return calculateETSummary(forecast || [], location);
   },
 };
 
@@ -785,7 +909,17 @@ export const diseaseDetectionService = {
     };
   },
 
+  saveScanResult: async (result) => {
+    if (FIREBASE_ENABLED) {
+      await getFirestore().create('scan_history', result);
+      await cache.del('scans:all');
+    }
+  },
+
   fetchScanHistory: async () => {
+    if (FIREBASE_ENABLED) {
+      return offlineAwareRemember('scans:all', () => getFirestore().getAll('scan_history'), [...MOCK_SCAN_HISTORY], 300);
+    }
     await mockDelay(600);
     return [...MOCK_SCAN_HISTORY];
   },
@@ -795,6 +929,9 @@ export const diseaseDetectionService = {
 
 export const marketplaceService = {
   fetchListings: async () => {
+    if (FIREBASE_ENABLED) {
+      return offlineAwareRemember('marketplace:listings', () => getFirestore().getAll('marketplace_listings'), [...MOCK_LISTINGS], 300);
+    }
     await mockDelay(600);
     return [...MOCK_LISTINGS];
   },
@@ -805,11 +942,24 @@ export const marketplaceService = {
   },
 
   fetchMyListings: async () => {
+    if (FIREBASE_ENABLED) {
+      return offlineAwareRemember('marketplace:my', () => getFirestore().getAll('my_listings'), [...MOCK_MY_LISTINGS], 300);
+    }
     await mockDelay(600);
     return [...MOCK_MY_LISTINGS];
   },
 
   createListing: async (listingData) => {
+    if (FIREBASE_ENABLED) {
+      const listing = {
+        ...listingData,
+        seller: { name: 'You', location: 'Your Farm', rating: 4.5 },
+        createdAt: new Date().toISOString(),
+      };
+      const result = await getFirestore().create('my_listings', listing);
+      await cache.del('marketplace:my');
+      return result;
+    }
     await mockDelay(800);
     return {
       ...listingData,
@@ -823,12 +973,13 @@ export const marketplaceService = {
 
 export const cropRecommendService = {
   fetchRecommendations: async (soilParams, climateParams) => {
-    await mockDelay(800);
-    return {
-      recommendations: [...MOCK_RECOMMENDATIONS],
-      soilParams: soilParams || { ...MOCK_SOIL_PARAMS },
-      climateParams: climateParams || { ...MOCK_CLIMATE_PARAMS },
-    };
+    const soil = soilParams || { ...MOCK_SOIL_PARAMS };
+    const climate = climateParams || { ...MOCK_CLIMATE_PARAMS };
+
+    // Use real recommendation engine
+    const recommendations = calculateRecommendations(soil, climate);
+
+    return { recommendations, soilParams: soil, climateParams: climate };
   },
 };
 

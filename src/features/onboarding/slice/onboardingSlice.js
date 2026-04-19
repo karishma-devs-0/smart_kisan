@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { onboardingService } from '../../../services/api';
+import { logout } from '../../auth/slice/authSlice';
 
 // ─── Async Thunks ────────────────────────────────────────────────────────────
 
@@ -31,7 +32,9 @@ const initialState = {
 const onboardingSlice = createSlice({
   name: 'onboarding',
   initialState,
-  reducers: {},
+  reducers: {
+    resetOnboarding: () => initialState,
+  },
   extraReducers: (builder) => {
     // loadOnboardingStatus
     builder
@@ -59,7 +62,11 @@ const onboardingSlice = createSlice({
       .addCase(completeOnboarding.rejected, (state) => {
         state.loading = false;
       });
+
+    // Reset on logout
+    builder.addCase(logout.fulfilled, () => initialState);
   },
 });
 
+export const { resetOnboarding } = onboardingSlice.actions;
 export default onboardingSlice.reducer;

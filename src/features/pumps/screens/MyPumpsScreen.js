@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
@@ -208,7 +209,7 @@ const EmptyState = ({ activeTab, t }) => {
 const MyPumpsScreen = ({ navigation }) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
-  const { pumps, activeTab, loading } = useSelector((state) => state.pumps);
+  const { pumps, activeTab, loading, error } = useSelector((state) => state.pumps);
   const TABS = useMemo(() => getTabs(t), [t]);
 
   const [mqttStatus, setMqttStatus] = useState(getConnectionStatus());
@@ -379,7 +380,25 @@ const MyPumpsScreen = ({ navigation }) => {
           />
         )}
         ListHeaderComponent={renderHeader}
-        ListEmptyComponent={!loading && <EmptyState activeTab={activeTab} t={t} />}
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={COLORS.primaryLight} />
+              <Text style={styles.loadingText}>{t('common.loading', 'Loading...')}</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.emptyState}>
+              <MaterialCommunityIcons name="alert-circle-outline" size={56} color={COLORS.danger} />
+              <Text style={styles.emptyTitle}>{t('common.error', 'Error')}</Text>
+              <Text style={styles.emptySubtitle}>{error}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={() => dispatch(fetchPumps())}>
+                <Text style={styles.retryText}>{t('common.retry', 'Retry')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <EmptyState activeTab={activeTab} t={t} />
+          )
+        }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
@@ -588,6 +607,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: SPACING.sm,
     marginHorizontal: SPACING.xxl,
+  },
+
+  // Loading
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.xxxxl,
+  },
+  loadingText: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.md,
+  },
+  retryButton: {
+    marginTop: SPACING.lg,
+    paddingHorizontal: SPACING.xxl,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.primaryLight,
+  },
+  retryText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.semiBold,
+    color: COLORS.white,
   },
 
   // FAB

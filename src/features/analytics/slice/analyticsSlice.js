@@ -1,29 +1,25 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { mockDelay } from '../../../utils/mockDelay';
-import {
-  MOCK_CROP_HEALTH,
-  MOCK_AI_INSIGHTS,
-  MOCK_NDVI_DATA,
-  MOCK_YIELD_PREDICTION,
-  MOCK_IRRIGATION_SCHEDULE,
-  MOCK_EXPERT_NETWORK,
-} from '../mock/analyticsMockData';
+import { analyticsService } from '../../../services/api';
 
 // ─── Async Thunks ────────────────────────────────────────────────────────────
 
 export const fetchAnalytics = createAsyncThunk(
   'analytics/fetchAnalytics',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      await mockDelay(800);
-      return {
-        cropHealth: MOCK_CROP_HEALTH,
-        aiInsights: MOCK_AI_INSIGHTS,
-        ndviData: MOCK_NDVI_DATA,
-        yieldPrediction: MOCK_YIELD_PREDICTION,
-        irrigationSchedule: MOCK_IRRIGATION_SCHEDULE,
-        expertNetwork: MOCK_EXPERT_NETWORK,
-      };
+      // Gather weather + soil + fields data for the irrigation engine
+      const state = getState();
+      const forecast = state.weather?.forecast || [];
+      const soilData = state.soil?.data || {};
+      const fields = state.fields?.fields || [];
+      const location = state.settings?.location || null;
+
+      return await analyticsService.fetchAnalytics({
+        forecast,
+        soilData,
+        fields,
+        location,
+      });
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -50,7 +46,6 @@ const analyticsSlice = createSlice({
     clearAnalytics: () => initialState,
   },
   extraReducers: (builder) => {
-    // fetchAnalytics
     builder
       .addCase(fetchAnalytics.pending, (state) => {
         state.loading = true;

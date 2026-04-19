@@ -69,6 +69,7 @@ export function connect(uid) {
     } catch {
       parsed = message;
     }
+    if (__DEV__) console.log(`[MQTT] RECEIVED ← ${topic}`, parsed);
 
     // Notify all subscribers for this topic
     for (const [pattern, callbacks] of subscribers.entries()) {
@@ -142,6 +143,7 @@ export function publish(topic, data, options = {}) {
   }
 
   const message = typeof data === 'string' ? data : JSON.stringify(data);
+  if (__DEV__) console.log(`[MQTT] PUBLISH → ${topic}`, typeof data === 'string' ? data : data);
   client.publish(topic, message, { qos: 1, ...options });
   return true;
 }
@@ -244,6 +246,34 @@ export function onAllSensorData(callback) {
 }
 
 /**
+ * Send sensor config to device via MQTT
+ */
+export function sendSensorConfig(pumpId, sensorConfig) {
+  const topic = getTopics().pumpCommand(pumpId);
+  return publish(topic, {
+    action: 'sensor_config',
+    pumpId,
+    sensorConfig,
+    timestamp: new Date().toISOString(),
+    source: 'app',
+  });
+}
+
+/**
+ * Send auto-schedule config to device via MQTT
+ */
+export function sendAutoSchedule(pumpId, autoSchedule) {
+  const topic = getTopics().pumpCommand(pumpId);
+  return publish(topic, {
+    action: 'auto_schedule',
+    pumpId,
+    autoSchedule,
+    timestamp: new Date().toISOString(),
+    source: 'app',
+  });
+}
+
+/**
  * Subscribe to alerts
  */
 export function onAlerts(callback) {
@@ -261,6 +291,8 @@ export default {
   getTopics,
   sendPumpCommand,
   sendPumpTimer,
+  sendSensorConfig,
+  sendAutoSchedule,
   onPumpStatus,
   onAllPumpStatus,
   onSensorData,

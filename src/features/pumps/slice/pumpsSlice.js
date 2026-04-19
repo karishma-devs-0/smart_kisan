@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { pumpService } from '../../../services/api';
+import { sendPumpCommand } from '../../../services/mqtt';
 
 // ─── Async Thunks ────────────────────────────────────────────────────────────
 
@@ -132,6 +133,19 @@ export const fetchSchedules = createAsyncThunk(
   },
 );
 
+/** Add a new schedule */
+export const addSchedule = createAsyncThunk(
+  'pumps/addSchedule',
+  async ({ pumpId, schedule }, { rejectWithValue }) => {
+    try {
+      const saved = await pumpService.addSchedule(pumpId, schedule);
+      return { pumpId, schedule: saved };
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
 /** Delete a schedule */
 export const deleteSchedule = createAsyncThunk(
   'pumps/deleteSchedule',
@@ -170,13 +184,39 @@ export const controlGroup = createAsyncThunk(
   },
 );
 
-/** Emergency stop — turn off ALL pumps */
+/** Save sensor thresholds for a pump */
+export const saveSensorConfig = createAsyncThunk(
+  'pumps/saveSensorConfig',
+  async ({ pumpId, sensorConfig }, { rejectWithValue }) => {
+    try {
+      return await pumpService.saveSensorConfig(pumpId, sensorConfig);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
+/** Save automatic daily schedule for a pump */
+export const saveAutoSchedule = createAsyncThunk(
+  'pumps/saveAutoSchedule',
+  async ({ pumpId, autoSchedule }, { rejectWithValue }) => {
+    try {
+      return await pumpService.saveAutoSchedule(pumpId, autoSchedule);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
+/** Emergency stop — turn off ALL pumps via API + MQTT */
 export const stopAllPumpsAsync = createAsyncThunk(
   'pumps/stopAllPumpsAsync',
   async (_, { getState, rejectWithValue }) => {
     try {
       const { pumps } = getState().pumps;
       const onPumps = pumps.filter((p) => p.status === 'on').map((p) => p.id);
+      // Send MQTT stop command to every running pump
+      onPumps.forEach((id) => sendPumpCommand(id, 'off'));
       if (onPumps.length > 0) {
         await pumpService.stopAllPumps(onPumps);
       }
@@ -406,6 +446,29 @@ const pumpsSlice = createSlice({
     builder.addCase(stopAllPumpsAsync.fulfilled, (state) => {
       state.pumps.forEach((pump) => { pump.status = 'off'; });
       state.activeTimers = {};
+    });
+
+    // saveSensorConfig
+    builder.addCase(saveSensorConfig.fulfilled, (state, action) => {
+      const pump = state.pumps.find((p) => p.id === action.payload.id);
+      if (pump) {
+        pump.sensorConfig = action.payload.sensorConfig;
+      }
+    });
+
+    // saveAutoSchedule
+    builder.addCase(saveAutoSchedule.fulfilled, (state, action) => {
+      const pump = state.pumps.find((p) => p.id === action.payload.id);
+      if (pump) {
+        pump.autoSchedule = action.payload.autoSchedule;
+      }
+    });
+
+    // addSchedule
+    builder.addCase(addSchedule.fulfilled, (state, action) => {
+      const { pumpId, schedule } = action.payload;
+      if (!state.schedules[pumpId]) state.schedules[pumpId] = [];
+      state.schedules[pumpId].push(schedule);
     });
 
     // fetchSchedules

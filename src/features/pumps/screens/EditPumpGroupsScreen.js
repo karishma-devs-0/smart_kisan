@@ -42,7 +42,9 @@ const EditPumpGroupsScreen = ({ navigation, route }) => {
     );
   };
 
-  const handleSave = () => {
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
     if (!groupName.trim()) {
       Alert.alert(t('editPumpGroups.validationError'), t('editPumpGroups.enterGroupName'));
       return;
@@ -53,15 +55,25 @@ const EditPumpGroupsScreen = ({ navigation, route }) => {
     }
 
     const group = {
-      id: groupId || String(Date.now()),
+      ...(groupId ? { id: groupId } : {}),
       name: groupName.trim(),
       pumpIds: selectedPumpIds,
       soilMoisture: existingGroup?.soilMoisture || null,
       fieldImage: existingGroup?.fieldImage || null,
     };
 
-    dispatch(saveGroup(group));
-    navigation.goBack();
+    setSaving(true);
+    try {
+      await dispatch(saveGroup(group)).unwrap();
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert(
+        t('common.error', { defaultValue: 'Error' }),
+        error || t('editPumpGroups.saveFailed', { defaultValue: 'Failed to save group. Please try again.' }),
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleClose = () => {
@@ -219,14 +231,14 @@ const EditPumpGroupsScreen = ({ navigation, route }) => {
           ]}
           onPress={handleSave}
           activeOpacity={0.8}
-          disabled={selectedPumpIds.length === 0 || !groupName.trim()}
+          disabled={selectedPumpIds.length === 0 || !groupName.trim() || saving}
         >
           <MaterialCommunityIcons
             name="content-save"
             size={20}
             color={COLORS.white}
           />
-          <Text style={styles.saveButtonText}>{t('editPumpGroups.saveGroup')}</Text>
+          <Text style={styles.saveButtonText}>{saving ? (t('common.saving', { defaultValue: 'Saving...' })) : t('editPumpGroups.saveGroup')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
