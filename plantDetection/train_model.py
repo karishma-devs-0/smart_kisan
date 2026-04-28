@@ -11,9 +11,9 @@ import numpy as np
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-DATASET_DIR = os.path.join(os.path.dirname(__file__), '..', 'data', 'plantvillage dataset', 'color')
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), 'huggingface')
-SPLIT_DIR = os.path.join(os.path.dirname(__file__), '_split')
+DATASET_DIR = os.environ.get('SMARTKISAN_DATASET_DIR') or os.path.join(os.path.dirname(__file__), '..', 'data', 'plantvillage dataset', 'color')
+OUTPUT_DIR = os.environ.get('SMARTKISAN_OUTPUT_DIR') or os.path.join(os.path.dirname(__file__), 'huggingface')
+SPLIT_DIR = os.environ.get('SMARTKISAN_SPLIT_DIR') or os.path.join(os.path.dirname(__file__), '_split')
 
 IMG_SIZE = 224
 BATCH_SIZE = 32
@@ -85,7 +85,6 @@ def train():
     import tensorflow as tf
     from tensorflow import keras
     from tensorflow.keras import layers
-    from tensorflow.keras.preprocessing.image import ImageDataGenerator
     from tensorflow.keras.applications import MobileNetV2
     from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
@@ -100,29 +99,42 @@ def train():
     # Split dataset
     train_dir, valid_dir = split_dataset()
 
-    # Data generators
-    train_datagen = ImageDataGenerator(
-        rescale=1./255,
-        rotation_range=20,
-        width_shift_range=0.2,
-        height_shift_range=0.2,
-        horizontal_flip=True,
-        zoom_range=0.2,
-        fill_mode='nearest',
-    )
-    val_datagen = ImageDataGenerator(rescale=1./255)
+    # Modern tf.data pipeline — keeps the GPU fed (~5-8x faster than ImageDataGenerator)
+    AUTOTUNE = tf.data.AUTOTUNE
 
-    train_gen = train_datagen.flow_from_directory(
-        train_dir, target_size=(IMG_SIZE, IMG_SIZE),
-        batch_size=BATCH_SIZE, class_mode='categorical', shuffle=True,
+    raw_train = keras.utils.image_dataset_from_directory(
+        train_dir, image_size=(IMG_SIZE, IMG_SIZE),
+        batch_size=BATCH_SIZE, label_mode='categorical', shuffle=True,
     )
-    valid_gen = val_datagen.flow_from_directory(
-        valid_dir, target_size=(IMG_SIZE, IMG_SIZE),
-        batch_size=BATCH_SIZE, class_mode='categorical', shuffle=False,
+    raw_valid = keras.utils.image_dataset_from_directory(
+        valid_dir, image_size=(IMG_SIZE, IMG_SIZE),
+        batch_size=BATCH_SIZE, label_mode='categorical', shuffle=False,
     )
 
-    NUM_CLASSES = train_gen.num_classes
-    print(f'\n{NUM_CLASSES} classes, {train_gen.samples} train, {valid_gen.samples} valid\n')
+    class_names = raw_train.class_names
+    NUM_CLASSES = len(class_names)
+    n_train_batches = int(raw_train.cardinality())
+    n_valid_batches = int(raw_valid.cardinality())
+    print(f'\n{NUM_CLASSES} classes, ~{n_train_batches * BATCH_SIZE} train, ~{n_valid_batches * BATCH_SIZE} valid\n')
+
+    # Augmentation runs on GPU as a Keras layer pipeline
+    augmentation = keras.Sequential([
+        layers.RandomFlip('horizontal'),
+        layers.RandomRotation(0.06),       # ~±20°
+        layers.RandomZoom(0.2),
+        layers.RandomTranslation(0.2, 0.2),
+    ], name='augmentation')
+
+    def prep_train(images, labels):
+        images = tf.cast(images, tf.float32) / 255.0
+        images = augmentation(images, training=True)
+        return images, labels
+
+    def prep_valid(images, labels):
+        return tf.cast(images, tf.float32) / 255.0, labels
+
+    train_ds = raw_train.map(prep_train, num_parallel_calls=AUTOTUNE).prefetch(AUTOTUNE)
+    valid_ds = raw_valid.map(prep_valid, num_parallel_calls=AUTOTUNE).prefetch(AUTOTUNE)
 
     # ── Build model ───────────────────────────────────────────────────────────
     base_model = MobileNetV2(
@@ -156,7 +168,7 @@ def train():
         loss='categorical_crossentropy',
         metrics=['accuracy'],
     )
-    model.fit(train_gen, epochs=PHASE1_EPOCHS, validation_data=valid_gen, callbacks=callbacks)
+    model.fit(train_ds, epochs=PHASE1_EPOCHS, validation_data=valid_ds, callbacks=callbacks)
 
     # ── Phase 2: Fine-tuning ─────────────────────────────────────────────────
     print('\n' + '═' * 60)
@@ -172,14 +184,14 @@ def train():
         loss='categorical_crossentropy',
         metrics=['accuracy'],
     )
-    model.fit(train_gen, epochs=PHASE2_EPOCHS, validation_data=valid_gen, callbacks=callbacks)
+    model.fit(train_ds, epochs=PHASE2_EPOCHS, validation_data=valid_ds, callbacks=callbacks)
 
     # ── Evaluate ──────────────────────────────────────────────────────────────
-    val_loss, val_acc = model.evaluate(valid_gen)
+    val_loss, val_acc = model.evaluate(valid_ds)
     print(f'\nFinal validation accuracy: {val_acc*100:.1f}%')
 
     # ── Save class labels ─────────────────────────────────────────────────────
-    index_to_class = {v: k for k, v in train_gen.class_indices.items()}
+    index_to_class = {i: name for i, name in enumerate(class_names)}
     labels_path = os.path.join(OUTPUT_DIR, 'class_labels.json')
     with open(labels_path, 'w') as f:
         json.dump(index_to_class, f, indent=2)

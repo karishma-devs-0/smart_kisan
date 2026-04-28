@@ -17,7 +17,7 @@ export const GOOGLE_WEB_CLIENT_ID =
   '782177553731-bhnqmugdoekfsg421kraclnjpab96n6q.apps.googleusercontent.com';
 
 // HuggingFace Spaces API URL for plant disease detection
-export const HUGGINGFACE_SPACE_URL = 'https://karishma-bhatia-smartkisan-plant-disease.hf.space';
+export const HUGGINGFACE_SPACE_URL = 'https://karishma-devs-smartkisan-plant-disease.hf.space';
 
 // OpenWeatherMap API key (free tier: 1000 calls/day)
 // Set via .env or replace with your own key

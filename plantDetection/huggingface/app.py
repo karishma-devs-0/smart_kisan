@@ -6,8 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 import io
 
-# Use tflite-runtime (lighter than full tensorflow)
-import tflite_runtime.interpreter as tflite
+# Use ai-edge-litert (replacement for tflite-runtime, supports newer model ops)
+from ai_edge_litert.interpreter import Interpreter
 
 app = FastAPI(title="SmartKisan Plant Disease API")
 
@@ -22,7 +22,7 @@ app.add_middleware(
 MODEL_PATH = "plant_disease_model.tflite"
 LABELS_PATH = "class_labels.json"
 
-interpreter = tflite.Interpreter(model_path=MODEL_PATH)
+interpreter = Interpreter(model_path=MODEL_PATH)
 interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
