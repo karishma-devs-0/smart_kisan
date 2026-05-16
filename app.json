@@ -44,7 +44,10 @@
           "photosPermission": "SmartKisan needs photo library access to upload plant leaf images."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-sharing",
+      "@sentry/react-native/expo",
+      "@sentry/react-native"
     ]
   }
 }

@@ -140,7 +140,6 @@ const HomeScreen = ({ navigation }) => {
       {/* Farm Map Widget — fields only, devices shown on full map */}
       <FarmMapWidget
         fields={fields}
-        onPress={() => navigation.navigate('FarmMap')}
       />
 
       {/* Quick Actions */}
@@ -148,23 +147,15 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.actionsGrid}>
         <QuickActionButton icon="water-pump" label={t('home.myPumps')} onPress={() => navigation.navigate('PumpsTab')} />
         <QuickActionButton icon="leaf" label={t('home.mySoil')} onPress={() => navigation.navigate('SoilTab')} color="#8BC34A" />
-        <QuickActionButton icon="sprout" label={t('home.myCrops')} onPress={() => navigation.navigate('MyCrops')} color="#FF9800" />
         <QuickActionButton icon="weather-partly-cloudy" label={t('home.weather')} onPress={() => navigation.navigate('WeatherTab')} color="#2196F3" />
-        <QuickActionButton icon="chart-line" label={t('home.reports')} onPress={() => navigation.navigate('ComprehensiveReport')} color="#9C27B0" />
         <QuickActionButton icon="access-point" label={t('home.devices')} onPress={() => navigation.navigate('DeviceList')} color="#607D8B" />
-        <QuickActionButton icon="brain" label={t('home.analytics')} onPress={() => navigation.navigate('FarmAnalytics')} color="#E91E63" />
         <QuickActionButton icon="tractor" label={t('home.farm')} onPress={() => navigation.navigate('FarmManagement')} color="#795548" />
-        <QuickActionButton icon="vector-square" label={t('home.myFields')} onPress={() => navigation.navigate('MyFields')} color="#009688" />
-        <QuickActionButton icon="leaf" label={t('home.disease')} onPress={() => navigation.navigate('PlantDisease')} color={COLORS.danger} />
       </View>
 
       {/* Today's Run Summary */}
       <View style={styles.summaryCard}>
         <View style={styles.summaryHeader}>
           <Text style={styles.summaryTitle}>{t('home.todaySummary')}</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('ComprehensiveReport')}>
-            <Text style={styles.viewAllText}>{t('home.viewReports')}</Text>
-          </TouchableOpacity>
         </View>
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>

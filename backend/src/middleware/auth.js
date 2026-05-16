@@ -1,30 +1,67 @@
-const { getAuth } = require('../config/firebase');
+const jwt = require('jsonwebtoken');
 
-/**
- * Firebase Auth middleware - verifies ID token from Authorization header
- * Attaches decoded user to req.user
- */
 async function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing or invalid authorization header' });
-  }
-
-  const token = authHeader.split('Bearer ')[1];
-
   try {
-    const decoded = await getAuth().verifyIdToken(token);
+
+    // =========================================================
+    // GET AUTH HEADER
+    // =========================================================
+
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      return res.status(401).json({
+        error: 'Authorization header missing',
+      });
+    }
+
+    // =========================================================
+    // VALIDATE BEARER TOKEN FORMAT
+    // =========================================================
+
+    const parts = authHeader.split(' ');
+
+    if (
+      parts.length !== 2 ||
+      parts[0] !== 'Bearer'
+    ) {
+      return res.status(401).json({
+        error: 'Invalid authorization format',
+      });
+    }
+
+    const token = parts[1];
+
+    // =========================================================
+    // VERIFY JWT TOKEN
+    // =========================================================
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    // =========================================================
+    // ATTACH USER TO REQUEST
+    // =========================================================
+
     req.user = {
-      uid: decoded.uid,
+      id: decoded.id,
       email: decoded.email,
-      name: decoded.name || null,
-      phone: decoded.phone_number || null,
     };
+
     next();
+
   } catch (error) {
-    console.error('Auth error:', error.message);
-    return res.status(401).json({ error: 'Invalid or expired token' });
+
+    console.error(
+      'Auth Middleware Error:',
+      error.message
+    );
+
+    return res.status(401).json({
+      error: 'Invalid or expired token',
+    });
   }
 }
 

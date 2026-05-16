@@ -107,7 +107,7 @@ const FarmManagementScreen = ({ navigation }) => {
             <CategoryCard
               key={category.id}
               category={category}
-              onPress={() => navigation.navigate('ActiveTasks')}
+              onPress={() => {}}
             />
           ))}
         </View>
@@ -122,25 +122,7 @@ const FarmManagementScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Active Tasks Button */}
-        <TouchableOpacity
-          style={styles.activeTasksCard}
-          onPress={() => navigation.navigate('ActiveTasks')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.activeTasksLeft}>
-            <View style={styles.activeTasksIconContainer}>
-              <MaterialCommunityIcons name="clipboard-check-outline" size={28} color={COLORS.primary} />
-            </View>
-            <View>
-              <Text style={styles.activeTasksTitle}>{t('farmMgmt.activeTasks')}</Text>
-              <Text style={styles.activeTasksSubtitle}>
-                {t('farmMgmt.tasksNeedAttention', { count: activeTasks })}
-              </Text>
-            </View>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.textTertiary} />
-        </TouchableOpacity>
+        {/* Active Tasks Button Removed */}
       </ScrollView>
     </View>
   );

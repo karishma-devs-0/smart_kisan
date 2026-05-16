@@ -1,0 +1,310 @@
+Project SmartKisan {
+  database_type: 'MySQL'
+  Note: 'End-to-End SQL Database replacement for SmartKisan (PolyCab Pattern: MySQL + Int IDs + Soft Deletes)'
+}
+
+// -----------------------------------------
+// ENUMS
+// -----------------------------------------
+Enum role_enum {
+  farmer
+  worker
+  admin
+}
+
+Enum pump_status_enum {
+  on
+  off
+}
+
+Enum pump_type_enum {
+  submersible
+  centrifugal
+  jet
+}
+
+Enum device_type_enum {
+  soil_sensor
+  weather_station
+}
+
+Enum crop_status_enum {
+  growing
+  harvested
+  failed
+}
+
+Enum repeat_type_enum {
+  none
+  daily
+  weekly
+  monthly
+}
+
+Enum action_enum {
+  on
+  off
+  timer_started
+  timer_stopped
+}
+
+Enum triggered_by_enum {
+  manual
+  timer
+  sensor
+}
+
+Enum task_status_enum {
+  pending
+  in_progress
+  completed
+}
+
+// -----------------------------------------
+// AUTH INFRASTRUCTURE
+// -----------------------------------------
+Table users {
+  id integer [pk, increment]
+  email varchar [unique, not null]
+  phone_number varchar [unique]
+  password_hash varchar
+  first_name varchar
+  last_name varchar
+  role role_enum [default: 'farmer']
+  auth_provider varchar [note: 'e.g., local, google']
+  google_sub varchar [unique]
+  avatar_url varchar
+  created_at timestamp [default: `current_timestamp()`]
+  updated_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null, note: 'Soft Delete']
+}
+
+Table otps {
+  id integer [pk, increment]
+  user_id integer [ref: > users.id]
+  otp_code varchar [not null]
+  expires_at timestamp [not null]
+  used_at timestamp [null]
+  created_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+}
+
+Table refresh_tokens {
+  id integer [pk, increment]
+  user_id integer [ref: > users.id]
+  token_hash varchar [unique, not null]
+  expires_at timestamp [not null]
+  revoked_at timestamp [null]
+  created_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+}
+
+// -----------------------------------------
+// CORE APP FEATURES
+// -----------------------------------------
+Table settings {
+  id integer [pk, increment]
+  user_id integer [ref: > users.id]
+  setting_key varchar [not null]
+  setting_value json [not null]
+  created_at timestamp [default: `current_timestamp()`]
+  updated_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+
+  indexes {
+    (user_id, setting_key) [unique]
+  }
+}
+
+Table onboarding_profile {
+  id integer [pk, increment]
+  user_id integer [unique, ref: - users.id]
+  farm_size_acres decimal
+  primary_crop varchar
+  is_completed boolean [default: false]
+  completed_at timestamp [null]
+  created_at timestamp [default: `current_timestamp()`]
+  updated_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+}
+
+Table uploads {
+  id integer [pk, increment]
+  user_id integer [ref: > users.id]
+  entity_type varchar [note: 'e.g., user_avatar, field_image']
+  entity_id integer [note: 'ID of the related record']
+  file_url varchar [not null]
+  file_type varchar
+  file_size_bytes integer
+  created_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+}
+
+// -----------------------------------------
+// FARM MANAGEMENT
+// -----------------------------------------
+Table fields {
+  id integer [pk, increment]
+  owner_id integer [ref: > users.id]
+  name varchar [not null]
+  area_size decimal [note: 'Size in acres/hectares']
+  boundary_json json [note: 'GeoJSON array of coordinates']
+  created_at timestamp [default: `current_timestamp()`]
+  updated_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+}
+
+Table crops {
+  id integer [pk, increment]
+  field_id integer [ref: > fields.id]
+  name varchar [not null]
+  crop_type varchar
+  planted_at timestamp
+  expected_harvest_at timestamp
+  water_requirement_mm decimal
+  status crop_status_enum [default: 'growing']
+  created_at timestamp [default: `current_timestamp()`]
+  updated_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+}
+
+Table farm_tasks {
+  id integer [pk, increment]
+  owner_id integer [ref: > users.id]
+  field_id integer [ref: > fields.id, null]
+  title varchar [not null]
+  description text
+  assigned_to integer [ref: > users.id, null]
+  due_date timestamp
+  status task_status_enum [default: 'pending']
+  created_at timestamp [default: `current_timestamp()`]
+  updated_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+}
+
+// -----------------------------------------
+// IOT & SENSORS
+// -----------------------------------------
+Table devices {
+  id integer [pk, increment]
+  owner_id integer [ref: > users.id]
+  field_id integer [ref: > fields.id, null]
+  mac_address varchar [unique, not null]
+  name varchar
+  device_type device_type_enum
+  battery_level int
+  is_online boolean [default: false]
+  last_ping_at timestamp
+  created_at timestamp [default: `current_timestamp()`]
+  updated_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+}
+
+Table soil_current {
+  id integer [pk, increment]
+  device_id integer [unique, ref: - devices.id]
+  nitrogen decimal
+  phosphorus decimal
+  potassium decimal
+  moisture_percent decimal
+  ph_level decimal
+  temperature_c decimal
+  last_updated_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+  Note: 'Snapshot view of current conditions (1-to-1 with device)'
+}
+
+Table soil_readings {
+  id integer [pk, increment]
+  device_id integer [ref: > devices.id]
+  nitrogen decimal
+  phosphorus decimal
+  potassium decimal
+  moisture_percent decimal
+  ph_level decimal
+  temperature_c decimal
+  recorded_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+  Note: 'Time-series historical data'
+}
+
+Table alert_rules {
+  id integer [pk, increment]
+  user_id integer [ref: > users.id]
+  device_id integer [ref: > devices.id, null]
+  metric varchar [not null, note: 'e.g., moisture, battery']
+  operator varchar [not null, note: '>, <, ==']
+  threshold decimal [not null]
+  is_active boolean [default: true]
+  created_at timestamp [default: `current_timestamp()`]
+  updated_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+}
+
+// -----------------------------------------
+// PUMP CONTROL
+// -----------------------------------------
+Table pumps {
+  id integer [pk, increment]
+  owner_id integer [ref: > users.id]
+  field_id integer [ref: > fields.id, null]
+  name varchar [not null]
+  type pump_type_enum
+  power_rating_hp decimal
+  flow_rate_lpm decimal
+  lat decimal
+  lng decimal
+  status pump_status_enum [default: 'off']
+  is_online boolean [default: false]
+  total_run_time_sec int [default: 0]
+  last_turned_on timestamp
+  last_turned_off timestamp
+  created_at timestamp [default: `current_timestamp()`]
+  updated_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+}
+
+Table pump_groups {
+  id integer [pk, increment]
+  owner_id integer [ref: > users.id]
+  name varchar [not null]
+  created_at timestamp [default: `current_timestamp()`]
+  updated_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+}
+
+Table pump_group_mapping {
+  group_id integer [ref: > pump_groups.id]
+  pump_id integer [ref: > pumps.id]
+  created_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+  
+  indexes {
+    (group_id, pump_id) [pk]
+  }
+}
+
+Table pump_history {
+  id integer [pk, increment]
+  pump_id integer [ref: > pumps.id]
+  user_id integer [ref: > users.id, null]
+  action action_enum [not null]
+  triggered_by triggered_by_enum
+  duration_sec int [null]
+  timestamp timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+}
+
+Table pump_schedules {
+  id integer [pk, increment]
+  pump_id integer [ref: > pumps.id]
+  owner_id integer [ref: > users.id]
+  start_time time [not null]
+  stop_time time [not null]
+  repeat_type repeat_type_enum [default: 'daily']
+  days_of_week json [note: 'Array like [1,2,3,4,5]']
+  is_active boolean [default: true]
+  created_at timestamp [default: `current_timestamp()`]
+  updated_at timestamp [default: `current_timestamp()`]
+  deleted_at timestamp [null]
+}

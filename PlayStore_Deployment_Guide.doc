@@ -1,0 +1,118 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><title>Google Play Store Deployment Guide</title></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.5; padding: 20px;">
+<h1 style="color: #2e7d32;">Google Play Store Deployment Guide</h1>
+<p>This guide provides a comprehensive step-by-step walkthrough for deploying an Android application to the Google Play Store, along with a checklist of all the assets and information you need to collect from the company before starting.</p>
+<p style="background-color: #ffebee; padding: 10px; border-left: 4px solid #f44336;"><b>IMPORTANT:</b> Google requires applications to be uploaded as an <b>Android App Bundle (.aab)</b> instead of an APK. Ensure your build process is configured to generate an .aab file.</p>
+<hr>
+<h2 style="color: #1565c0;">1. Information & Assets Required from the Company</h2>
+<p>Before starting the upload process, collect the following information and files from the company or client to avoid delays.</p>
+
+<h3>1. Account Details</h3>
+<ul>
+<li><b>Google Play Developer Account:</b> Ensure the company has registered for a Google Play Console account (requires a one-time $25 fee). You will need access to this account.</li>
+</ul>
+
+<h3>2. Store Listing Details</h3>
+<ul>
+<li><b>App Name:</b> The official name of the app as it will appear on the store (Max 30 characters).</li>
+<li><b>Short Description:</b> A brief summary of the app (Max 80 characters).</li>
+<li><b>Full Description:</b> Detailed description of the app's features and benefits (Max 4,000 characters).</li>
+<li><b>App Category & Tags:</b> Determine the best category (e.g., Education, Finance, Health) and relevant tags.</li>
+<li><b>Contact Details:</b> Support email, website (optional), and phone number (optional) to display to users.</li>
+</ul>
+
+<h3>3. Graphic Assets</h3>
+<ul>
+<li><b>App Icon:</b> High-res icon, 512px by 512px, PNG or JPEG format, max 1MB.</li>
+<li><b>Feature Graphic:</b> Promotional image displayed at the top of the store listing, 1024px by 500px, PNG or JPEG.</li>
+<li><b>Phone Screenshots:</b> 2 to 8 screenshots showcasing the app. Dimension ratio between 16:9 and 9:16. Min length 320px, max length 3840px.</li>
+<li><b>(Optional) Tablet Screenshots:</b> If the app supports tablets (7-inch and 10-inch screenshots).</li>
+<li><b>(Optional) Promo Video:</b> A YouTube URL of a promotional video.</li>
+</ul>
+
+<h3>4. Legal & Policy Information</h3>
+<ul>
+<li><b>Privacy Policy URL:</b> A link to the company's active privacy policy page. This is <b>mandatory</b>.</li>
+<li><b>Data Safety Information:</b> Details on what user data the app collects (e.g., location, email, camera access), how it's used, and if it's shared with third parties.</li>
+<li><b>Target Audience:</b> The age groups the app is targeting (e.g., 18 and over, under 13). <i>If targeting children, there are strict family policy requirements.</i></li>
+</ul>
+
+<h3>5. App Access</h3>
+<ul>
+<li><b>Test Credentials:</b> If the app requires a login, you must provide active test account credentials (username/password) so Google reviewers can access all features.</li>
+</ul>
+
+<hr>
+<h2 style="color: #1565c0;">2. Step-by-Step Deployment Guide</h2>
+
+<h3>Step 1: Prepare the Release Build</h3>
+<p>Before touching the Play Console, you need to build a signed release version of the app.</p>
+<ol>
+<li>Ensure your <code>android/app/build.gradle</code> has the correct <code>versionCode</code> (an integer that increments with every release) and <code>versionName</code> (e.g., "1.0.0").</li>
+<li>Generate a <b>Keystore file</b> (<code>.jks</code> or <code>.keystore</code>) to cryptographically sign the app. <i>Store this file safely—if you lose it, you cannot update the app later!</i></li>
+<li>Build the signed release <b>Android App Bundle (.aab)</b>. For React Native, this is typically done by running <code>./gradlew bundleRelease</code> inside the <code>android</code> folder.</li>
+</ol>
+
+<h3>Step 2: Create a New App in the Play Console</h3>
+<ol>
+<li>Log in to the Google Play Console.</li>
+<li>Click <b>All apps</b> > <b>Create app</b>.</li>
+<li>Enter the App name, default language, App or Game, and Free or Paid.</li>
+<li>Accept the Developer Program Policies and US export laws, then click <b>Create app</b>.</li>
+</ol>
+
+<h3>Step 3: Set Up the App Content (Mandatory Declarations)</h3>
+<p>Navigate to the <b>App content</b> section on the left sidebar. You must complete all the "To-do" tasks here before you can publish.</p>
+<ul>
+<li><b>Privacy Policy:</b> Add the URL.</li>
+<li><b>Ads:</b> Declare whether the app contains ads.</li>
+<li><b>App Access:</b> Provide the test credentials if parts of the app are restricted.</li>
+<li><b>Content Rating:</b> Fill out a questionnaire to receive an official age rating.</li>
+<li><b>Target Audience and Content:</b> Define the target age group.</li>
+<li><b>Data Safety:</b> Accurately declare what data is collected and why.</li>
+<li><b>Financial Features:</b> Declare if the app provides any financial features.</li>
+</ul>
+
+<h3>Step 4: Complete the Store Listing</h3>
+<p>Navigate to <b>Store presence</b> > <b>Main store listing</b>.</p>
+<ol>
+<li>Enter the App name, Short description, and Full description.</li>
+<li>Upload the App icon, Feature graphic, and Screenshots.</li>
+<li>Save your changes.</li>
+</ol>
+<p>Navigate to <b>Store presence</b> > <b>Store settings</b>.</p>
+<ol>
+<li>Select the App category and add tags.</li>
+<li>Provide the store listing contact details (email is required).</li>
+</ol>
+
+<h3>Step 5: Setup Pricing and Distribution (Countries)</h3>
+<p>If you haven't set up the countries yet, you will do this in the release track.</p>
+<ol>
+<li>Go to <b>Production</b> (under Release) or <b>Internal Testing</b> if you want to test first.</li>
+<li>Click the <b>Countries / regions</b> tab.</li>
+<li>Click <b>Add countries / regions</b> and select where you want the app to be available.</li>
+</ol>
+
+<h3>Step 6: Create and Roll Out a Release</h3>
+<p style="background-color: #e3f2fd; padding: 10px; border-left: 4px solid #2196f3;"><i>Tip: It is highly recommended to upload your first build to an Internal Testing or Closed Testing track to verify everything works before pushing to Production.</i></p>
+<ol>
+<li>Navigate to <b>Release</b> > <b>Production</b> (or your chosen testing track).</li>
+<li>Click <b>Create new release</b>.</li>
+<li><b>App Signing:</b> Google Play App Signing is usually required. Follow the prompt to opt-in or manage your signing keys.</li>
+<li><b>App bundles:</b> Upload the <code>.aab</code> file you generated in Step 1.</li>
+<li><b>Release name & notes:</b> The release name is usually generated from the versionName. Add release notes detailing what is in this version.</li>
+<li>Click <b>Next</b> or <b>Save</b>.</li>
+</ol>
+
+<h3>Step 7: Review and Send for Review</h3>
+<ol>
+<li>After saving the release, you will see a summary page. Look for any <b>Errors</b> (must be fixed) or <b>Warnings</b> (optional to fix, but read them).</li>
+<li>Click <b>Start rollout to Production</b> (or your testing track).</li>
+<li>The app is now strictly "In Review".</li>
+</ol>
+<p style="background-color: #fff8e1; padding: 10px; border-left: 4px solid #ffc107;"><b>Note:</b> The review process for a brand new app usually takes 3 to 7 days. Updates to existing apps usually take a few hours to 2 days.</p>
+
+</body>
+</html>

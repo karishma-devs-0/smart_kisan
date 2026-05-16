@@ -1,82 +1,118 @@
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
-const { initializeFirebase } = require('./config/firebase');
+// PostgreSQL Connection
+require('./config/database');
+
+// MQTT
 const { initMQTT } = require('./services/mqttService');
+
+// Middleware
 const authMiddleware = require('./middleware/auth');
+
+// Routes
+const authRoutes = require('./routes/auth');
+const devicesRoutes = require('./routes/devices');
 const pumpRoutes = require('./routes/pumps');
 const pumpGroupRoutes = require('./routes/pumpGroups');
 
-// Initialize Firebase Admin
-initializeFirebase();
-
-// Initialize MQTT broker connection
-initMQTT();
-
 const app = express();
+
 const PORT = process.env.PORT || 5000;
 
 // ============================================================
-// MIDDLEWARE
+// SECURITY
 // ============================================================
 
-// Security headers (relaxed for mobile app access)
-app.use(helmet({
-  crossOriginResourcePolicy: false,
-  crossOriginOpenerPolicy: false,
-}));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+    crossOriginOpenerPolicy: false,
+  })
+);
 
-// CORS - allow mobile app requests
-app.use(cors({
-  origin: '*', // Allow all origins for mobile app
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+// ============================================================
+// CORS
+// ============================================================
 
-// Parse JSON bodies
+app.use(cors());
+
+// ============================================================
+// JSON PARSER
+// ============================================================
+
 app.use(express.json());
 
-// Rate limiting - 100 requests per minute per IP
-const limiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 100,
-  message: { error: 'Too many requests, please try again later' },
-});
-app.use('/api/', limiter);
-
 // ============================================================
-// ROUTES
+// RATE LIMIT
 // ============================================================
 
-// Health check (no auth required)
+app.use(
+  '/api/',
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 100,
+  })
+);
+
+// ============================================================
+// HEALTH ROUTE
+// ============================================================
+
 app.get('/api/health', (req, res) => {
-  const { getClient } = require('./services/mqttService');
-  const mqttClient = getClient();
   res.json({
     status: 'ok',
     service: 'SmartKisan API',
-    version: '1.0.0',
-    mqtt: mqttClient?.connected ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString(),
   });
 });
 
-// Protected routes
-app.use('/api/pumps', authMiddleware, pumpRoutes);
-app.use('/api/pump-groups', authMiddleware, pumpGroupRoutes);
+// ============================================================
+// AUTH ROUTES
+// ============================================================
 
-// 404 handler
+app.use('/api/auth', authRoutes);
+
+// ============================================================
+// PROTECTED ROUTES
+// ============================================================
+
+app.use(
+  '/api/pumps',
+  authMiddleware,
+  pumpRoutes
+);
+
+app.use(
+  '/api/pump-groups',
+  authMiddleware,
+  pumpGroupRoutes
+);
+
+// ============================================================
+// 404 HANDLER
+// ============================================================
+
 app.use((req, res) => {
-  res.status(404).json({ error: 'Endpoint not found' });
+  res.status(404).json({
+    error: 'Endpoint not found',
+  });
 });
 
-// Global error handler
+// ============================================================
+// GLOBAL ERROR HANDLER
+// ============================================================
+
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+  console.error('Unhandled Error:', err);
+
+  res.status(500).json({
+    error: 'Internal server error',
+  });
 });
 
 // ============================================================
@@ -84,10 +120,25 @@ app.use((err, req, res, next) => {
 // ============================================================
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🚀 SmartKisan API running on http://0.0.0.0:${PORT}`);
-  console.log(`   Local: http://localhost:${PORT}/api/health`);
-  console.log(`   Network: http://192.168.1.9:${PORT}/api/health`);
-  console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`);
+
+  // Initialize MQTT
+  initMQTT();
+
+  console.log(
+    `\n🚀 SmartKisan API running on port ${PORT}`
+  );
+
+  console.log(
+    `Local: http://localhost:${PORT}/api/health`
+  );
+
+  console.log(
+    `Auth API: http://localhost:${PORT}/api/auth`
+  );
+
+  console.log(
+    `Pumps API: http://localhost:${PORT}/api/pumps\n`
+  );
 });
 
 module.exports = app;

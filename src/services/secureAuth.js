@@ -8,7 +8,6 @@
  * - Auth state observation via onAuthStateChanged
  */
 import * as SecureStore from 'expo-secure-store';
-import { auth, FIREBASE_ENABLED } from './firebase';
 
 const TOKEN_KEY = 'smartkisan_auth_token';
 const USER_KEY = 'smartkisan_auth_user';
@@ -68,18 +67,8 @@ export const secureStorage = {
  * If `forceRefresh` is true, it always fetches a new one from Firebase servers.
  * Otherwise it returns the cached token if still valid.
  */
-export const getFreshToken = async (forceRefresh = false) => {
-  if (!FIREBASE_ENABLED || !auth?.currentUser) {
-    return secureStorage.getToken(); // fallback to stored token
-  }
-  try {
-    const token = await auth.currentUser.getIdToken(forceRefresh);
-    await secureStorage.saveToken(token);
-    return token;
-  } catch (e) {
-    console.warn('Token refresh failed:', e.message);
-    return secureStorage.getToken(); // return last known good token
-  }
+export const getFreshToken = async () => {
+  return secureStorage.getToken();
 };
 
 /**

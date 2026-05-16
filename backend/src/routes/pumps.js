@@ -1,385 +1,440 @@
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../config/firebase');
-const admin = require('firebase-admin');
+
+const db = require('../config/db');
+const { nanoid } = require('nanoid');
+
+const { publishPumpStatus } = require('../services/mqttService');
 
 // ============================================================
-// PUMP CRUD
+// GET ALL PUMPS
 // ============================================================
 
-/**
- * GET /api/pumps - List all pumps for authenticated user
- */
 router.get('/', async (req, res) => {
-  try {
-    const db = getDb();
-    const snapshot = await db
-      .collection('pumps')
-      .where('ownerId', '==', req.user.uid)
-      .orderBy('createdAt', 'desc')
-      .get();
 
-    const pumps = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    res.json({ pumps, count: pumps.length });
+  try {
+
+    const result = await db.query(
+      `
+      SELECT *
+      FROM pumps
+      WHERE owner_id = $1
+      ORDER BY created_at DESC
+      `,
+      [req.user.id]
+    );
+
+    res.json({
+      pumps: result.rows,
+      count: result.rows.length,
+    });
+
   } catch (error) {
-    console.error('GET /pumps error:', error);
-    res.status(500).json({ error: 'Failed to fetch pumps' });
+
+    console.error(
+      'GET /pumps error:',
+      error
+    );
+
+    res.status(500).json({
+      error: 'Failed to fetch pumps',
+    });
   }
 });
 
-/**
- * GET /api/pumps/:id - Get single pump details
- */
+// ============================================================
+// GET SINGLE PUMP
+// ============================================================
+
 router.get('/:id', async (req, res) => {
+
   try {
-    const db = getDb();
-    const doc = await db.collection('pumps').doc(req.params.id).get();
 
-    if (!doc.exists) return res.status(404).json({ error: 'Pump not found' });
-    if (doc.data().ownerId !== req.user.uid)
-      return res.status(403).json({ error: 'Not authorized' });
+    const result = await db.query(
+      `
+      SELECT *
+      FROM pumps
+      WHERE id = $1
+      AND owner_id = $2
+      `,
+      [
+        req.params.id,
+        req.user.id,
+      ]
+    );
 
-    res.json({ id: doc.id, ...doc.data() });
+    if (result.rows.length === 0) {
+
+      return res.status(404).json({
+        error: 'Pump not found',
+      });
+    }
+
+    res.json(result.rows[0]);
+
   } catch (error) {
-    console.error('GET /pumps/:id error:', error);
-    res.status(500).json({ error: 'Failed to fetch pump' });
+
+    console.error(
+      'GET /pumps/:id error:',
+      error
+    );
+
+    res.status(500).json({
+      error: 'Failed to fetch pump',
+    });
   }
 });
 
-/**
- * POST /api/pumps - Add a new pump
- * Body: { name, type, powerRating, flowRate, location? }
- */
+// ============================================================
+// CREATE PUMP
+// ============================================================
+
 router.post('/', async (req, res) => {
+
   try {
-    const { name, type, powerRating, flowRate, location } = req.body;
 
-    if (!name) return res.status(400).json({ error: 'Pump name is required' });
-
-    const db = getDb();
-    const pumpData = {
+    const {
       name,
-      type: type || 'submersible',
-      powerRating: powerRating || null,
-      flowRate: flowRate || null,
-      location: location || null,
-      status: 'off',
-      isOnline: true,
-      ownerId: req.user.uid,
-      lastAction: null,
-      totalRunTime: 0, // in seconds
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
+      type,
+      powerRating,
+      flowRate,
+      location,
+    } = req.body;
 
-    const docRef = await db.collection('pumps').add(pumpData);
-    res.status(201).json({ id: docRef.id, ...pumpData, message: 'Pump created' });
-  } catch (error) {
-    console.error('POST /pumps error:', error);
-    res.status(500).json({ error: 'Failed to create pump' });
-  }
-});
+    if (!name) {
 
-/**
- * PUT /api/pumps/:id - Update pump settings
- * Body: { name?, type?, powerRating?, flowRate?, location? }
- */
-router.put('/:id', async (req, res) => {
-  try {
-    const db = getDb();
-    const doc = await db.collection('pumps').doc(req.params.id).get();
-
-    if (!doc.exists) return res.status(404).json({ error: 'Pump not found' });
-    if (doc.data().ownerId !== req.user.uid)
-      return res.status(403).json({ error: 'Not authorized' });
-
-    const allowedFields = ['name', 'type', 'powerRating', 'flowRate', 'location'];
-    const updates = {};
-    allowedFields.forEach((field) => {
-      if (req.body[field] !== undefined) updates[field] = req.body[field];
-    });
-    updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
-
-    await db.collection('pumps').doc(req.params.id).update(updates);
-    res.json({ id: req.params.id, ...updates, message: 'Pump updated' });
-  } catch (error) {
-    console.error('PUT /pumps/:id error:', error);
-    res.status(500).json({ error: 'Failed to update pump' });
-  }
-});
-
-/**
- * DELETE /api/pumps/:id - Delete a pump
- */
-router.delete('/:id', async (req, res) => {
-  try {
-    const db = getDb();
-    const doc = await db.collection('pumps').doc(req.params.id).get();
-
-    if (!doc.exists) return res.status(404).json({ error: 'Pump not found' });
-    if (doc.data().ownerId !== req.user.uid)
-      return res.status(403).json({ error: 'Not authorized' });
-
-    await db.collection('pumps').doc(req.params.id).delete();
-    res.json({ message: 'Pump deleted' });
-  } catch (error) {
-    console.error('DELETE /pumps/:id error:', error);
-    res.status(500).json({ error: 'Failed to delete pump' });
-  }
-});
-
-// ============================================================
-// PUMP CONTROL
-// ============================================================
-
-/**
- * POST /api/pumps/:id/control - Turn pump ON or OFF
- * Body: { action: 'on' | 'off' }
- */
-router.post('/:id/control', async (req, res) => {
-  try {
-    const { action } = req.body;
-    if (!['on', 'off'].includes(action))
-      return res.status(400).json({ error: 'Action must be "on" or "off"' });
-
-    const db = getDb();
-    const pumpRef = db.collection('pumps').doc(req.params.id);
-    const doc = await pumpRef.get();
-
-    if (!doc.exists) return res.status(404).json({ error: 'Pump not found' });
-    if (doc.data().ownerId !== req.user.uid)
-      return res.status(403).json({ error: 'Not authorized' });
-
-    const pumpData = doc.data();
-    const now = new Date();
-
-    // Calculate run time if turning off
-    let additionalRunTime = 0;
-    if (action === 'off' && pumpData.status === 'on' && pumpData.lastTurnedOn) {
-      const lastOn = pumpData.lastTurnedOn.toDate ? pumpData.lastTurnedOn.toDate() : new Date(pumpData.lastTurnedOn);
-      additionalRunTime = Math.floor((now - lastOn) / 1000);
+      return res.status(400).json({
+        error: 'Pump name is required',
+      });
     }
 
-    const updateData = {
-      status: action,
-      lastAction: action === 'on' ? 'turned_on' : 'turned_off',
-      lastActionAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
-
-    if (action === 'on') {
-      updateData.lastTurnedOn = admin.firestore.FieldValue.serverTimestamp();
-    } else {
-      updateData.lastTurnedOff = admin.firestore.FieldValue.serverTimestamp();
-      updateData.totalRunTime = (pumpData.totalRunTime || 0) + additionalRunTime;
-    }
-
-    await pumpRef.update(updateData);
-
-    // Log to history
-    await db.collection('pumpHistory').add({
-      pumpId: req.params.id,
-      pumpName: pumpData.name,
-      action,
-      triggeredBy: 'manual',
-      userId: req.user.uid,
-      duration: action === 'off' ? additionalRunTime : null,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    res.json({
-      id: req.params.id,
-      status: action,
-      message: `Pump turned ${action}`,
-      runTime: action === 'off' ? additionalRunTime : null,
-    });
-  } catch (error) {
-    console.error('POST /pumps/:id/control error:', error);
-    res.status(500).json({ error: 'Failed to control pump' });
-  }
-});
-
-/**
- * POST /api/pumps/:id/timer - Set auto-off timer
- * Body: { duration: <seconds> }
- */
-router.post('/:id/timer', async (req, res) => {
-  try {
-    const { duration } = req.body;
-    if (!duration || duration <= 0)
-      return res.status(400).json({ error: 'Duration must be a positive number (seconds)' });
-
-    const db = getDb();
-    const pumpRef = db.collection('pumps').doc(req.params.id);
-    const doc = await pumpRef.get();
-
-    if (!doc.exists) return res.status(404).json({ error: 'Pump not found' });
-    if (doc.data().ownerId !== req.user.uid)
-      return res.status(403).json({ error: 'Not authorized' });
-
-    const autoOffAt = new Date(Date.now() + duration * 1000);
-
-    // Turn pump on and set timer
-    await pumpRef.update({
-      status: 'on',
-      lastTurnedOn: admin.firestore.FieldValue.serverTimestamp(),
-      lastAction: 'timer_started',
-      lastActionAt: admin.firestore.FieldValue.serverTimestamp(),
-      timer: {
-        active: true,
-        duration,
-        startedAt: admin.firestore.FieldValue.serverTimestamp(),
-        autoOffAt: admin.firestore.Timestamp.fromDate(autoOffAt),
-      },
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    // Log to history
-    await db.collection('pumpHistory').add({
-      pumpId: req.params.id,
-      pumpName: doc.data().name,
-      action: 'timer_started',
-      triggeredBy: 'timer',
-      userId: req.user.uid,
-      duration,
-      autoOffAt: admin.firestore.Timestamp.fromDate(autoOffAt),
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    res.json({
-      id: req.params.id,
-      status: 'on',
-      timer: { duration, autoOffAt: autoOffAt.toISOString() },
-      message: `Pump on with ${duration}s timer`,
-    });
-  } catch (error) {
-    console.error('POST /pumps/:id/timer error:', error);
-    res.status(500).json({ error: 'Failed to set timer' });
-  }
-});
-
-/**
- * POST /api/pumps/:id/schedule - Create a schedule
- * Body: { startTime: ISO string, stopTime: ISO string, repeat?: 'daily'|'weekly'|'none', days?: [0-6] }
- */
-router.post('/:id/schedule', async (req, res) => {
-  try {
-    const { startTime, stopTime, repeat, days } = req.body;
-
-    if (!startTime || !stopTime)
-      return res.status(400).json({ error: 'startTime and stopTime required (ISO format)' });
-
-    const start = new Date(startTime);
-    const stop = new Date(stopTime);
-    if (stop <= start)
-      return res.status(400).json({ error: 'stopTime must be after startTime' });
-
-    const db = getDb();
-    const pumpDoc = await db.collection('pumps').doc(req.params.id).get();
-
-    if (!pumpDoc.exists) return res.status(404).json({ error: 'Pump not found' });
-    if (pumpDoc.data().ownerId !== req.user.uid)
-      return res.status(403).json({ error: 'Not authorized' });
-
-    const scheduleData = {
-      pumpId: req.params.id,
-      pumpName: pumpDoc.data().name,
-      ownerId: req.user.uid,
-      startTime: admin.firestore.Timestamp.fromDate(start),
-      stopTime: admin.firestore.Timestamp.fromDate(stop),
-      repeat: repeat || 'none',
-      days: days || [],
-      active: true,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
-
-    const docRef = await db.collection('pumpSchedules').add(scheduleData);
+    const result = await db.query(
+      `
+      INSERT INTO pumps(
+        owner_id,
+        name,
+        type,
+        power_rating_hp,
+        flow_rate_lpm,
+        lat,
+        lng,
+        status,
+        is_online,
+        total_run_time_sec,
+        created_at,
+        updated_at
+      )
+      VALUES(
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),NOW()
+      )
+      RETURNING *
+      `,
+      [
+        req.user.id,
+        name,
+        type || 'submersible',
+        powerRating || null,
+        flowRate || null,
+        location?.lat || null,
+        location?.lng || null,
+        'off',
+        false,
+        0,
+      ]
+    );
 
     res.status(201).json({
-      id: docRef.id,
-      ...scheduleData,
-      startTime: start.toISOString(),
-      stopTime: stop.toISOString(),
-      message: 'Schedule created',
+      pump: result.rows[0],
+      message: 'Pump created',
     });
+
   } catch (error) {
-    console.error('POST /pumps/:id/schedule error:', error);
-    res.status(500).json({ error: 'Failed to create schedule' });
-  }
-});
 
-/**
- * GET /api/pumps/:id/schedules - Get all schedules for a pump
- */
-router.get('/:id/schedules', async (req, res) => {
-  try {
-    const db = getDb();
-    const snapshot = await db
-      .collection('pumpSchedules')
-      .where('pumpId', '==', req.params.id)
-      .where('ownerId', '==', req.user.uid)
-      .orderBy('createdAt', 'desc')
-      .get();
+    console.error(
+      'POST /pumps error:',
+      error
+    );
 
-    const schedules = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    res.json({ schedules, count: schedules.length });
-  } catch (error) {
-    console.error('GET /pumps/:id/schedules error:', error);
-    res.status(500).json({ error: 'Failed to fetch schedules' });
-  }
-});
-
-/**
- * DELETE /api/pumps/:id/schedules/:scheduleId - Delete a schedule
- */
-router.delete('/:id/schedules/:scheduleId', async (req, res) => {
-  try {
-    const db = getDb();
-    const doc = await db.collection('pumpSchedules').doc(req.params.scheduleId).get();
-
-    if (!doc.exists) return res.status(404).json({ error: 'Schedule not found' });
-    if (doc.data().ownerId !== req.user.uid)
-      return res.status(403).json({ error: 'Not authorized' });
-
-    await db.collection('pumpSchedules').doc(req.params.scheduleId).delete();
-    res.json({ message: 'Schedule deleted' });
-  } catch (error) {
-    console.error('DELETE schedule error:', error);
-    res.status(500).json({ error: 'Failed to delete schedule' });
+    res.status(500).json({
+      error: 'Failed to create pump',
+    });
   }
 });
 
 // ============================================================
-// PUMP HISTORY
+// UPDATE PUMP
 // ============================================================
 
-/**
- * GET /api/pumps/:id/history - Get pump action history
- * Query: ?limit=50&offset=0
- */
-router.get('/:id/history', async (req, res) => {
+router.put('/:id', async (req, res) => {
+
   try {
-    const limit = parseInt(req.query.limit) || 50;
-    const db = getDb();
 
-    // Verify ownership
-    const pumpDoc = await db.collection('pumps').doc(req.params.id).get();
-    if (!pumpDoc.exists) return res.status(404).json({ error: 'Pump not found' });
-    if (pumpDoc.data().ownerId !== req.user.uid)
-      return res.status(403).json({ error: 'Not authorized' });
+    const {
+      name,
+      type,
+      powerRating,
+      flowRate,
+      location,
+    } = req.body;
 
-    const snapshot = await db
-      .collection('pumpHistory')
-      .where('pumpId', '==', req.params.id)
-      .orderBy('timestamp', 'desc')
-      .limit(limit)
-      .get();
+    const checkPump = await db.query(
+      `
+      SELECT *
+      FROM pumps
+      WHERE id = $1
+      AND owner_id = $2
+      `,
+      [
+        req.params.id,
+        req.user.id,
+      ]
+    );
 
-    const history = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    res.json({ history, count: history.length });
+    if (checkPump.rows.length === 0) {
+
+      return res.status(404).json({
+        error: 'Pump not found',
+      });
+    }
+
+    const result = await db.query(
+      `
+      UPDATE pumps
+      SET
+        name = $1,
+        type = $2,
+        power_rating_hp = $3,
+        flow_rate_lpm = $4,
+        lat = $5,
+        lng = $6,
+        updated_at = NOW()
+      WHERE id = $7
+      AND owner_id = $8
+      RETURNING *
+      `,
+      [
+        name,
+        type,
+        powerRating,
+        flowRate,
+        location?.lat || null,
+        location?.lng || null,
+        req.params.id,
+        req.user.id,
+      ]
+    );
+
+    res.json({
+      pump: result.rows[0],
+      message: 'Pump updated',
+    });
+
   } catch (error) {
-    console.error('GET /pumps/:id/history error:', error);
-    res.status(500).json({ error: 'Failed to fetch history' });
+
+    console.error(
+      'PUT /pumps/:id error:',
+      error
+    );
+
+    res.status(500).json({
+      error: 'Failed to update pump',
+    });
+  }
+});
+
+// ============================================================
+// DELETE PUMP
+// ============================================================
+
+router.delete('/:id', async (req, res) => {
+
+  try {
+
+    await db.query(
+      `
+      DELETE FROM pump_group_mapping
+      WHERE pump_id = $1
+      `,
+      [req.params.id]
+    );
+
+    const result = await db.query(
+      `
+      DELETE FROM pumps
+      WHERE id = $1
+      AND owner_id = $2
+      RETURNING *
+      `,
+      [
+        req.params.id,
+        req.user.id,
+      ]
+    );
+
+    if (result.rows.length === 0) {
+
+      return res.status(404).json({
+        error: 'Pump not found',
+      });
+    }
+
+    res.json({
+      message: 'Pump deleted',
+    });
+
+  } catch (error) {
+
+    console.error(
+      'DELETE /pumps/:id error:',
+      error
+    );
+
+    res.status(500).json({
+      error: 'Failed to delete pump',
+    });
+  }
+});
+
+// ============================================================
+// CONTROL PUMP
+// ============================================================
+
+router.post('/:id/control', async (req, res) => {
+
+  try {
+
+    const { action } = req.body;
+
+    if (!['on', 'off'].includes(action)) {
+
+      return res.status(400).json({
+        error: 'Action must be on or off',
+      });
+    }
+
+    const pumpResult = await db.query(
+      `
+      SELECT *
+      FROM pumps
+      WHERE id = $1
+      AND owner_id = $2
+      `,
+      [
+        req.params.id,
+        req.user.id,
+      ]
+    );
+
+    if (pumpResult.rows.length === 0) {
+
+      return res.status(404).json({
+        error: 'Pump not found',
+      });
+    }
+
+    const pump = pumpResult.rows[0];
+
+    const now = new Date();
+
+    let additionalRunTime = 0;
+
+    // CALCULATE RUNTIME
+    if (
+      action === 'off' &&
+      pump.status === 'on' &&
+      pump.last_turned_on
+    ) {
+
+      additionalRunTime = Math.floor(
+        (
+          now -
+          new Date(pump.last_turned_on)
+        ) / 1000
+      );
+    }
+
+    const result = await db.query(
+      `
+      UPDATE pumps
+      SET
+        status = $1,
+        updated_at = NOW(),
+
+        last_turned_on = CASE
+          WHEN $1 = 'on'
+          THEN NOW()
+          ELSE last_turned_on
+        END,
+
+        last_turned_off = CASE
+          WHEN $1 = 'off'
+          THEN NOW()
+          ELSE last_turned_off
+        END,
+
+        total_run_time_sec =
+          total_run_time_sec + $2
+
+      WHERE id = $3
+      AND owner_id = $4
+
+      RETURNING *
+      `,
+      [
+        action,
+        additionalRunTime,
+        req.params.id,
+        req.user.id,
+      ]
+    );
+
+    // MQTT REALTIME UPDATE
+    await publishPumpStatus(
+      req.user.id,
+      pump.id,
+      {
+        status: action,
+      }
+    );
+
+    // SAVE HISTORY
+    await db.query(
+      `
+      INSERT INTO pump_history(
+        pump_id,
+        user_id,
+        action,
+        triggered_by,
+        duration_sec
+      )
+      VALUES($1,$2,$3,$4,$5)
+      `,
+      [
+        pump.id,
+        req.user.id,
+        action,
+        'manual',
+        action === 'off'
+          ? additionalRunTime
+          : 0,
+      ]
+    );
+
+    res.json({
+      pump: result.rows[0],
+      message: `Pump turned ${action}`,
+    });
+
+  } catch (error) {
+
+    console.error(
+      'POST /pumps/:id/control error:',
+      error
+    );
+
+    res.status(500).json({
+      error: 'Failed to control pump',
+    });
   }
 });
 

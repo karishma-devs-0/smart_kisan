@@ -10,7 +10,7 @@ export const firebaseConfig = {
   measurementId: 'G-GE1DY5MV1X',
 };
 
-export const FIREBASE_ENABLED = true;
+export const FIREBASE_ENABLED = false;
 
 // Google OAuth Web Client ID (from Firebase Console → Authentication → Google provider)
 export const GOOGLE_WEB_CLIENT_ID =
