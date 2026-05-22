@@ -16,7 +16,7 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { useTranslation } from 'react-i18next';
-import { fetchFields } from '../slice/fieldsSlice';
+import { fetchFields, deleteField } from '../slice/fieldsSlice';
 
 const STAGE_COLORS = {
   seedling: COLORS.info,
@@ -104,7 +104,7 @@ const GrowthDotChart = ({ data }) => {
   );
 };
 
-const FieldCard = React.memo(({ field, onPress }) => {
+const FieldCard = React.memo(({ field, onPress, onLongPress, t }) => {
   const stageColor = STAGE_COLORS[field.growthStage] || COLORS.textTertiary;
   const statusBorderColor = STATUS_BORDER_COLORS[field.status] || COLORS.textTertiary;
 
@@ -112,6 +112,7 @@ const FieldCard = React.memo(({ field, onPress }) => {
     <TouchableOpacity
       style={[styles.fieldCard, { borderLeftWidth: 4, borderLeftColor: statusBorderColor }]}
       onPress={() => onPress(field)}
+      onLongPress={() => onLongPress?.(field)}
       activeOpacity={0.7}
     >
       {/* Top row: name + area */}
@@ -200,13 +201,28 @@ const MyFieldsScreen = ({ navigation }) => {
     navigation.navigate('FieldDetail', { field });
   }, [navigation]);
 
-  const handleAddField = useCallback(() => {
+  const handleFieldLongPress = useCallback((field) => {
     Alert.alert(
-      t('farmMap.addField'),
-      t('tasks.addTaskMsg'),
-      [{ text: 'OK' }],
+      field.name,
+      'What would you like to do?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            dispatch(deleteField(field.id))
+              .unwrap()
+              .catch((e) => Alert.alert('Error', e || 'Failed to delete field'));
+          },
+        },
+      ],
     );
-  }, []);
+  }, [dispatch]);
+
+  const handleAddField = useCallback(() => {
+    navigation.navigate('AddField');
+  }, [navigation]);
 
   const renderHeader = () => (
     <View>
@@ -250,7 +266,7 @@ const MyFieldsScreen = ({ navigation }) => {
         data={fields}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <FieldCard field={item} onPress={handleFieldPress} />
+          <FieldCard field={item} onPress={handleFieldPress} onLongPress={handleFieldLongPress} t={t} />
         )}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={styles.listContent}

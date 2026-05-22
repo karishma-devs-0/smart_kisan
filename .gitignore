@@ -49,6 +49,26 @@ serviceAccountKey*.json
 # project tips (local only)
 important-tips/
 
+# Claude Code local settings
+.claude/
+
+# Standalone HTML guides (kept local)
+mqtt-guide.html
+rishab-pumpdetail-review.html
+weekly-status-*.html
+
+# Code drops from other contributors (review locally, don't commit)
+rishab code/
+
+# Large datasets and ML model artifacts (do not commit, multi-GB)
+data/
+plantDetection/huggingface/*.keras
+plantDetection/huggingface/*.tflite
+plantDetection/manual test/
+
+# Manager reference docs / scratch PDFs
+PolyCab_v1.1.pdf
+
 # temporary/personal files
 tmp/
 *.zip

@@ -45,9 +45,7 @@
         }
       ],
       "expo-secure-store",
-      "expo-sharing",
-      "@sentry/react-native/expo",
-      "@sentry/react-native"
+      "expo-sharing"
     ]
   }
 }

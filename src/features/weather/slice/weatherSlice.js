@@ -1,5 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { weatherService } from '../../../services/api';
+import { detectSevereEvents } from '../../../services/weather';
+import { scheduleLocalNotification } from '../../../services/notifications';
 
 // ─── Async Thunks ────────────────────────────────────────────────────────────
 
@@ -20,7 +22,24 @@ export const fetchForecast = createAsyncThunk(
   async (_, { getState, rejectWithValue }) => {
     try {
       const location = getState().settings.location;
-      return await weatherService.fetchForecast(location);
+      const forecast = await weatherService.fetchForecast(location);
+      const severeEvents = detectSevereEvents(forecast, 3);
+
+      // Schedule local notifications for each severe event (deduped per day-per-type)
+      const previouslyNotified = getState().weather.notifiedSevereKeys || [];
+      const newNotifiedKeys = [...previouslyNotified];
+      for (const event of severeEvents) {
+        const key = `${event.date}-${event.type}`;
+        if (previouslyNotified.includes(key)) continue;
+        scheduleLocalNotification({
+          title: event.severity === 'critical' ? '🚨 Weather Alert' : '⚠️ Weather Alert',
+          body: event.message,
+          data: { type: event.type, date: event.date },
+        }).catch(() => {});
+        newNotifiedKeys.push(key);
+      }
+
+      return { forecast, severeEvents, notifiedSevereKeys: newNotifiedKeys };
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -73,6 +92,8 @@ const initialState = {
   },
   windHistory: [],
   humidityHistory: [],
+  severeEvents: [],
+  notifiedSevereKeys: [],
   selectedMetric: 'temperature',
   loading: false,
   error: null,
@@ -110,7 +131,9 @@ const weatherSlice = createSlice({
       })
       .addCase(fetchForecast.fulfilled, (state, action) => {
         state.loading = false;
-        state.forecast = action.payload;
+        state.forecast = action.payload.forecast;
+        state.severeEvents = action.payload.severeEvents;
+        state.notifiedSevereKeys = action.payload.notifiedSevereKeys;
       })
       .addCase(fetchForecast.rejected, (state, action) => {
         state.loading = false;

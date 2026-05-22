@@ -4,7 +4,7 @@
 
 set -e
 
-VENV=/home/kartik/plant-disease-env
+VENV=${SMARTKISAN_VENV:-$HOME/plant-disease-env}
 NV=$VENV/lib/python3.12/site-packages/nvidia
 
 if [ ! -d "$VENV" ]; then
@@ -28,8 +28,8 @@ export TF_CPP_MIN_LOG_LEVEL=1
 
 # Read dataset and write split inside WSL fs (much faster than /mnt/d)
 # Final model still saves to OUTPUT_DIR on the Windows mount so it's visible from VS Code
-export SMARTKISAN_DATASET_DIR=/home/kartik/plantvillage_color
-export SMARTKISAN_SPLIT_DIR=/home/kartik/plant_split
+export SMARTKISAN_DATASET_DIR=${SMARTKISAN_DATASET_DIR:-$HOME/plantvillage_color}
+export SMARTKISAN_SPLIT_DIR=${SMARTKISAN_SPLIT_DIR:-$HOME/plant_split}
 
 cd "$(dirname "$0")"
 exec python train_model.py

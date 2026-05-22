@@ -3,7 +3,7 @@ import { MOCK_FIELDS } from '../features/fields/mock/fieldsMockData';
 import { MOCK_DEVICES } from '../features/devices/mock/devicesMockData';
 import { MOCK_PUMPS, MOCK_PUMP_GROUPS } from '../features/pumps/mock/pumpsMockData';
 import { MOCK_CROPS } from '../features/crops/mock/cropsMockData';
-import { MOCK_SOIL_CURRENT } from '../features/soil/mock/soilMockData';
+import { MOCK_SOIL_CURRENT, MOCK_SOIL_READINGS, SOIL_CROPS } from '../features/soil/mock/soilMockData';
 import { MOCK_FARM_TASKS } from '../features/farm/mock/farmMockData';
 
 /**
@@ -23,6 +23,8 @@ export async function seedUserData() {
       ...MOCK_CROPS.map((c) => firestoreService.create('crops', c)),
       ...MOCK_FARM_TASKS.map((t) => firestoreService.create('farm_tasks', t)),
       firestoreService.setSingleton('soil', 'current', MOCK_SOIL_CURRENT),
+      ...MOCK_SOIL_READINGS.map((r) => firestoreService.create('soil_readings', r)),
+      ...SOIL_CROPS.slice(0, 2).map((c) => firestoreService.create('soil_crops', c)),
     ];
 
     await Promise.all(seedOps);

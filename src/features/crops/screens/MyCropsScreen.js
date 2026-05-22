@@ -8,23 +8,40 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { fetchCrops, deleteCrop } from '../slice/cropsSlice';
+import { computeStage, computeProgress, harvestLabel } from '../utils/growthStages';
 import { useTranslation } from 'react-i18next';
 
 const statusColors = { growing: COLORS.success, ready: COLORS.warning, harvested: COLORS.info };
+const stageColors = {
+  seedling: COLORS.info,
+  vegetative: COLORS.success,
+  flowering: COLORS.warning,
+  maturity: '#FF9800',
+};
 
-const CropItem = React.memo(({ crop, onPress }) => (
-  <TouchableOpacity style={styles.cropCard} onPress={() => onPress(crop)} activeOpacity={0.7}>
-    <View style={styles.cropImage}>
-      <MaterialCommunityIcons name="sprout" size={40} color={COLORS.primaryLight} />
-    </View>
-    <Text style={styles.cropName} numberOfLines={1}>{crop.name}</Text>
-    <Text style={styles.cropVariety} numberOfLines={1}>{crop.variety}</Text>
-    <Text style={styles.cropDate}>{crop.sowingDate}</Text>
-    <View style={[styles.statusBadge, { backgroundColor: (statusColors[crop.status] || COLORS.textTertiary) + '20' }]}>
-      <Text style={[styles.statusText, { color: statusColors[crop.status] || COLORS.textTertiary }]}>{crop.status}</Text>
-    </View>
-  </TouchableOpacity>
-));
+const CropItem = React.memo(({ crop, onPress }) => {
+  const stage = crop.status === 'harvested' ? 'harvested' : computeStage(crop.sowingDate, crop.name);
+  const progress = crop.status === 'harvested' ? 100 : computeProgress(crop.sowingDate, crop.name);
+  const stageColor = stageColors[stage] || COLORS.textTertiary;
+  const harvest = crop.status === 'harvested' ? 'Harvested' : harvestLabel(crop.sowingDate, crop.name);
+
+  return (
+    <TouchableOpacity style={styles.cropCard} onPress={() => onPress(crop)} activeOpacity={0.7}>
+      <View style={styles.cropImage}>
+        <MaterialCommunityIcons name="sprout" size={40} color={COLORS.primaryLight} />
+      </View>
+      <Text style={styles.cropName} numberOfLines={1}>{crop.name}</Text>
+      <Text style={styles.cropVariety} numberOfLines={1}>{crop.variety}</Text>
+      <View style={styles.progressBarBg}>
+        <View style={[styles.progressBarFill, { width: `${progress}%`, backgroundColor: stageColor }]} />
+      </View>
+      <Text style={[styles.stageText, { color: stageColor }]} numberOfLines={1}>
+        {stage.charAt(0).toUpperCase() + stage.slice(1)} · {progress}%
+      </Text>
+      <Text style={styles.harvestText} numberOfLines={1}>{harvest}</Text>
+    </TouchableOpacity>
+  );
+});
 
 const MyCropsScreen = ({ navigation }) => {
   const { t } = useTranslation();
@@ -142,6 +159,10 @@ const styles = StyleSheet.create({
   cropDate: { fontSize: FONT_SIZES.xs, color: COLORS.textTertiary, marginTop: 4 },
   statusBadge: { borderRadius: BORDER_RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 2, alignSelf: 'flex-start', marginTop: SPACING.sm },
   statusText: { fontSize: FONT_SIZES.xs, fontWeight: FONT_WEIGHTS.semiBold, textTransform: 'capitalize' },
+  progressBarBg: { height: 6, backgroundColor: COLORS.divider, borderRadius: 3, overflow: 'hidden', marginTop: SPACING.sm },
+  progressBarFill: { height: '100%', borderRadius: 3 },
+  stageText: { fontSize: FONT_SIZES.xs, fontWeight: FONT_WEIGHTS.semiBold, marginTop: SPACING.xs },
+  harvestText: { fontSize: FONT_SIZES.xs, color: COLORS.textTertiary, marginTop: 2 },
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.xxxl },
   emptyTitle: { fontSize: FONT_SIZES.xl, fontWeight: FONT_WEIGHTS.semiBold, color: COLORS.textPrimary, marginTop: SPACING.lg },
   emptySubtitle: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary, textAlign: 'center', marginTop: SPACING.sm, marginHorizontal: SPACING.xl },

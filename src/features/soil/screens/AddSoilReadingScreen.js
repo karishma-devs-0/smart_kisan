@@ -13,7 +13,7 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
-import { addSoilReading } from '../slice/soilSlice';
+import { saveSoilReading } from '../slice/soilSlice';
 import { fetchFields } from '../../fields/slice/fieldsSlice';
 import ScreenLayout from '../../../components/common/ScreenLayout';
 
@@ -80,10 +80,16 @@ const AddSoilReadingScreen = ({ navigation }) => {
       texture: texture || null,
     };
 
-    dispatch(addSoilReading(reading));
-    Alert.alert('Success', 'Soil reading saved successfully.', [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+    dispatch(saveSoilReading(reading))
+      .unwrap()
+      .then(() => {
+        Alert.alert('Success', 'Soil reading saved successfully.', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      })
+      .catch((err) => {
+        Alert.alert('Error', err?.message || 'Failed to save reading. Please try again.');
+      });
   };
 
   const renderSliderInput = (label, value, setValue, min, max, step, unit, icon, color) => {

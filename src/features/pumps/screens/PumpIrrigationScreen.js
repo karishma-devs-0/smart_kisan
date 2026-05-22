@@ -51,6 +51,7 @@ const PumpIrrigationScreen = ({ navigation, route }) => {
   const pump = useSelector((s) => s.pumps.pumps.find((p) => p.id === pumpId)) || { name: 'Pump' };
   const schedules = useSelector((s) => s.pumps.schedules[pumpId] || []);
   const loading = useSelector((s) => s.pumps.loading);
+  const forecast = useSelector((s) => s.weather.forecast);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [startHour, setStartHour] = useState('06');
@@ -71,6 +72,22 @@ const PumpIrrigationScreen = ({ navigation, route }) => {
   };
 
   const handleAddSchedule = () => {
+    const rainMm = forecast?.[0]?.precipitation || 0;
+    if (rainMm >= 10) {
+      Alert.alert(
+        'Rain forecast',
+        `~${rainMm}mm rain is expected tomorrow. Schedule irrigation anyway?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Schedule anyway', onPress: commitSchedule },
+        ],
+      );
+      return;
+    }
+    commitSchedule();
+  };
+
+  const commitSchedule = () => {
     const now = new Date();
     const start = new Date(now);
     start.setHours(parseInt(startHour, 10), parseInt(startMin, 10), 0, 0);

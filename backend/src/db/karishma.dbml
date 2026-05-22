@@ -1,0 +1,141 @@
+Project SmartKisan {
+  database_type: 'PostgreSQL'
+  Note: 'End-to-End SQL Database replacement for SmartKisan (Firebase Migration)'
+}
+
+Table users {
+  id uuid [pk, default: `gen_random_uuid()`]
+  email varchar [unique, not null]
+  phone_number varchar [unique]
+  first_name varchar
+  last_name varchar
+  role varchar [default: 'farmer']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  Note: 'Replaces Firebase Auth user profiles'
+}
+
+Table fields {
+  id uuid [pk, default: `gen_random_uuid()`]
+  owner_id uuid [ref: > users.id]
+  name varchar [not null]
+  area_size decimal [note: 'Size in acres/hectares']
+  boundary_json jsonb [note: 'GeoJSON array of coordinates for map rendering']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  Note: 'Physical plots of land on the farm'
+}
+
+Table crops {
+  id uuid [pk, default: `gen_random_uuid()`]
+  field_id uuid [ref: > fields.id]
+  name varchar [not null]
+  crop_type varchar
+  planted_at timestamp
+  expected_harvest_at timestamp
+  water_requirement_mm decimal
+  status varchar [default: 'growing']
+  created_at timestamp [default: `now()`]
+}
+
+Table devices {
+  id uuid [pk, default: `gen_random_uuid()`]
+  owner_id uuid [ref: > users.id]
+  field_id uuid [ref: > fields.id, null]
+  mac_address varchar [unique, not null]
+  name varchar
+  device_type varchar [note: 'e.g., soil_sensor, weather_station']
+  battery_level int
+  is_online boolean [default: false]
+  last_ping_at timestamp
+  created_at timestamp [default: `now()`]
+  Note: 'IoT devices scattered across the farm'
+}
+
+Table soil_readings {
+  id uuid [pk, default: `gen_random_uuid()`]
+  device_id uuid [ref: > devices.id]
+  nitrogen decimal
+  phosphorus decimal
+  potassium decimal
+  moisture_percent decimal
+  ph_level decimal
+  temperature_c decimal
+  recorded_at timestamp [default: `now()`]
+  Note: 'Time-series data for historical soil analytics (replaces the singleton soil document)'
+}
+
+Table pumps {
+  id uuid [pk, default: `gen_random_uuid()`]
+  owner_id uuid [ref: > users.id]
+  field_id uuid [ref: > fields.id, null]
+  name varchar [not null]
+  type varchar [note: 'e.g., submersible, centrifugal, jet']
+  power_rating varchar [note: 'e.g., 5 HP']
+  flow_rate varchar [note: 'e.g., 120 L/min']
+  lat decimal
+  lng decimal
+  status varchar [default: 'off', note: 'on or off']
+  is_online boolean [default: false]
+  total_run_time_sec int [default: 0]
+  last_turned_on timestamp
+  last_turned_off timestamp
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  Note: 'Water pumps connected to the MQTT broker'
+}
+
+Table pump_groups {
+  id uuid [pk, default: `gen_random_uuid()`]
+  owner_id uuid [ref: > users.id]
+  name varchar [not null]
+  created_at timestamp [default: `now()`]
+}
+
+// Junction table to handle the Many-to-Many relationship 
+// between pumps and pump groups (replacing the NoSQL array approach)
+Table pump_group_mapping {
+  group_id uuid [ref: > pump_groups.id]
+  pump_id uuid [ref: > pumps.id]
+  
+  indexes {
+    (group_id, pump_id) [pk]
+  }
+}
+
+Table pump_history {
+  id uuid [pk, default: `gen_random_uuid()`]
+  pump_id uuid [ref: > pumps.id]
+  user_id uuid [ref: > users.id, null]
+  action varchar [not null, note: 'on, off, timer_started']
+  triggered_by varchar [note: 'timer, manual, sensor']
+  duration_sec int [note: 'Populated when turned off']
+  timestamp timestamp [default: `now()`]
+  Note: 'Immutable audit log of all pump actions'
+}
+
+Table pump_schedules {
+  id uuid [pk, default: `gen_random_uuid()`]
+  pump_id uuid [ref: > pumps.id]
+  owner_id uuid [ref: > users.id]
+  start_time time [not null]
+  stop_time time [not null]
+  repeat_type varchar [default: 'daily']
+  days_of_week jsonb [note: 'Array representing weekdays like [1,2,3,4,5]']
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table farm_tasks {
+  id uuid [pk, default: `gen_random_uuid()`]
+  owner_id uuid [ref: > users.id]
+  field_id uuid [ref: > fields.id, null]
+  title varchar [not null]
+  description text
+  assigned_to varchar [note: 'Worker name or ID']
+  due_date timestamp
+  status varchar [default: 'pending']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}

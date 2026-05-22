@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -33,6 +33,25 @@ import { FIREBASE_ENABLED } from '../../../services/firebase';
 import { onPumpStatus, sendPumpCommand, publish, getTopics } from '../../../services/mqtt';
 
 const EMPTY_SCHEDULES = [];
+
+// Stable fallback used when the pump isn't in Redux yet (e.g. deep link before fetch).
+const DEFAULT_PUMP = {
+  status: 'off',
+  mode: 'manual',
+  hp: 5,
+  type: 'submersible',
+  lastRun: null,
+  nextRun: null,
+  soilMoisture: 42,
+  waterLevel: 78,
+};
+
+const formatNextRun = (nextRun) =>
+  new Date(nextRun).toLocaleString([], {
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
 // ─── Mode constants ─────────────────────────────────────────────────────────
 
@@ -80,24 +99,25 @@ const PumpDetailScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
 
-  const pump = useSelector((state) =>
-    state.pumps.pumps.find((p) => p.id === pumpId),
-  ) || {
-    id: pumpId,
-    name: `Pump ${pumpId}`,
-    field: t('pumps.noFieldAssigned'),
-    status: 'off',
-    mode: 'manual',
-    hp: 5,
-    type: 'submersible',
-    lastRun: null,
-    nextRun: null,
-    soilMoisture: 42,
-    waterLevel: 78,
-  };
+  // String() coercion: route params arrive as strings, Firestore IDs are strings,
+  // but mock data sometimes uses numbers. Compare as strings to avoid silent mismatch.
+  const selectedPump = useSelector((state) =>
+    state.pumps?.pumps?.find((p) => String(p.id) === String(pumpId)),
+  );
 
-  const activeTimers = useSelector((state) => state.pumps.activeTimers);
-  const schedulesRaw = useSelector((state) => state.pumps.schedules[pumpId]);
+  const pump = useMemo(
+    () =>
+      selectedPump || {
+        ...DEFAULT_PUMP,
+        id: pumpId,
+        name: `Pump ${pumpId}`,
+        field: t('pumps.noFieldAssigned'),
+      },
+    [selectedPump, pumpId, t],
+  );
+
+  const activeTimers = useSelector((state) => state.pumps?.activeTimers || {});
+  const schedulesRaw = useSelector((state) => state.pumps?.schedules?.[pumpId]);
   const schedules = schedulesRaw || EMPTY_SCHEDULES;
   const mode = pump.mode || 'manual';
 
@@ -465,11 +485,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
           <View style={{ flex: 1, marginLeft: SPACING.sm }}>
             <Text style={styles.nextRunLabel}>Next Scheduled Run</Text>
             <Text style={styles.nextRunTime}>
-              {new Date(pump.nextRun).toLocaleString([], {
-                weekday: 'short',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              {formatNextRun(pump.nextRun)}
             </Text>
           </View>
         </View>
@@ -749,11 +765,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
             <View style={{ flex: 1, marginLeft: SPACING.sm }}>
               <Text style={styles.nextRunLabel}>Next Run</Text>
               <Text style={styles.nextRunTime}>
-                {new Date(pump.nextRun).toLocaleString([], {
-                  weekday: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {formatNextRun(pump.nextRun)}
               </Text>
             </View>
           </View>

@@ -304,9 +304,12 @@ const pumpsSlice = createSlice({
     updatePumpStatusFromMQTT: (state, action) => {
       const { pumpId, status } = action.payload;
       const pump = state.pumps.find((p) => p.id === pumpId);
-      if (pump) {
-        pump.status = status;
+      if (!pump) return;
+      const now = new Date().toISOString();
+      if (status === 'on' && pump.status !== 'on') {
+        pump.lastOnAt = now;
       }
+      pump.status = status;
     },
   },
   extraReducers: (builder) => {

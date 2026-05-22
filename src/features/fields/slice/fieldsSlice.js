@@ -14,6 +14,40 @@ export const fetchFields = createAsyncThunk(
   },
 );
 
+export const saveField = createAsyncThunk(
+  'fields/saveField',
+  async (field, { rejectWithValue }) => {
+    try {
+      return await fieldsService.saveField(field);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
+export const updateField = createAsyncThunk(
+  'fields/updateField',
+  async ({ id, updates }, { rejectWithValue }) => {
+    try {
+      return await fieldsService.updateField(id, updates);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
+export const deleteField = createAsyncThunk(
+  'fields/deleteField',
+  async (id, { rejectWithValue }) => {
+    try {
+      await fieldsService.deleteField(id);
+      return id;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
 // ─── Slice ───────────────────────────────────────────────────────────────────
 
 const initialState = {
@@ -21,6 +55,7 @@ const initialState = {
   selectedField: null,
   growthData: [],
   loading: false,
+  saving: false,
   error: null,
 };
 
@@ -34,15 +69,8 @@ const fieldsSlice = createSlice({
     clearSelectedField: (state) => {
       state.selectedField = null;
     },
-    addField: (state, action) => {
-      state.fields.push(action.payload);
-    },
-    removeField: (state, action) => {
-      state.fields = state.fields.filter((f) => f.id !== action.payload);
-    },
   },
   extraReducers: (builder) => {
-    // fetchFields
     builder
       .addCase(fetchFields.pending, (state) => {
         state.loading = true;
@@ -57,8 +85,33 @@ const fieldsSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       });
+
+    builder
+      .addCase(saveField.pending, (state) => {
+        state.saving = true;
+      })
+      .addCase(saveField.fulfilled, (state, action) => {
+        state.saving = false;
+        state.fields.push(action.payload);
+      })
+      .addCase(saveField.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      });
+
+    builder
+      .addCase(updateField.fulfilled, (state, action) => {
+        const idx = state.fields.findIndex((f) => f.id === action.payload.id);
+        if (idx >= 0) state.fields[idx] = { ...state.fields[idx], ...action.payload };
+      });
+
+    builder
+      .addCase(deleteField.fulfilled, (state, action) => {
+        state.fields = state.fields.filter((f) => f.id !== action.payload);
+        if (state.selectedField?.id === action.payload) state.selectedField = null;
+      });
   },
 });
 
-export const { selectField, clearSelectedField, addField, removeField } = fieldsSlice.actions;
+export const { selectField, clearSelectedField } = fieldsSlice.actions;
 export default fieldsSlice.reducer;
