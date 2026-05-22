@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -91,10 +92,13 @@ const LoginScreen = ({ navigation }) => {
         {/* Language Selector Button */}
         <LanguageButton onPress={() => setShowLangPicker(true)} />
 
-        {/* Logo */}
         <View style={styles.logoContainer}>
           <View style={styles.logoIcon}>
-            <MaterialCommunityIcons name="sprout" size={48} color={COLORS.white} />
+            <Image 
+              source={require('../../../../assets/smartKisanIcon.png')} 
+              style={{ width: 60, height: 60 }} 
+              resizeMode="contain" 
+            />
           </View>
           <Text style={styles.logoText}>{t('common.appName')}</Text>
           <Text style={styles.logoSubtext}>{t('common.tagline')}</Text>

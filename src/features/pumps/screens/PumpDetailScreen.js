@@ -29,8 +29,14 @@ import {
   saveAutoSchedule,
   fetchSchedules,
 } from '../slice/pumpsSlice';
-import { FIREBASE_ENABLED } from '../../../services/firebase';
+
 import { onPumpStatus, sendPumpCommand, publish, getTopics } from '../../../services/mqtt';
+import {
+  formatISTTime,
+  formatRelativeTime,
+  formatNextRunIST,
+  getISTISOString,
+} from '../../../utils/dateTime';
 
 const EMPTY_SCHEDULES = [];
 
@@ -45,13 +51,6 @@ const DEFAULT_PUMP = {
   soilMoisture: 42,
   waterLevel: 78,
 };
-
-const formatNextRun = (nextRun) =>
-  new Date(nextRun).toLocaleString([], {
-    weekday: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 
 // ─── Mode constants ─────────────────────────────────────────────────────────
 
@@ -219,20 +218,12 @@ const PumpDetailScreen = ({ navigation, route }) => {
   const handleToggle = () => {
     const newAction = pump.status === 'on' ? 'off' : 'on';
     sendPumpCommand(pumpId, newAction);
-    if (FIREBASE_ENABLED) {
-      dispatch(controlPump({ pumpId, action: newAction }));
-    } else {
-      dispatch(togglePump(pumpId));
-    }
+    dispatch(togglePump(pumpId));
   };
 
   const handleEmergencyStop = () => {
     sendPumpCommand(pumpId, 'off');
-    if (FIREBASE_ENABLED) {
-      dispatch(controlPump({ pumpId, action: 'off' }));
-    } else {
-      if (pump.status === 'on') dispatch(togglePump(pumpId));
-    }
+    if (pump.status === 'on') dispatch(togglePump(pumpId));
   };
 
   const handleModeChange = (newMode) => {
@@ -258,16 +249,6 @@ const PumpDetailScreen = ({ navigation, route }) => {
       dispatch(setPumpMode({ pumpId, mode: newMode }));
       setModeModalVisible(false);
     }
-  };
-
-  const formatLastRun = (dateStr) => {
-    if (!dateStr) return 'Never';
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diffH = Math.round((now - d) / (1000 * 60 * 60));
-    if (diffH < 1) return 'Just now';
-    if (diffH < 24) return `${diffH}h ago`;
-    return `${Math.round(diffH / 24)}d ago`;
   };
 
   // ─── Mode Content Renderers ─────────────────────────────────────────────
@@ -311,7 +292,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
           <MaterialCommunityIcons name="history" size={20} color={COLORS.textSecondary} />
-          <Text style={styles.statValue}>{formatLastRun(pump.lastRun)}</Text>
+          <Text style={styles.statValue}>{formatRelativeTime(pump.lastRun)}</Text>
           <Text style={styles.statLabel}>Last Run</Text>
         </View>
       </View>
@@ -397,7 +378,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
         {pump.lastRun && (
           <View style={styles.lastRunRow}>
             <MaterialCommunityIcons name="history" size={16} color={COLORS.textSecondary} />
-            <Text style={styles.lastRunText}>Last run: {formatLastRun(pump.lastRun)}</Text>
+            <Text style={styles.lastRunText}>Last run: {formatRelativeTime(pump.lastRun)}</Text>
           </View>
         )}
       </View>
@@ -485,7 +466,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
           <View style={{ flex: 1, marginLeft: SPACING.sm }}>
             <Text style={styles.nextRunLabel}>Next Scheduled Run</Text>
             <Text style={styles.nextRunTime}>
-              {formatNextRun(pump.nextRun)}
+              {formatNextRunIST(pump.nextRun)}
             </Text>
           </View>
         </View>
@@ -499,13 +480,13 @@ const PumpDetailScreen = ({ navigation, route }) => {
             <View key={s.id} style={styles.scheduleCard}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.scheduleCardTime}>
-                  {new Date(
+                  {formatISTTime(
                     s.startTime?._seconds ? s.startTime._seconds * 1000 : s.startTime,
-                  ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  {' \u2192 '}
-                  {new Date(
+                  )}
+                  {' → '}
+                  {formatISTTime(
                     s.stopTime?._seconds ? s.stopTime._seconds * 1000 : s.stopTime,
-                  ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  )}
                 </Text>
                 <Text style={styles.scheduleCardRepeat}>
                   {s.repeat || 'once'} \u2022 {(s.days || []).length} days
@@ -538,7 +519,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
       action: 'sensor_config',
       pumpId,
       sensorConfig: config,
-      timestamp: new Date().toISOString(),
+      timestamp: getISTISOString(),
       source: 'app',
     });
   };
@@ -674,11 +655,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
           ]}
           onPress={() => {
             sendPumpCommand(pumpId, pump.status === 'on' ? 'off' : 'on');
-            if (FIREBASE_ENABLED) {
-              dispatch(controlPump({ pumpId, action: pump.status === 'on' ? 'off' : 'on' }));
-            } else {
-              dispatch(togglePump(pumpId));
-            }
+            dispatch(togglePump(pumpId));
           }}
         >
           <MaterialCommunityIcons
@@ -707,7 +684,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
       action: 'auto_schedule',
       pumpId,
       autoSchedule: schedule,
-      timestamp: new Date().toISOString(),
+      timestamp: getISTISOString(),
       source: 'app',
     });
   };
@@ -765,7 +742,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
             <View style={{ flex: 1, marginLeft: SPACING.sm }}>
               <Text style={styles.nextRunLabel}>Next Run</Text>
               <Text style={styles.nextRunTime}>
-                {formatNextRun(pump.nextRun)}
+                {formatNextRunIST(pump.nextRun)}
               </Text>
             </View>
           </View>
