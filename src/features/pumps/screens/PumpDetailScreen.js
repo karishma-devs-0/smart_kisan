@@ -30,7 +30,14 @@ import {
   fetchSchedules,
 } from '../slice/pumpsSlice';
 
-import { onPumpStatus, sendPumpCommand, publish, getTopics } from '../../../services/mqtt';
+import {
+  onPumpStatus,
+  sendPumpCommand,
+  publish,
+  getTopics,
+  sendPumpSchedule,
+} from '../../../services/mqtt';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   formatISTTime,
   formatRelativeTime,
@@ -132,6 +139,9 @@ const PumpDetailScreen = ({ navigation, route }) => {
   const [scheduleStart, setScheduleStart] = useState('06:00');
   const [scheduleStop, setScheduleStop] = useState('08:00');
   const [scheduleDays, setScheduleDays] = useState([1, 2, 3, 4, 5]);
+  // One-time schedule: when set, ignores `scheduleDays` and uses `repeat: 'once'`.
+  const [scheduleDate, setScheduleDate] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [autoStart, setAutoStart] = useState(autoCfg.startTime || '06:00');
   const [autoStop, setAutoStop] = useState(autoCfg.stopTime || '07:00');
   const [autoEnabled, setAutoEnabled] = useState(autoCfg.enabled !== false);
@@ -407,13 +417,20 @@ const PumpDetailScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* Day selector */}
-        <Text style={[styles.scheduleLabel, { marginTop: SPACING.md }]}>Repeat</Text>
+        {/* Day selector (used for recurring schedules — disabled when a specific date is set) */}
+        <Text style={[styles.scheduleLabel, { marginTop: SPACING.md }]}>
+          Repeat {scheduleDate ? '(disabled — one-time date set)' : ''}
+        </Text>
         <View style={styles.daysRow}>
           {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
             <TouchableOpacity
               key={idx}
-              style={[styles.dayChip, scheduleDays.includes(idx) && styles.dayChipActive]}
+              style={[
+                styles.dayChip,
+                scheduleDays.includes(idx) && styles.dayChipActive,
+                scheduleDate && { opacity: 0.4 },
+              ]}
+              disabled={!!scheduleDate}
               onPress={() => {
                 setScheduleDays((prev) =>
                   prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx],
@@ -429,29 +446,102 @@ const PumpDetailScreen = ({ navigation, route }) => {
           ))}
         </View>
 
+        {/* One-time date picker — alternative to recurring days */}
+        <Text style={[styles.scheduleLabel, { marginTop: SPACING.md }]}>
+          Or schedule for a specific date (one-time)
+        </Text>
+        <View style={styles.scheduleDateRow}>
+          <TouchableOpacity
+            style={styles.scheduleDateBtn}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <MaterialCommunityIcons name="calendar" size={16} color={MODE_COLORS.schedule} />
+            <Text style={styles.scheduleDateText}>
+              {scheduleDate
+                ? scheduleDate.toLocaleDateString(undefined, {
+                    weekday: 'short',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  })
+                : 'Pick a date'}
+            </Text>
+          </TouchableOpacity>
+          {scheduleDate && (
+            <TouchableOpacity
+              style={styles.scheduleDateClear}
+              onPress={() => setScheduleDate(null)}
+            >
+              <MaterialCommunityIcons name="close-circle" size={20} color={COLORS.danger} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={scheduleDate || new Date()}
+            mode="date"
+            display="default"
+            minimumDate={new Date()}
+            onChange={(event, selectedDate) => {
+              setShowDatePicker(false);
+              if (event.type === 'set' && selectedDate) {
+                setScheduleDate(selectedDate);
+              }
+            }}
+          />
+        )}
+
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: MODE_COLORS.schedule }]}
           onPress={() => {
-            const now = new Date();
             const [sh, sm] = scheduleStart.split(':').map(Number);
             const [eh, em] = scheduleStop.split(':').map(Number);
-            const start = new Date(now);
-            start.setHours(sh, sm, 0, 0);
-            if (start <= now) start.setDate(start.getDate() + 1);
-            const stop = new Date(start);
-            stop.setHours(eh, em, 0, 0);
-            if (stop <= start) stop.setDate(stop.getDate() + 1);
-            dispatch(
-              createSchedule({
-                pumpId,
-                schedule: {
+
+            // Build start/stop. If a one-time date is set, anchor to it.
+            // Otherwise the existing rolling logic: today, or tomorrow if start has passed.
+            let start;
+            let stop;
+            if (scheduleDate) {
+              start = new Date(scheduleDate);
+              start.setHours(sh, sm, 0, 0);
+              stop = new Date(scheduleDate);
+              stop.setHours(eh, em, 0, 0);
+              if (stop <= start) stop.setDate(stop.getDate() + 1);
+            } else {
+              const now = new Date();
+              start = new Date(now);
+              start.setHours(sh, sm, 0, 0);
+              if (start <= now) start.setDate(start.getDate() + 1);
+              stop = new Date(start);
+              stop.setHours(eh, em, 0, 0);
+              if (stop <= start) stop.setDate(stop.getDate() + 1);
+            }
+
+            const schedule = scheduleDate
+              ? {
+                  startTime: start.toISOString(),
+                  stopTime: stop.toISOString(),
+                  repeat: 'once',
+                  date: scheduleDate.toISOString().split('T')[0],
+                  days: [],
+                }
+              : {
                   startTime: start.toISOString(),
                   stopTime: stop.toISOString(),
                   repeat: scheduleDays.length === 7 ? 'daily' : 'weekly',
                   days: scheduleDays,
-                },
-              }),
-            );
+                };
+
+            // Publish to MQTT so the device actually receives the schedule.
+            // Previously this was missing, so schedules saved but never reached the pump.
+            sendPumpSchedule(pumpId, schedule);
+
+            // Persist via Redux/backend.
+            dispatch(createSchedule({ pumpId, schedule }));
+
+            // Reset one-time date so user can immediately set another schedule.
+            if (scheduleDate) setScheduleDate(null);
           }}
         >
           <MaterialCommunityIcons name="calendar-plus" size={20} color={COLORS.white} />
@@ -1272,6 +1362,33 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.xl,
     fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.textPrimary,
+  },
+  scheduleDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.md,
+  },
+  scheduleDateBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.background,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border || '#E0E0E0',
+  },
+  scheduleDateText: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textPrimary,
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  scheduleDateClear: {
+    padding: SPACING.xs,
   },
   daysRow: {
     flexDirection: 'row',

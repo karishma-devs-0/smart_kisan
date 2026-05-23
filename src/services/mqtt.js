@@ -274,6 +274,22 @@ export function sendAutoSchedule(pumpId, autoSchedule) {
 }
 
 /**
+ * Send a recurring/one-time schedule to device via MQTT.
+ * `schedule` shape: { startTime, stopTime, repeat: 'daily'|'weekly'|'once',
+ *                      days?: number[], date?: string (ISO, for 'once') }
+ */
+export function sendPumpSchedule(pumpId, schedule) {
+  const topic = getTopics().pumpCommand(pumpId);
+  return publish(topic, {
+    action: 'schedule',
+    pumpId,
+    schedule,
+    timestamp: new Date().toISOString(),
+    source: 'app',
+  });
+}
+
+/**
  * Subscribe to alerts
  */
 export function onAlerts(callback) {
