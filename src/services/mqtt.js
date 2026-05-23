@@ -14,6 +14,7 @@
 
 import mqtt from 'mqtt';
 import { MQTT_BROKER_URL, MQTT_USERNAME, MQTT_PASSWORD } from '../config/firebase.config';
+import { getISTISOString } from '../utils/dateTime';
 
 let client = null;
 let userId = null;
@@ -185,7 +186,7 @@ export function sendPumpCommand(pumpId, action) {
   return publish(topic, {
     action, // 'on' or 'off'
     pumpId,
-    timestamp: new Date().toISOString(),
+    timestamp: getISTISOString(),
     source: 'app',
   });
 }
@@ -199,7 +200,7 @@ export function sendPumpTimer(pumpId, durationSeconds) {
     action: 'start_timer',
     pumpId,
     duration: durationSeconds,
-    timestamp: new Date().toISOString(),
+    timestamp: getISTISOString(),
     source: 'app',
   });
 }
@@ -254,7 +255,7 @@ export function sendSensorConfig(pumpId, sensorConfig) {
     action: 'sensor_config',
     pumpId,
     sensorConfig,
-    timestamp: new Date().toISOString(),
+    timestamp: getISTISOString(),
     source: 'app',
   });
 }
@@ -268,7 +269,7 @@ export function sendAutoSchedule(pumpId, autoSchedule) {
     action: 'auto_schedule',
     pumpId,
     autoSchedule,
-    timestamp: new Date().toISOString(),
+    timestamp: getISTISOString(),
     source: 'app',
   });
 }
@@ -284,7 +285,7 @@ export function sendPumpSchedule(pumpId, schedule) {
     action: 'schedule',
     pumpId,
     schedule,
-    timestamp: new Date().toISOString(),
+    timestamp: getISTISOString(),
     source: 'app',
   });
 }

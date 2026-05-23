@@ -148,20 +148,26 @@ export const formatNextRunIST = (timeString) => {
 // e.g. "2026-05-22T14:26:12.345+05:30"
 // =========================================================
 
-export const getISTISOString = () => {
+export const getISTISOString = () => toISTISOString(new Date());
+
+// =========================================================
+// CONVERT ANY DATE TO IST ISO STRING
+// Takes a Date (or anything `new Date()` accepts) and returns
+// an ISO-8601 string with the +05:30 offset preserved so the
+// human-readable time portion matches a clock in India and
+// parses back to the same absolute moment.
+// e.g. Date(2026-05-28 06:00 IST) → "2026-05-28T06:00:00.000+05:30"
+// =========================================================
+
+export const toISTISOString = (input) => {
   try {
-    const now = new Date();
-
-    // IST is UTC+5:30 (330 minutes ahead)
+    const d = input instanceof Date ? input : new Date(input);
+    if (isNaN(d.getTime())) return new Date().toISOString();
     const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-    const istTime = new Date(now.getTime() + IST_OFFSET_MS);
-
-    // Build ISO string then replace the trailing Z with +05:30
-    const isoBase = istTime.toISOString().replace('Z', '+05:30');
-    return isoBase;
+    const shifted = new Date(d.getTime() + IST_OFFSET_MS);
+    return shifted.toISOString().replace('Z', '+05:30');
   } catch (error) {
-    console.log('getISTISOString error:', error);
-    // Fallback to standard UTC ISO string
+    console.log('toISTISOString error:', error);
     return new Date().toISOString();
   }
 };

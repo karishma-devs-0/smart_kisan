@@ -43,6 +43,7 @@ import {
   formatRelativeTime,
   formatNextRunIST,
   getISTISOString,
+  toISTISOString,
 } from '../../../utils/dateTime';
 
 const EMPTY_SCHEDULES = [];
@@ -559,17 +560,19 @@ const PumpDetailScreen = ({ navigation, route }) => {
               if (stop <= start) stop.setDate(stop.getDate() + 1);
             }
 
+            // Emit times in IST (+05:30) so the device sees human-readable
+            // local times that match what the user picked in the form.
             const schedule = scheduleDate
               ? {
-                  startTime: start.toISOString(),
-                  stopTime: stop.toISOString(),
+                  startTime: toISTISOString(start),
+                  stopTime: toISTISOString(stop),
                   repeat: 'once',
                   date: scheduleDate.toISOString().split('T')[0],
                   days: [],
                 }
               : {
-                  startTime: start.toISOString(),
-                  stopTime: stop.toISOString(),
+                  startTime: toISTISOString(start),
+                  stopTime: toISTISOString(stop),
                   repeat: scheduleDays.length === 7 ? 'daily' : 'weekly',
                   days: scheduleDays,
                 };
