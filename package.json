@@ -36,7 +36,6 @@
     "expo-sharing": "~56.0.12",
     "expo-status-bar": "~56.0.4",
     "expo-web-browser": "~56.0.5",
-    "firebase": "^12.10.0",
     "i18next": "^25.8.14",
     "mqtt": "^5.15.1",
     "react": "19.2.3",

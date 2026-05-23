@@ -1,16 +1,8 @@
 import { mockDelay } from '../utils/mockDelay';
 import cache from './cache';
 import { getIsConnected } from './network';
-import { FIREBASE_ENABLED, auth as firebaseAuth } from './firebase';
+import { FIREBASE_ENABLED } from './firebase';
 import { HUGGINGFACE_SPACE_URL } from '../config/firebase.config';
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  updateProfile,
-  signOut,
-  GoogleAuthProvider,
-  signInWithCredential,
-} from 'firebase/auth';
 import { authAPI } from './backendApi';
 import * as weatherAPI from './weather';
 

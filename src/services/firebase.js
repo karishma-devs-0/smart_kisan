@@ -1,19 +1,11 @@
-import { initializeApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { firebaseConfig, FIREBASE_ENABLED } from '../config/firebase.config';
+// Firebase has been removed from this project. Auth runs through the local
+// Express backend (see backend/src/routes/auth.js) and there is no Firestore
+// usage anywhere active. This file is kept as a stub so legacy import sites
+// resolve at bundle time. All exports are null/false.
+//
+// The `firebase` npm package is no longer a dependency.
 
-let app = null;
-let auth = null;
-let db = null;
-
-if (FIREBASE_ENABLED) {
-  app = initializeApp(firebaseConfig);
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
-  db = getFirestore(app);
-}
-
-export { app, auth, db, FIREBASE_ENABLED };
+export const app = null;
+export const auth = null;
+export const db = null;
+export const FIREBASE_ENABLED = false;
