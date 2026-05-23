@@ -1,4 +1,5 @@
 import { firestoreService } from './firestore';
+import { auth } from './firebase';
 import { MOCK_FIELDS } from '../features/fields/mock/fieldsMockData';
 import { MOCK_DEVICES } from '../features/devices/mock/devicesMockData';
 import { MOCK_PUMPS, MOCK_PUMP_GROUPS } from '../features/pumps/mock/pumpsMockData';
@@ -9,8 +10,18 @@ import { MOCK_FARM_TASKS } from '../features/farm/mock/farmMockData';
 /**
  * Seeds Firestore with mock data on first login.
  * Only runs if the user has no fields (first-time indicator).
+ *
+ * No-ops when there's no Firebase user — auth now goes through the backend,
+ * so Firestore seeding only applies when a Firebase session is still active.
  */
 export async function seedUserData() {
+  if (!auth?.currentUser?.uid) {
+    if (__DEV__) {
+      console.log('[seedData] Skipping — no Firebase user (auth runs through backend now)');
+    }
+    return;
+  }
+
   try {
     const existing = await firestoreService.getAll('fields');
     if (existing.length > 0) return; // Already seeded
