@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartKisan — Legal</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #fafaf9;
+    color: #1a1a1a;
+    line-height: 1.65;
+    font-size: 16px;
+    padding: 48px 24px;
+  }
+  .container { max-width: 760px; margin: 0 auto; }
+  .hero { padding-bottom: 24px; border-bottom: 2px solid #e5e7eb; margin-bottom: 32px; }
+  .kicker { color: #2E7D32; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+  h1 { font-size: 30px; font-weight: 800; margin-bottom: 8px; }
+  .subtitle { color: #6b7280; font-size: 16px; }
+  .nav { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px; margin-bottom: 28px; }
+  .nav a { display: block; padding: 8px 0; color: #2E7D32; text-decoration: none; font-weight: 600; }
+  .nav a:hover { text-decoration: underline; }
+  .doc { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 28px 32px; margin-bottom: 24px; }
+  .doc h2 { font-size: 26px; font-weight: 700; margin-bottom: 8px; color: #2E7D32; }
+  .doc .meta { font-size: 13px; color: #6b7280; margin-bottom: 24px; }
+  .doc h3 { font-size: 19px; font-weight: 600; margin-top: 24px; margin-bottom: 8px; }
+  .doc p { margin-bottom: 12px; }
+  .doc ul { padding-left: 22px; margin-bottom: 12px; }
+  .doc li { margin-bottom: 6px; }
+  .doc strong { font-weight: 600; }
+  .doc code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.92em;
+    background: rgba(46, 125, 50, 0.08);
+    color: #2E7D32;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  footer { text-align: center; color: #6b7280; font-size: 13px; margin-top: 32px; }
+  footer a { color: #2E7D32; }
+  @media (max-width: 720px) {
+    body { padding: 28px 16px; font-size: 15px; }
+    h1 { font-size: 24px; }
+    .doc { padding: 20px; }
+    .doc h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="hero">
+  <div class="kicker">SmartKisan · Hbeonlabs Technologies Pvt. Ltd.</div>
+  <h1>Legal &amp; Privacy</h1>
+  <p class="subtitle">Terms of Service and Privacy Policy for the SmartKisan mobile application.</p>
+</div>
+
+<div class="nav">
+  <a href="#terms">Terms of Service</a>
+  <a href="#privacy">Privacy Policy</a>
+  <a href="terms.html">Open Terms in its own page →</a>
+  <a href="privacy.html">Open Privacy Policy in its own page →</a>
+</div>
+
+<div class="doc" id="terms">
+  <h2>Terms and Conditions for SmartKisan</h2>
+  <p class="meta">Last Updated: May 2026</p>
+
+  <p>Welcome to <strong>SmartKisan</strong>. These Terms and Conditions outline the rules and regulations for the use of the SmartKisan Mobile Application, developed and operated by Hbeonlabs Technologies Pvt. Ltd. By downloading or using the app, these terms automatically apply to you. Please read them carefully before using the app. You are not allowed to copy or modify the app, any part of the app, or our trademarks in any way.</p>
+
+  <h3>1. Description of Service</h3>
+  <p>SmartKisan is an IoT-enabled agriculture management platform that provides:</p>
+  <ul>
+    <li>Remote and automated control over agricultural water pumps</li>
+    <li>AI-based plant disease detection</li>
+    <li>Soil and weather analytics</li>
+    <li>Real-time sensor monitoring</li>
+  </ul>
+  <p>The app requires an internet connection (via Wi-Fi or Cellular Data) to function correctly and communicate with our cloud or your local MQTT backend.</p>
+
+  <h3>2. Hardware Control Liability &amp; Disclaimers</h3>
+  <p>SmartKisan allows users to remotely control physical hardware, specifically high-voltage agricultural water pumps and irrigation valves.</p>
+  <ul>
+    <li><strong>User Responsibility:</strong> You are solely responsible for ensuring that remote operation of your pumps is safe. Do not turn on pumps if people or livestock are in close proximity to moving parts or high-voltage lines.</li>
+    <li><strong>Limitation of Liability:</strong> Hbeonlabs Technologies Pvt. Ltd. and its developers shall not be held liable for any crop loss, water wastage, equipment damage (e.g., dry running a pump), electrical fires, or personal injury resulting from the use or malfunction of this application, network failures, or automated schedules.</li>
+    <li><strong>Fail-safes:</strong> We recommend installing physical hardware fail-safes (e.g., thermal relays, dry-run preventers) in conjunction with our smart controllers.</li>
+  </ul>
+
+  <h3>3. Data Collection and Privacy</h3>
+  <p>To provide its core functionality, SmartKisan requests specific device permissions. See our <a href="#privacy">Privacy Policy</a> below for full details on what we collect and how it is used. We are committed to protecting your privacy and will never sell your personal farming data, schedules, or crop information.</p>
+
+  <h3>4. Third-Party Services</h3>
+  <p>SmartKisan utilizes third-party services that declare their own Terms and Conditions:</p>
+  <ul>
+    <li>OpenWeatherMap API (Weather Data)</li>
+    <li>Hugging Face Spaces (AI Inference for Disease Detection)</li>
+    <li>HiveMQ or equivalent MQTT brokers</li>
+  </ul>
+  <p>We do not guarantee the constant uptime or accuracy of these third-party services.</p>
+
+  <h3>5. Updates to the App</h3>
+  <p>We may update the app from time to time to add new features or comply with updated Google Play Store policies. The app is currently available on Android. You promise to always accept updates to the application when offered to you. We may also stop providing the app and terminate use of it at any time without giving notice.</p>
+
+  <h3>6. Changes to These Terms</h3>
+  <p>We may update our Terms and Conditions from time to time. You are advised to review this page periodically for any changes.</p>
+
+  <h3>7. Contact Us</h3>
+  <p>If you have any questions or suggestions about our Terms and Conditions, contact us at <code>support@smartkisan.app</code>.</p>
+</div>
+
+<div class="doc" id="privacy">
+  <h2>Privacy Policy for SmartKisan</h2>
+  <p class="meta">Effective Date: May 23, 2026 · Last Updated: May 23, 2026</p>
+
+  <p>Hbeonlabs Technologies Pvt. Ltd. ("we", "us", "our") operates the SmartKisan mobile application (the "App"). This Privacy Policy explains what information we collect, how we use it, who we share it with, and the rights you have over your data.</p>
+
+  <h3>1. Who we are</h3>
+  <p><strong>Data Controller:</strong> Hbeonlabs Technologies Pvt. Ltd.<br>
+  <strong>App:</strong> SmartKisan (package <code>com.smartkisan.app</code>)<br>
+  <strong>Contact:</strong> support@smartkisan.app</p>
+
+  <h3>2. Information we collect</h3>
+  <p><strong>Account information:</strong> email address (required), phone number (optional), name (optional), password (stored only as a one-way bcrypt hash — we cannot recover it), Google account identifier (only if you sign in with Google).</p>
+  <p><strong>Farm and device data:</strong> farm name, type, size, and location coordinates you enter during onboarding; field names, soil types, sowing dates, crop varieties, photos you upload; pump configurations and run history; IoT device identifiers (MAC address, sensor type, battery level, last sync time); sensor readings (soil moisture, pH, temperature, NPK, EC) from your hardware.</p>
+  <p><strong>Device permissions (granted by you when prompted):</strong></p>
+  <ul>
+    <li><strong>Location (GPS):</strong> used to fetch local weather forecasts and recommend region-appropriate crops. We do not track your location continuously.</li>
+    <li><strong>Camera &amp; Photo Library:</strong> used to capture or select leaf photos for the AI Plant Disease Detection feature. Photos are sent for inference and not stored on our servers.</li>
+    <li><strong>Push Notifications token:</strong> used to send alerts only if you enable notifications.</li>
+    <li><strong>Network:</strong> required to communicate with our backend, MQTT broker, and third-party APIs.</li>
+  </ul>
+  <p><strong>Technical data:</strong> app version, device model, OS version, language preference (for crash diagnostics and feature compatibility); IP address (logged transiently by our backend for rate-limiting, not retained for analytics).</p>
+
+  <h3>3. How we use your information</h3>
+  <ul>
+    <li>Authenticate you (login, session restore)</li>
+    <li>Run the App's farming features</li>
+    <li>Control your pumps in real time via MQTT</li>
+    <li>Show weather and crop recommendations</li>
+    <li>Perform AI plant disease detection on photos you submit</li>
+    <li>Send notifications you opt into</li>
+    <li>Improve App stability via crash reports (no personal data attached)</li>
+  </ul>
+  <p>We do <strong>not</strong> use your data for advertising, profiling, or sale to third parties.</p>
+
+  <h3>4. Who we share your information with</h3>
+  <ul>
+    <li><strong>OpenWeatherMap:</strong> latitude/longitude only, to fetch weather forecasts.</li>
+    <li><strong>HuggingFace Spaces:</strong> a single leaf photo at scan time for one-time disease detection inference, not retained.</li>
+    <li><strong>MQTT broker:</strong> pump commands and sensor data scoped to your user ID.</li>
+    <li><strong>Google Sign-In:</strong> only if you use it, we receive your email and Google <code>sub</code> identifier.</li>
+    <li><strong>Cloud hosting provider:</strong> stores your account and farm data in a managed PostgreSQL database.</li>
+  </ul>
+  <p>We do <strong>not</strong> sell your personal data to any party, ever. We do <strong>not</strong> share data with advertisers or data brokers.</p>
+
+  <h3>5. Where your data is stored</h3>
+  <p>Account, farm, and sensor data is stored in a managed PostgreSQL database hosted with our cloud provider. Photos for disease detection are sent to HuggingFace's servers and discarded after inference. MQTT messages are not persisted beyond delivery. All data in transit is encrypted via HTTPS and WSS.</p>
+
+  <h3>6. How long we keep your data</h3>
+  <ul>
+    <li><strong>Account data:</strong> retained while active. Deleted within 30 days of an account deletion request.</li>
+    <li><strong>Farm, crop, sensor data:</strong> retained while account is active. Deletable on request.</li>
+    <li><strong>Plant disease scan photos:</strong> not retained.</li>
+    <li><strong>Logs and crash reports:</strong> retained up to 90 days, then auto-purged.</li>
+    <li><strong>MQTT message history:</strong> not retained.</li>
+  </ul>
+
+  <h3>7. Your rights</h3>
+  <p>You can, at any time:</p>
+  <ul>
+    <li><strong>Access</strong> the data we hold about you — request via support@smartkisan.app</li>
+    <li><strong>Correct</strong> inaccurate data via the in-app Profile screen</li>
+    <li><strong>Delete</strong> your account and all associated data via Settings → Account → Delete Account</li>
+    <li><strong>Export</strong> your data in a machine-readable format on request</li>
+    <li><strong>Withdraw consent</strong> for optional features via system permissions or in-app Settings</li>
+    <li><strong>Opt out</strong> of any non-essential data collection</li>
+  </ul>
+  <p>For users in jurisdictions with stronger data rights (EU/GDPR, India/DPDP Act), all rights granted by your local law apply.</p>
+
+  <h3>8. Children's privacy</h3>
+  <p>SmartKisan is intended for users <strong>13 years of age or older</strong>. We do not knowingly collect personal information from children under 13.</p>
+
+  <h3>9. Data security</h3>
+  <ul>
+    <li>Passwords hashed with bcrypt (cost factor 10); we never store them in plain text.</li>
+    <li>Session tokens are JWTs with a 30-day expiry.</li>
+    <li>All API traffic over HTTPS / TLS 1.2+.</li>
+    <li>Database access restricted to our backend server; not exposed publicly.</li>
+  </ul>
+  <p>If we experience a data breach affecting your information, we will notify you within 72 hours of discovery.</p>
+
+  <h3>10. Third-party links</h3>
+  <p>The App may link to third-party government scheme websites (PM-KISAN, KCC, PMFBY, etc.) for informational purposes. We are not responsible for the content or privacy practices of those external sites.</p>
+
+  <h3>11. Changes to this policy</h3>
+  <p>We may update this Privacy Policy from time to time. When we do, we will update the "Last Updated" date above and notify you via in-app banner for material changes.</p>
+
+  <h3>12. Contact us</h3>
+  <p>For questions, data requests, or concerns about this Privacy Policy:</p>
+  <p><strong>Email:</strong> support@smartkisan.app<br>
+  <strong>Company:</strong> Hbeonlabs Technologies Pvt. Ltd.</p>
+</div>
+
+<footer>
+  © 2026 Hbeonlabs Technologies Pvt. Ltd. · <a href="https://github.com/karishma-devs-0/smart_kisan">View source</a>
+</footer>
+
+</div>
+</body>
+</html>
