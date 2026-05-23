@@ -1,15 +1,15 @@
 /**
  * MQTT Service for SmartKisan Backend
  *
- * Bridges MQTT messages with Firestore — when a pump command comes via MQTT,
- * it updates Firestore. When Firestore changes, it publishes to MQTT.
- *
- * Also handles timer auto-off logic server-side.
+ * Bridges MQTT messages with the PostgreSQL database. When a pump command
+ * comes in via MQTT, the server updates the `pumps` row, logs an entry to
+ * `pump_history`, and publishes a status update back to the device topic.
+ * Also handles server-side timer auto-off.
  */
 
 const mqtt = require('mqtt');
-const { getDb } = require('../config/firebase');
-const admin = require('firebase-admin');
+const { v4: uuidv4 } = require('uuid');
+const db = require('../config/db');
 
 let client = null;
 const activeTimers = new Map(); // pumpId → setTimeout handle
@@ -33,8 +33,6 @@ function initMQTT() {
 
   client.on('connect', () => {
     console.log('MQTT: Connected to', BROKER_URL);
-
-    // Subscribe to all pump commands and timer commands
     client.subscribe('smartkisan/+/pump/+/command', { qos: 1 });
     client.subscribe('smartkisan/+/pump/+/timer', { qos: 1 });
     console.log('MQTT: Subscribed to pump command & timer topics');
@@ -74,60 +72,68 @@ async function handlePumpCommand(userId, pumpId, data) {
   const { action } = data; // 'on' or 'off'
   if (!['on', 'off'].includes(action)) return;
 
-  const db = getDb();
-  const pumpRef = db.collection('pumps').doc(pumpId);
-  const pumpDoc = await pumpRef.get();
-
-  if (!pumpDoc.exists) return;
-
-  const pumpData = pumpDoc.data();
-  const now = new Date();
-
-  let additionalRunTime = 0;
-  if (action === 'off' && pumpData.status === 'on' && pumpData.lastTurnedOn) {
-    const lastOn = pumpData.lastTurnedOn.toDate ? pumpData.lastTurnedOn.toDate() : new Date(pumpData.lastTurnedOn);
-    additionalRunTime = Math.floor((now - lastOn) / 1000);
+  // Look up the pump row so we can compute duration on off-transitions and
+  // capture the current flow_rate for the history entry.
+  const { rows } = await db.query(
+    'SELECT id, name, status, last_on_at, flow_rate FROM pumps WHERE id = $1',
+    [pumpId],
+  );
+  if (rows.length === 0) {
+    console.warn(`MQTT: pump ${pumpId} not found in DB, skipping`);
+    return;
   }
+  const pump = rows[0];
 
-  const updateData = {
-    status: action,
-    lastAction: action === 'on' ? 'turned_on' : 'turned_off',
-    lastActionAt: admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-  };
+  const now = new Date();
+  const nowISO = now.toISOString();
+  let duration = null;
 
   if (action === 'on') {
-    updateData.lastTurnedOn = admin.firestore.FieldValue.serverTimestamp();
+    await db.query(
+      `UPDATE pumps
+         SET status = 'on',
+             last_on_at = $1,
+             last_run = $1,
+             updated_at = $1
+       WHERE id = $2`,
+      [nowISO, pumpId],
+    );
   } else {
-    updateData.lastTurnedOff = admin.firestore.FieldValue.serverTimestamp();
-    updateData.totalRunTime = (pumpData.totalRunTime || 0) + additionalRunTime;
-    // Clear any active timer
+    // OFF — compute how long the pump ran (if it was on).
+    if (pump.status === 'on' && pump.last_on_at) {
+      const lastOn = new Date(pump.last_on_at);
+      if (!isNaN(lastOn.getTime())) {
+        duration = Math.max(0, Math.floor((now - lastOn) / 1000));
+      }
+    }
+    await db.query(
+      `UPDATE pumps
+         SET status = 'off',
+             updated_at = $1
+       WHERE id = $2`,
+      [nowISO, pumpId],
+    );
+    // Clear any active server-side timer.
     if (activeTimers.has(pumpId)) {
       clearTimeout(activeTimers.get(pumpId));
       activeTimers.delete(pumpId);
     }
   }
 
-  await pumpRef.update(updateData);
+  // Log to pump_history. (Schema: id, pump_id, user_id, status, duration, flow_rate, timestamp)
+  await db.query(
+    `INSERT INTO pump_history (id, pump_id, user_id, status, duration, flow_rate, timestamp)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [uuidv4(), pumpId, userId, action, duration, pump.flow_rate, nowISO],
+  );
 
-  // Log to history
-  await db.collection('pumpHistory').add({
-    pumpId,
-    pumpName: pumpData.name,
-    action,
-    triggeredBy: data.source === 'device' ? 'device' : 'mqtt',
-    userId,
-    duration: action === 'off' ? additionalRunTime : null,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
-  });
-
-  // Publish status update back
+  // Publish status back to the device topic so the app's subscriber updates.
   publishPumpStatus(userId, pumpId, {
     status: action,
     pumpId,
-    pumpName: pumpData.name,
-    timestamp: now.toISOString(),
-    runTime: action === 'off' ? additionalRunTime : null,
+    pumpName: pump.name,
+    timestamp: nowISO,
+    runTime: action === 'off' ? duration : null,
   });
 
   console.log(`MQTT: Pump ${pumpId} turned ${action} by ${data.source || 'unknown'}`);
@@ -139,16 +145,19 @@ async function handlePumpTimer(userId, pumpId, data) {
   const { duration } = data; // seconds
   if (!duration || duration <= 0) return;
 
-  // Turn pump on
+  // Turn pump on immediately.
   await handlePumpCommand(userId, pumpId, { action: 'on', source: 'timer' });
 
-  // Set auto-off timer
+  // Schedule the auto-off.
   if (activeTimers.has(pumpId)) {
     clearTimeout(activeTimers.get(pumpId));
   }
-
   const handle = setTimeout(async () => {
-    await handlePumpCommand(userId, pumpId, { action: 'off', source: 'timer_auto' });
+    try {
+      await handlePumpCommand(userId, pumpId, { action: 'off', source: 'timer_auto' });
+    } catch (err) {
+      console.error('MQTT: Timer auto-off error', err.message);
+    }
     activeTimers.delete(pumpId);
     console.log(`MQTT: Timer expired — pump ${pumpId} auto-off after ${duration}s`);
   }, duration * 1000);
