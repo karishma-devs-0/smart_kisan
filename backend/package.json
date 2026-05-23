@@ -6,8 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "db:init": "node src/scripts/initDb.js",
-    "seed": "node src/seed.js"
+    "db:init": "node src/scripts/initDb.js"
   },
   "keywords": [
     "smartkisan",
