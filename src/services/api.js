@@ -166,15 +166,14 @@ export const authService = {
   },
 
   loginWithGoogle: async (idToken) => {
-    if (!FIREBASE_ENABLED) {
-      throw new Error('Google Sign-In requires Firebase');
+    try {
+      const response = await authAPI.google(idToken);
+      // Backend returns { user: { id, name, email }, token: '...' }
+      return response;
+    } catch (error) {
+      if (__DEV__) console.warn('Google Login Error:', error.message);
+      throw error;
     }
-    const credential = GoogleAuthProvider.credential(idToken);
-    const result = await signInWithCredential(firebaseAuth, credential);
-    return {
-      user: firebaseUserToAppUser(result.user),
-      token: await result.user.getIdToken(),
-    };
   },
 
   logout: async () => {

@@ -77,7 +77,14 @@ export const authAPI = {
     apiRequest('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
-      // Don't inject Firebase token for register endpoint
+      headers: { Authorization: '' },
+    }),
+
+  /** Verify a Google ID token server-side and get our own JWT back */
+  google: (idToken) =>
+    apiRequest('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ idToken }),
       headers: { Authorization: '' },
     }),
 };
