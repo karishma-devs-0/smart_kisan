@@ -19,7 +19,7 @@
     "android": {
       "package": "com.smartkisan.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/smartKisanIcon.png",
+        "foregroundImage": "./assets/smartKisanIcon_adaptive.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true
