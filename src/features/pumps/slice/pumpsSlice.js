@@ -113,7 +113,14 @@ export const createSchedule = createAsyncThunk(
   'pumps/createSchedule',
   async ({ pumpId, schedule }, { rejectWithValue }) => {
     try {
-      return await pumpService.createSchedule(pumpId, schedule);
+      const saved = await pumpService.createSchedule(pumpId, schedule);
+      // Normalize the payload so the reducer can find pumpId and the schedule
+      // object (with whatever id the backend assigned). Without this the
+      // schedules list at the bottom of the screen stayed empty after adding.
+      return {
+        pumpId,
+        schedule: saved && saved.id ? saved : { ...schedule, id: `tmp_${Date.now()}` },
+      };
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -429,6 +436,12 @@ const pumpsSlice = createSlice({
         if (pump) {
           pump.status = 'on';
           pump.timer = action.payload.timer;
+          // Refresh lastRun so the UI's Last Run label updates when a timer
+          // starts. (The local startTimer reducer already does this; this
+          // covers the backend-persisted path.)
+          const now = new Date().toISOString();
+          pump.lastRun = now;
+          pump.lastOnAt = now;
         }
         if (action.payload.timer?.duration) {
           state.activeTimers[action.payload.id] = action.payload.timer.duration;
@@ -479,8 +492,17 @@ const pumpsSlice = createSlice({
       }
     });
 
-    // addSchedule
+    // addSchedule (legacy thunk name)
     builder.addCase(addSchedule.fulfilled, (state, action) => {
+      const { pumpId, schedule } = action.payload;
+      if (!state.schedules[pumpId]) state.schedules[pumpId] = [];
+      state.schedules[pumpId].push(schedule);
+    });
+
+    // createSchedule (current thunk used by PumpDetailScreen) — same shape.
+    // Without this, new schedules were never pushed into state and the
+    // "Active Schedules" list at the bottom of the screen stayed empty.
+    builder.addCase(createSchedule.fulfilled, (state, action) => {
       const { pumpId, schedule } = action.payload;
       if (!state.schedules[pumpId]) state.schedules[pumpId] = [];
       state.schedules[pumpId].push(schedule);
