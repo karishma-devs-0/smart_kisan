@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 
 import { StatusBar } from 'expo-status-bar';
-import { Provider } from 'react-redux';
+import { Provider, useSelector } from 'react-redux';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -59,7 +59,13 @@ initNetworkListener();
 // ─────────────────────────────────────────────────────────────
 function AuthGate({ children }) {
   const [ready, setReady] = useState(false);
+  // Watch Redux auth state so MQTT can connect on any login, not only on
+  // session restore at app boot. Without this, mock-backdoor and first-time
+  // logins skip MQTT entirely and pump commands fail with "Not connected".
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+  const userId = useSelector((state) => state.auth.user?.id);
 
+  // Initial session restore from SecureStore — runs once on mount.
   useEffect(() => {
     let mounted = true;
 
@@ -71,7 +77,6 @@ function AuthGate({ children }) {
 
         if (session) {
           if (__DEV__) console.log('[Auth] Session restored');
-
           store.dispatch(restoreSession(session));
           store.dispatch(loadOnboardingStatus());
 
@@ -79,30 +84,6 @@ function AuthGate({ children }) {
           seedUserData().catch((e) => {
             if (__DEV__) console.log('[Seed] Failed:', e.message);
           });
-
-          // MQTT real-time pump control
-          try {
-            const userId = session?.user?.id || 'guest-user';
-            mqttConnect(userId);
-            if (__DEV__) console.log('[MQTT] Connected:', userId);
-
-            onAllPumpStatus((pumpId, data) => {
-              const status = typeof data === 'string' ? data : data?.status;
-              if (status === 'on' || status === 'off') {
-                store.dispatch(updatePumpStatusFromMQTT({ pumpId, status }));
-              }
-            });
-
-            onAllSensorData((deviceId, data) => {
-              if (__DEV__) console.log('[MQTT] Sensor:', deviceId, data);
-            });
-
-            onAlerts((alert) => {
-              if (__DEV__) console.log('[MQTT] Alert:', alert);
-            });
-          } catch (mqttError) {
-            if (__DEV__) console.warn('[MQTT] Connection failed:', mqttError.message);
-          }
         } else {
           if (__DEV__) console.log('[Auth] No local session found');
           store.dispatch(sessionCheckComplete());
@@ -122,6 +103,35 @@ function AuthGate({ children }) {
       try { mqttDisconnect(); } catch (e) { /* ignore */ }
     };
   }, []);
+
+  // MQTT connect/disconnect watcher — fires whenever auth state flips, so
+  // login (fresh, restored, or mock) all get an MQTT connection, and logout
+  // tears it down. Subscriptions are re-registered on every connect.
+  useEffect(() => {
+    if (isAuthenticated && userId) {
+      try {
+        mqttConnect(userId);
+        if (__DEV__) console.log('[MQTT] Connected:', userId);
+
+        onAllPumpStatus((pumpId, data) => {
+          const status = typeof data === 'string' ? data : data?.status;
+          if (status === 'on' || status === 'off') {
+            store.dispatch(updatePumpStatusFromMQTT({ pumpId, status }));
+          }
+        });
+        onAllSensorData((deviceId, data) => {
+          if (__DEV__) console.log('[MQTT] Sensor:', deviceId, data);
+        });
+        onAlerts((alert) => {
+          if (__DEV__) console.log('[MQTT] Alert:', alert);
+        });
+      } catch (mqttError) {
+        if (__DEV__) console.warn('[MQTT] Connection failed:', mqttError.message);
+      }
+    } else if (!isAuthenticated) {
+      try { mqttDisconnect(); } catch (e) { /* ignore */ }
+    }
+  }, [isAuthenticated, userId]);
 
   if (!ready) {
     return (
