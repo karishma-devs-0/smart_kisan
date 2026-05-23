@@ -2,7 +2,7 @@
 
 **Last Updated:** May 2026
 
-Welcome to **SmartKisan**! These Terms and Conditions outline the rules and regulations for the use of the SmartKisan Mobile Application, developed by Karishma Bhatia.
+Welcome to **SmartKisan**! These Terms and Conditions outline the rules and regulations for the use of the SmartKisan Mobile Application, developed and operated by Hbeonlabs Technologies Pvt. Ltd.
 
 By downloading or using the app, these terms will automatically apply to you. Please read them carefully before using the app. You are not allowed to copy or modify the app, any part of the app, or our trademarks in any way.
 
@@ -20,7 +20,7 @@ The app requires an internet connection (via Wi-Fi or Cellular Data) to function
 ## 2. Hardware Control Liability & Disclaimers
 SmartKisan allows users to remotely control physical hardware, specifically high-voltage agricultural water pumps and irrigation valves.
 - **User Responsibility:** You are solely responsible for ensuring that remote operation of your pumps is safe. Do not turn on pumps if people or livestock are in close proximity to moving parts or high-voltage lines.
-- **Limitation of Liability:** SmartKisan and its developers shall not be held liable for any crop loss, water wastage, equipment damage (e.g., dry running a pump), electrical fires, or personal injury resulting from the use or malfunction of this application, network failures, or automated schedules.
+- **Limitation of Liability:** Hbeonlabs Technologies Pvt. Ltd. and its developers shall not be held liable for any crop loss, water wastage, equipment damage (e.g., dry running a pump), electrical fires, or personal injury resulting from the use or malfunction of this application, network failures, or automated schedules.
 - **Fail-safes:** We recommend installing physical hardware fail-safes (e.g., thermal relays, dry-run preventers) in conjunction with our smart controllers.
 
 ## 3. Data Collection and Privacy (Google Play Policy Compliance)
