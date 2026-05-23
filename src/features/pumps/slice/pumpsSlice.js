@@ -258,7 +258,13 @@ const pumpsSlice = createSlice({
     togglePump: (state, action) => {
       const pump = state.pumps.find((p) => p.id === action.payload);
       if (pump) {
-        pump.status = pump.status === 'on' ? 'off' : 'on';
+        const newStatus = pump.status === 'on' ? 'off' : 'on';
+        pump.status = newStatus;
+        if (newStatus === 'on') {
+          const now = new Date().toISOString();
+          pump.lastRun = now;
+          pump.lastOnAt = now;
+        }
       }
     },
     setSelectedPump: (state, action) => {
@@ -274,7 +280,12 @@ const pumpsSlice = createSlice({
       const { pumpId, seconds } = action.payload;
       state.activeTimers[pumpId] = seconds;
       const pump = state.pumps.find((p) => p.id === pumpId);
-      if (pump) pump.status = 'on';
+      if (pump) {
+        pump.status = 'on';
+        const now = new Date().toISOString();
+        pump.lastRun = now;
+        pump.lastOnAt = now;
+      }
     },
     tickTimer: (state, action) => {
       const pumpId = action.payload;
@@ -308,6 +319,7 @@ const pumpsSlice = createSlice({
       const now = new Date().toISOString();
       if (status === 'on' && pump.status !== 'on') {
         pump.lastOnAt = now;
+        pump.lastRun = now;
       }
       pump.status = status;
     },

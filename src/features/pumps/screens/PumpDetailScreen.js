@@ -142,6 +142,34 @@ const PumpDetailScreen = ({ navigation, route }) => {
   // One-time schedule: when set, ignores `scheduleDays` and uses `repeat: 'once'`.
   const [scheduleDate, setScheduleDate] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  // Edit mode: when set, the form is editing an existing schedule. Save = delete-then-create.
+  const [editingScheduleId, setEditingScheduleId] = useState(null);
+
+  // Extract HH:mm from an ISO string or Firestore Timestamp.
+  const extractHHMM = (raw) => {
+    if (!raw) return '06:00';
+    const ms = raw?._seconds ? raw._seconds * 1000 : raw;
+    const d = new Date(ms);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  // Populate the form fields from an existing schedule and enter edit mode.
+  const startEditingSchedule = (s) => {
+    setScheduleStart(extractHHMM(s.startTime));
+    setScheduleStop(extractHHMM(s.stopTime));
+    setScheduleDays(Array.isArray(s.days) ? s.days : []);
+    setScheduleDate(s.repeat === 'once' && s.date ? new Date(s.date) : null);
+    setEditingScheduleId(s.id);
+  };
+
+  // Reset form to defaults and leave edit mode.
+  const cancelEditing = () => {
+    setEditingScheduleId(null);
+    setScheduleStart('06:00');
+    setScheduleStop('08:00');
+    setScheduleDays([1, 2, 3, 4, 5]);
+    setScheduleDate(null);
+  };
   const [autoStart, setAutoStart] = useState(autoCfg.startTime || '06:00');
   const [autoStop, setAutoStop] = useState(autoCfg.stopTime || '07:00');
   const [autoEnabled, setAutoEnabled] = useState(autoCfg.enabled !== false);
@@ -397,7 +425,20 @@ const PumpDetailScreen = ({ navigation, route }) => {
 
   const renderScheduleMode = () => (
     <View style={styles.modeContent}>
-      <Text style={styles.sectionTitle}>Add Schedule</Text>
+      <Text style={styles.sectionTitle}>
+        {editingScheduleId ? 'Edit Schedule' : 'Add Schedule'}
+      </Text>
+      {editingScheduleId && (
+        <View style={styles.editingBanner}>
+          <MaterialCommunityIcons name="pencil-outline" size={16} color={MODE_COLORS.schedule} />
+          <Text style={styles.editingBannerText}>
+            Editing existing schedule — make your changes then tap Save.
+          </Text>
+          <TouchableOpacity onPress={cancelEditing}>
+            <MaterialCommunityIcons name="close-circle" size={18} color={COLORS.danger} />
+          </TouchableOpacity>
+        </View>
+      )}
       <View style={styles.scheduleForm}>
         <View style={styles.scheduleTimeRow}>
           <View style={styles.scheduleTimeBlock}>
@@ -533,6 +574,13 @@ const PumpDetailScreen = ({ navigation, route }) => {
                   days: scheduleDays,
                 };
 
+            // If editing an existing schedule, delete the old one first.
+            // (No dedicated update endpoint exists, so this is a delete-then-create.)
+            if (editingScheduleId) {
+              dispatch(deleteSchedule({ pumpId, scheduleId: editingScheduleId }));
+              setEditingScheduleId(null);
+            }
+
             // Publish to MQTT so the device actually receives the schedule.
             // Previously this was missing, so schedules saved but never reached the pump.
             sendPumpSchedule(pumpId, schedule);
@@ -544,8 +592,14 @@ const PumpDetailScreen = ({ navigation, route }) => {
             if (scheduleDate) setScheduleDate(null);
           }}
         >
-          <MaterialCommunityIcons name="calendar-plus" size={20} color={COLORS.white} />
-          <Text style={styles.actionButtonText}>Add Schedule</Text>
+          <MaterialCommunityIcons
+            name={editingScheduleId ? 'content-save-outline' : 'calendar-plus'}
+            size={20}
+            color={COLORS.white}
+          />
+          <Text style={styles.actionButtonText}>
+            {editingScheduleId ? 'Save Changes' : 'Add Schedule'}
+          </Text>
         </TouchableOpacity>
       </View>
 
