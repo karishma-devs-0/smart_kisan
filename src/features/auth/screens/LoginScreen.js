@@ -22,7 +22,6 @@ import UsernameLoginForm from '../components/UsernameLoginForm';
 import { BORDER_RADIUS } from '../../../constants/layout';
 import LanguageSelector, { LanguageButton } from '../../../components/common/LanguageSelector';
 import { loginWithEmail, loginWithPhone, loginWithUsername, setLoginMethod } from '../slice/authSlice';
-import { FIREBASE_ENABLED } from '../../../config/firebase.config';
 import useGoogleAuth from '../hooks/useGoogleAuth';
 
 const GoogleLogo = () => (
@@ -113,25 +112,21 @@ const LoginScreen = ({ navigation }) => {
         {renderForm()}
 
         {/* Google Sign In — below the form */}
-        {FIREBASE_ENABLED && (
-          <>
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>{t('login.orContinueWith')}</Text>
-              <View style={styles.dividerLine} />
-            </View>
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>{t('login.orContinueWith')}</Text>
+          <View style={styles.dividerLine} />
+        </View>
 
-            <TouchableOpacity
-              style={styles.googleButton}
-              onPress={() => promptAsync()}
-              disabled={!googleReady || loading}
-              activeOpacity={0.7}
-            >
-              <GoogleLogo />
-              <Text style={styles.googleButtonText}>{t('login.googleSignIn')}</Text>
-            </TouchableOpacity>
-          </>
-        )}
+        <TouchableOpacity
+          style={styles.googleButton}
+          onPress={() => promptAsync()}
+          disabled={!googleReady || loading}
+          activeOpacity={0.7}
+        >
+          <GoogleLogo />
+          <Text style={styles.googleButtonText}>{t('login.googleSignIn')}</Text>
+        </TouchableOpacity>
 
         {/* Register link */}
         <View style={styles.registerRow}>

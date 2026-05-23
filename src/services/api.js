@@ -1,8 +1,7 @@
 import { mockDelay } from '../utils/mockDelay';
 import cache from './cache';
 import { getIsConnected } from './network';
-import { FIREBASE_ENABLED } from './firebase';
-import { HUGGINGFACE_SPACE_URL } from '../config/firebase.config';
+import { FIREBASE_ENABLED, HUGGINGFACE_SPACE_URL } from '../config/firebase.config';
 import { authAPI } from './backendApi';
 import * as weatherAPI from './weather';
 
@@ -90,13 +89,11 @@ const offlineAwareRemember = async (cacheKey, fetcher, fallback, ttl = 3600) => 
   return cache.remember(cacheKey, fetcher, ttl);
 };
 
-// Lazy-load firestoreService only when Firebase is enabled
-let _firestoreService = null;
+// Firestore has been removed. The if(FIREBASE_ENABLED) branches below never
+// execute (FIREBASE_ENABLED is constant false). Calling getFirestore() would
+// throw — kept as a guard for any path that somehow regresses to using it.
 const getFirestore = () => {
-  if (!_firestoreService) {
-    _firestoreService = require('./firestore').firestoreService;
-  }
-  return _firestoreService;
+  throw new Error('Firestore is no longer used — Firebase was removed.');
 };
 
 // ─── Helper: extract user shape from Firebase user ──────────────────────────

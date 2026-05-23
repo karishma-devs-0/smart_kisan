@@ -29,7 +29,6 @@ import {
 } from './src/services/secureAuth';
 import { loadSettings } from './src/features/settings/slice/settingsSlice';
 import { loadOnboardingStatus } from './src/features/onboarding/slice/onboardingSlice';
-import { seedUserData } from './src/services/seedData';
 import { COLORS } from './src/constants/colors';
 import {
   connect as mqttConnect,
@@ -79,11 +78,6 @@ function AuthGate({ children }) {
           if (__DEV__) console.log('[Auth] Session restored');
           store.dispatch(restoreSession(session));
           store.dispatch(loadOnboardingStatus());
-
-          // Seed local demo data (best-effort)
-          seedUserData().catch((e) => {
-            if (__DEV__) console.log('[Seed] Failed:', e.message);
-          });
         } else {
           if (__DEV__) console.log('[Auth] No local session found');
           store.dispatch(sessionCheckComplete());

@@ -74,11 +74,8 @@ export const updateProfile = createAsyncThunk(
   'auth/updateProfile',
   async (profileData, { rejectWithValue }) => {
     try {
-      const { FIREBASE_ENABLED } = require('../../../config/firebase.config');
-      if (FIREBASE_ENABLED) {
-        const { firestoreService } = require('../../../services/firestore');
-        await firestoreService.setSingleton('meta', 'profile', profileData);
-      }
+      // Profile updates are local-only for now. When the backend grows a
+      // PUT /api/users/me endpoint, call it here.
       return profileData;
     } catch (error) {
       return rejectWithValue(error.message);
