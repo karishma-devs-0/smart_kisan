@@ -5,9 +5,9 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -105,11 +105,7 @@ const RegisterScreen = ({ navigation }) => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
-          <Image 
-            source={require('../../../../assets/smartKisanIcon.png')} 
-            style={{ width: 36, height: 36, marginRight: SPACING.md, borderRadius: 8 }} 
-            resizeMode="contain" 
-          />
+          <MaterialCommunityIcons name="sprout" size={28} color={COLORS.primary} style={{ marginRight: SPACING.md }} />
           <Text style={styles.title}>{t('register.title')}</Text>
         </View>
 
