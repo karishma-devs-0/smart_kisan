@@ -1,8 +1,8 @@
 /**
  * Backend API client for SmartKisan
- * Handles all HTTP calls to the Express backend with Firebase auth token injection
+ * Handles all HTTP calls to the Express backend with auth token injection
  */
-import { auth as firebaseAuth } from './firebase';
+import { getFreshToken } from './secureAuth';
 
 // Backend URL - change this when deploying to cloud
 // 10.0.2.2 = Android emulator, 192.168.x.x = real device on same WiFi
@@ -15,12 +15,10 @@ let _baseUrl = API_BASE_URL;
 export const setBaseUrl = (url) => { _baseUrl = url; };
 
 /**
- * Get current user's Firebase ID token for Authorization header
+ * Get current user's token for Authorization header
  */
 async function getAuthToken() {
-  const user = firebaseAuth.currentUser;
-  if (!user) throw new Error('Not authenticated');
-  return user.getIdToken();
+  return await getFreshToken();
 }
 
 /**
@@ -30,13 +28,18 @@ async function apiRequest(endpoint, options = {}) {
   const token = await getAuthToken();
 
   const config = {
+    ...options,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
       ...options.headers,
     },
-    ...options,
   };
+
+  if (token && config.headers.Authorization !== '') {
+    config.headers.Authorization = `Bearer ${token}`;
+  } else if (config.headers.Authorization === '') {
+    delete config.headers.Authorization;
+  }
 
   const url = `${_baseUrl}${endpoint}`;
 
@@ -56,6 +59,28 @@ async function apiRequest(endpoint, options = {}) {
     throw error;
   }
 }
+
+// ─── Auth APIs ────────────────────────────────────────────────────────────────
+
+export const authAPI = {
+  /** Login with email and password */
+  login: (email, password) =>
+    apiRequest('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+      // Don't inject Firebase token for login endpoint
+      headers: { Authorization: '' },
+    }),
+
+  /** Register new user */
+  register: (userData) =>
+    apiRequest('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+      // Don't inject Firebase token for register endpoint
+      headers: { Authorization: '' },
+    }),
+};
 
 // ─── Pump APIs ────────────────────────────────────────────────────────────────
 

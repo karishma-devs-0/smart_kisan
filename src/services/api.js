@@ -11,6 +11,7 @@ import {
   GoogleAuthProvider,
   signInWithCredential,
 } from 'firebase/auth';
+import { authAPI } from './backendApi';
 import * as weatherAPI from './weather';
 
 import { MOCK_USER, MOCK_TOKEN } from '../features/auth/mock/authMockData';
@@ -120,18 +121,18 @@ const firebaseUserToAppUser = (fbUser) => ({
 
 export const authService = {
   loginWithEmail: async (email, password) => {
-    if (FIREBASE_ENABLED) {
-      const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
-      return {
-        user: firebaseUserToAppUser(credential.user),
-        token: await credential.user.getIdToken(),
-      };
+    try {
+      const response = await authAPI.login(email, password);
+      // Backend should return { user: { id, name, email }, token: '...' }
+      return response;
+    } catch (error) {
+      if (__DEV__) console.warn('Login Error:', error.message);
+      // Fallback to mock for testing if backend is completely unavailable
+      if (email === 'rajesh@example.com' && password === 'password') {
+        return { user: MOCK_USER, token: MOCK_TOKEN };
+      }
+      throw error;
     }
-    await mockDelay(800);
-    if (email === 'rajesh@example.com' && password === 'password') {
-      return { user: MOCK_USER, token: MOCK_TOKEN };
-    }
-    throw new Error('Invalid email or password');
   },
 
   loginWithPhone: async (phone, otp) => {
@@ -155,25 +156,13 @@ export const authService = {
   },
 
   register: async (userData) => {
-    if (FIREBASE_ENABLED) {
-      const credential = await createUserWithEmailAndPassword(
-        firebaseAuth,
-        userData.email,
-        userData.password,
-      );
-      if (userData.name) {
-        await updateProfile(credential.user, { displayName: userData.name });
-      }
-      return {
-        user: firebaseUserToAppUser(credential.user),
-        token: await credential.user.getIdToken(),
-      };
+    try {
+      const response = await authAPI.register(userData);
+      return response;
+    } catch (error) {
+      if (__DEV__) console.warn('Register Error:', error.message);
+      throw error;
     }
-    await mockDelay(1000);
-    return {
-      user: { ...MOCK_USER, ...userData, id: Date.now().toString() },
-      token: MOCK_TOKEN,
-    };
   },
 
   loginWithGoogle: async (idToken) => {
@@ -189,10 +178,6 @@ export const authService = {
   },
 
   logout: async () => {
-    if (FIREBASE_ENABLED) {
-      await signOut(firebaseAuth);
-      return { success: true };
-    }
     await mockDelay(300);
     return { success: true };
   },

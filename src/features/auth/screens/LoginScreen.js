@@ -91,7 +91,6 @@ const LoginScreen = ({ navigation }) => {
         {/* Language Selector Button */}
         <LanguageButton onPress={() => setShowLangPicker(true)} />
 
-        {/* Logo */}
         <View style={styles.logoContainer}>
           <View style={styles.logoIcon}>
             <MaterialCommunityIcons name="sprout" size={48} color={COLORS.white} />

@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { fetchSchedules, addSchedule, stopAllPumpsAsync, stopAllPumps } from '../slice/pumpsSlice';
-import { FIREBASE_ENABLED } from '../../../services/firebase';
+
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
@@ -129,11 +129,7 @@ const PumpIrrigationScreen = ({ navigation, route }) => {
           text: t('pumps.detail.stopAll', { defaultValue: 'Stop All' }),
           style: 'destructive',
           onPress: () => {
-            if (FIREBASE_ENABLED) {
-              dispatch(stopAllPumpsAsync());
-            } else {
-              dispatch(stopAllPumps());
-            }
+            dispatch(stopAllPumps());
           },
         },
       ],

@@ -9,7 +9,7 @@ import { SPACING } from '../../../constants/spacing';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../constants/layout';
 import { controlPump, togglePump, stopAllPumpsAsync, stopAllPumps } from '../slice/pumpsSlice';
-import { FIREBASE_ENABLED } from '../../../services/firebase';
+
 import { sendPumpCommand } from '../../../services/mqtt';
 
 const PumpControlsScreen = ({ navigation, route }) => {
@@ -24,11 +24,7 @@ const PumpControlsScreen = ({ navigation, route }) => {
   const handleToggle = () => {
     const newAction = isOn ? 'off' : 'on';
     sendPumpCommand(pumpId, newAction);
-    if (FIREBASE_ENABLED) {
-      dispatch(controlPump({ pumpId, action: newAction }));
-    } else {
-      dispatch(togglePump(pumpId));
-    }
+    dispatch(togglePump(pumpId));
   };
 
   const handleEmergencyStop = () => {
@@ -42,11 +38,7 @@ const PumpControlsScreen = ({ navigation, route }) => {
           style: 'destructive',
           onPress: () => {
             sendPumpCommand(pumpId, 'off');
-            if (FIREBASE_ENABLED) {
-              dispatch(stopAllPumpsAsync());
-            } else {
-              dispatch(stopAllPumps());
-            }
+            dispatch(stopAllPumps());
           },
         },
       ],

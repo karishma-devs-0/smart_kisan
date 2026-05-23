@@ -3,8 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
-import { stopAllPumps, stopAllPumpsAsync } from '../slice/pumpsSlice';
-import { FIREBASE_ENABLED } from '../../../services/firebase';
+import { stopAllPumps } from '../slice/pumpsSlice';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
@@ -86,7 +85,7 @@ const SensorBasedScreen = ({ navigation, route }) => {
       <TouchableOpacity style={[styles.emergencyBtn, { marginBottom: insets.bottom + 8 }]} onPress={() => {
         Alert.alert(t('pumps.detail.emergencyStop'), t('pumps.detail.emergencyStopConfirm', { defaultValue: 'Are you sure you want to stop all pumps?' }), [
           { text: t('common.cancel'), style: 'cancel' },
-          { text: t('pumps.detail.stopAll', { defaultValue: 'Stop All' }), style: 'destructive', onPress: () => FIREBASE_ENABLED ? dispatch(stopAllPumpsAsync()) : dispatch(stopAllPumps()) },
+          { text: t('pumps.detail.stopAll', { defaultValue: 'Stop All' }), style: 'destructive', onPress: () => dispatch(stopAllPumps()) },
         ]);
       }}>
         <MaterialCommunityIcons name="stop-circle" size={20} color={COLORS.white} />

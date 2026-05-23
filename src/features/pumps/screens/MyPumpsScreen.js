@@ -25,7 +25,7 @@ import {
   setSelectedPump,
   updatePumpStatusFromMQTT,
 } from '../slice/pumpsSlice';
-import { FIREBASE_ENABLED } from '../../../services/firebase';
+
 import {
   onAllPumpStatus,
   sendPumpCommand,
@@ -262,11 +262,7 @@ const MyPumpsScreen = ({ navigation }) => {
     // Send command via MQTT for real-time device control
     sendPumpCommand(pumpId, newAction);
 
-    if (FIREBASE_ENABLED) {
-      dispatch(controlPump({ pumpId, action: newAction }));
-    } else {
-      dispatch(togglePump(pumpId));
-    }
+    dispatch(togglePump(pumpId));
   }, [pumps, dispatch]);
 
   const handlePumpPress = useCallback((pumpId) => {
@@ -280,11 +276,7 @@ const MyPumpsScreen = ({ navigation }) => {
       sendPumpCommand(p.id, 'off');
     });
 
-    if (FIREBASE_ENABLED) {
-      dispatch(stopAllPumpsAsync());
-    } else {
-      dispatch(stopAllPumps());
-    }
+    dispatch(stopAllPumps());
   }, [pumps, dispatch]);
 
   // MQTT indicator color

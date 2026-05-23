@@ -16,7 +16,6 @@ import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { useTranslation } from 'react-i18next';
 import { startTimer, tickTimer, stopTimer, startPumpTimer, stopPumpTimer } from '../slice/pumpsSlice';
-import { FIREBASE_ENABLED } from '../../../services/firebase';
 import { sendPumpTimer, sendPumpCommand } from '../../../services/mqtt';
 
 const RING_SIZE = 240;
@@ -67,11 +66,8 @@ const TimerCountdownScreen = ({ navigation, route }) => {
         intervalRef.current = null;
       }
       sendPumpCommand(pumpId, 'off');
-      if (FIREBASE_ENABLED) {
-        dispatch(stopPumpTimer(pumpId));
-      } else {
-        dispatch(stopTimer(pumpId));
-      }
+      dispatch(stopPumpTimer(pumpId));
+      dispatch(stopTimer(pumpId));
       Alert.alert(
         t('timerCountdown.timerComplete'),
         t('timerCountdown.timerFinishedMsg', { pumpName: pump.name }),
@@ -90,11 +86,8 @@ const TimerCountdownScreen = ({ navigation, route }) => {
     } else {
       if (!isStarted) {
         sendPumpTimer(pumpId, totalSeconds);
-        if (FIREBASE_ENABLED) {
-          dispatch(startPumpTimer({ pumpId, durationSeconds: totalSeconds }));
-        } else {
-          dispatch(startTimer({ pumpId, seconds: totalSeconds }));
-        }
+        dispatch(startPumpTimer({ pumpId, durationSeconds: totalSeconds }));
+        dispatch(startTimer({ pumpId, seconds: totalSeconds }));
         setIsStarted(true);
       }
       setIsRunning(true);
@@ -121,11 +114,8 @@ const TimerCountdownScreen = ({ navigation, route }) => {
       intervalRef.current = null;
     }
     sendPumpCommand(pumpId, 'off');
-    if (FIREBASE_ENABLED) {
-      dispatch(stopPumpTimer(pumpId));
-    } else {
-      dispatch(stopTimer(pumpId));
-    }
+    dispatch(stopPumpTimer(pumpId));
+    dispatch(stopTimer(pumpId));
   };
 
   return (

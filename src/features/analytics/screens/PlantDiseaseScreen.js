@@ -90,7 +90,12 @@ const PlantDiseaseScreen = ({ navigation }) => {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+      if (!response.ok) {
+        if (response.status === 503) {
+          throw new Error('AI is waking up (503). Please wait 30 seconds and try again.');
+        }
+        throw new Error(`Server error: ${response.status}`);
+      }
 
       const data = await response.json();
       setResult(data);
@@ -106,7 +111,13 @@ const PlantDiseaseScreen = ({ navigation }) => {
         treatment: data.treatment,
       }, ...prev].slice(0, 10));
     } catch (error) {
-      Alert.alert('Analysis Failed', 'Could not connect to the AI server. Make sure you have internet access and the API is deployed.\n\nUpdate API_URL in PlantDiseaseScreen.js after deploying to Hugging Face.');
+      if (error.message.includes('503')) {
+        Alert.alert('AI Waking Up', error.message);
+      } else if (error.message === 'Network request failed') {
+        Alert.alert('Network Error', 'Cannot connect to the AI server. Check your internet connection or verify the Hugging Face Space is running.');
+      } else {
+        Alert.alert('Analysis Failed', 'Could not process the image. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }

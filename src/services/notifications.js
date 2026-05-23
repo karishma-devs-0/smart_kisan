@@ -1,6 +1,12 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+
+// Push token registration was removed from Expo Go in SDK 53. Detect Expo Go
+// so we can skip that call there and avoid a red-screen on launch. Local
+// notifications still work in Expo Go, so we keep the rest of the API live.
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
 // Configure default notification behavior
 Notifications.setNotificationHandler({
@@ -17,7 +23,7 @@ Notifications.setNotificationHandler({
  */
 export async function registerForPushNotifications() {
   if (!Device.isDevice) {
-    console.warn('Push notifications require a physical device');
+    if (__DEV__) console.warn('Push notifications require a physical device');
     return null;
   }
 
@@ -31,11 +37,11 @@ export async function registerForPushNotifications() {
   }
 
   if (finalStatus !== 'granted') {
-    console.warn('Push notification permission not granted');
+    if (__DEV__) console.warn('Push notification permission not granted');
     return null;
   }
 
-  // Android requires a notification channel
+  // Android requires a notification channel — works in Expo Go and dev builds.
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'SmartKisan',
@@ -45,11 +51,28 @@ export async function registerForPushNotifications() {
     });
   }
 
-  const tokenData = await Notifications.getExpoPushTokenAsync({
-    projectId: '4fa6ae46-9da2-4bb5-ac0d-a8cd9a7a09bd',
-  });
+  // Expo Go cannot register for remote push tokens since SDK 53. Skip the
+  // call there so we don't red-screen on launch — local notifications still
+  // work fine without a token.
+  if (isExpoGo) {
+    if (__DEV__) {
+      console.log(
+        '[notifications] Skipping push token registration in Expo Go. ' +
+        'Build a dev client for full push support.',
+      );
+    }
+    return null;
+  }
 
-  return tokenData.data;
+  try {
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: '4fa6ae46-9da2-4bb5-ac0d-a8cd9a7a09bd',
+    });
+    return tokenData.data;
+  } catch (err) {
+    if (__DEV__) console.warn('[notifications] getExpoPushTokenAsync failed:', err.message);
+    return null;
+  }
 }
 
 /**
