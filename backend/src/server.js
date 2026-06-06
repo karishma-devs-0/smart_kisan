@@ -16,9 +16,12 @@ const authMiddleware = require('./middleware/auth');
 
 // Routes
 const authRoutes = require('./routes/auth');
-const devicesRoutes = require('./routes/devices');
 const pumpRoutes = require('./routes/pumps');
 const pumpGroupRoutes = require('./routes/pumpGroups');
+const aiPumpRoutes = require('./routes/aiPump');
+
+// AI scheduler
+const { start: startAiScheduler } = require('./ai/runScheduler');
 
 const app = express();
 
@@ -93,6 +96,12 @@ app.use(
   pumpGroupRoutes
 );
 
+app.use(
+  '/api/ai',
+  authMiddleware,
+  aiPumpRoutes
+);
+
 // ============================================================
 // 404 HANDLER
 // ============================================================
@@ -123,6 +132,9 @@ app.listen(PORT, '0.0.0.0', () => {
 
   // Initialize MQTT
   initMQTT();
+
+  // Start the AI Pump scheduler loop
+  startAiScheduler();
 
   console.log(
     `\n🚀 SmartKisan API running on port ${PORT}`

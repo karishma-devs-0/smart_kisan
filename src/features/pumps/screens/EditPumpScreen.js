@@ -17,6 +17,7 @@ import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { useTranslation } from 'react-i18next';
 import { savePump, updatePumpField } from '../slice/pumpsSlice';
+import { aiPumpAPI } from '../../../services/backendApi';
 
 const getPumpTypes = (t) => [t('editPump.submersible'), t('editPump.centrifugal'), t('editPump.jetPump'), t('editPump.booster')];
 
@@ -49,12 +50,22 @@ const EditPumpScreen = ({ navigation, route }) => {
   const [pumpMode, setPumpMode] = useState(pump.mode || 'manual');
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [imageUri, setImageUri] = useState(pump.imageUri || null);
+  // Flow rate (L/min) — required by AI mode to compute irrigation duration.
+  const [flowRate, setFlowRate] = useState(
+    String(pump.flow_rate ?? pump.flowRate ?? '50'),
+  );
 
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     if (!pumpName.trim()) {
       Alert.alert(t('editPump.validationError'), t('editPump.enterPumpName'));
+      return;
+    }
+
+    const flowRateNum = Number(flowRate);
+    if (flowRate && (isNaN(flowRateNum) || flowRateNum <= 0)) {
+      Alert.alert(t('editPump.validationError'), t('editPump.invalidFlowRate') || 'Flow rate must be a positive number.');
       return;
     }
 
@@ -65,6 +76,8 @@ const EditPumpScreen = ({ navigation, route }) => {
       type: pumpType,
       mode: pumpMode,
       imageUri,
+      flowRate: flowRateNum || null,
+      flow_rate: flowRateNum || null,
       ...(isNewPump && {
         status: 'off',
         lastRun: null,
@@ -82,6 +95,18 @@ const EditPumpScreen = ({ navigation, route }) => {
     try {
       const result = await dispatch(savePump(updatedPump)).unwrap();
       if (__DEV__) console.log('[Pump] Save success:', JSON.stringify(result));
+
+      // Persist flow_rate via the AI config endpoint (the legacy /pumps PUT
+      // route writes the wrong column name and silently drops the value).
+      const savedPumpId = result?.id || pumpId;
+      if (savedPumpId && flowRateNum > 0) {
+        try {
+          await aiPumpAPI.updateConfig(savedPumpId, { flow_rate: flowRateNum });
+        } catch (e) {
+          if (__DEV__) console.warn('[Pump] flow_rate persist failed:', e.message);
+        }
+      }
+
       navigation.goBack();
     } catch (error) {
       if (__DEV__) console.log('[Pump] Save error:', error);
@@ -193,6 +218,25 @@ const EditPumpScreen = ({ navigation, route }) => {
             placeholder={t('editPump.fieldAssignmentPlaceholder')}
             placeholderTextColor={COLORS.textTertiary}
           />
+        </View>
+
+        {/* Flow Rate */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.fieldLabel}>
+            {t('editPump.flowRate') || 'Flow Rate (L/min)'}
+          </Text>
+          <TextInput
+            style={styles.textInput}
+            value={flowRate}
+            onChangeText={(v) => setFlowRate(v.replace(/[^0-9.]/g, ''))}
+            placeholder="50"
+            placeholderTextColor={COLORS.textTertiary}
+            keyboardType="numeric"
+          />
+          <Text style={styles.fieldHint}>
+            {t('editPump.flowRateHint') ||
+              'How many litres per minute the pump dispenses. Required for AI mode.'}
+          </Text>
         </View>
 
         {/* Control Mode */}
@@ -403,6 +447,12 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     color: COLORS.textPrimary,
     backgroundColor: COLORS.white,
+  },
+  fieldHint: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textTertiary,
+    marginTop: SPACING.xs,
+    lineHeight: 16,
   },
   dropdownButton: {
     height: 48,

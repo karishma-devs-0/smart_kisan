@@ -15,6 +15,7 @@ import onboardingReducer from '../features/onboarding/slice/onboardingSlice';
 import marketplaceReducer from '../features/marketplace/slice/marketplaceSlice';
 import cropRecommendReducer from '../features/cropRecommend/slice/cropRecommendSlice';
 import diseaseDetectionReducer from '../features/diseaseDetection/slice/diseaseDetectionSlice';
+import aiPumpReducer from '../features/aiPump/slice/aiPumpSlice';
 
 // Auto-persist settings on every settings reducer action
 const SETTINGS_ACTIONS = [
@@ -51,6 +52,7 @@ const store = configureStore({
     marketplace: marketplaceReducer,
     cropRecommend: cropRecommendReducer,
     diseaseDetection: diseaseDetectionReducer,
+    aiPump: aiPumpReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(settingsPersistMiddleware),

@@ -187,6 +187,47 @@ export const pumpGroupAPI = {
     }),
 };
 
+// ─── AI Pump APIs ─────────────────────────────────────────────────────────────
+
+export const aiPumpAPI = {
+  /** Read AI config for one pump */
+  fetchConfig: (pumpId) => apiRequest(`/ai/pumps/${pumpId}/config`),
+
+  /** Update AI config (toggle, thresholds, links). Send only changed fields. */
+  updateConfig: (pumpId, patch) =>
+    apiRequest(`/ai/pumps/${pumpId}/config`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+
+  /** Recent decisions for one pump (default 20) */
+  fetchDecisions: (pumpId, limit = 20) =>
+    apiRequest(`/ai/pumps/${pumpId}/decisions?limit=${limit}`),
+
+  /** Recent decisions across all the user's pumps (default 50) */
+  fetchAllDecisions: (limit = 50) =>
+    apiRequest(`/ai/decisions?limit=${limit}`),
+
+  /**
+   * Queue a farmer override for the next scheduler tick.
+   * kind: 'run_now' | 'skip_next' | 'pause_until'
+   * payload (run_now): { duration_min: number }
+   * expires_at (pause_until): ISO string
+   */
+  override: (pumpId, { kind, payload, expires_at }) =>
+    apiRequest(`/ai/pumps/${pumpId}/override`, {
+      method: 'POST',
+      body: JSON.stringify({ kind, payload, expires_at }),
+    }),
+
+  /** Thumbs up/down on a past decision */
+  feedback: (decisionId, feedback) =>
+    apiRequest(`/ai/decisions/${decisionId}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify({ feedback }),
+    }),
+};
+
 // ─── Health Check ─────────────────────────────────────────────────────────────
 
 export const healthCheck = () =>

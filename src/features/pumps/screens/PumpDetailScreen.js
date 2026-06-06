@@ -45,6 +45,7 @@ import {
   getISTISOString,
   toISTISOString,
 } from '../../../utils/dateTime';
+import AIControlCard from '../../aiPump/components/AIControlCard';
 
 const EMPTY_SCHEDULES = [];
 
@@ -1080,6 +1081,9 @@ const PumpDetailScreen = ({ navigation, route }) => {
             </View>
           </View>
         </View>
+
+        {/* AI Control */}
+        <AIControlCard pumpId={pumpId} navigation={navigation} />
 
         {/* Mode-driven content */}
         {renderModeContent()}

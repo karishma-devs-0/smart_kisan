@@ -298,6 +298,21 @@ export function onAlerts(callback) {
   return subscribe(topic, (t, data) => callback(data));
 }
 
+// ─── AI Pump ────────────────────────────────────────────────────────────────
+
+/**
+ * Subscribe to AI decisions for ALL pumps for this user.
+ * Backend publishes to: smartkisan/{userId}/pump/{pumpId}/ai/decision
+ */
+export function onAiDecisions(callback) {
+  const pattern = `smartkisan/${userId}/pump/+/ai/decision`;
+  return subscribe(pattern, (topic, data) => {
+    const parts = topic.split('/');
+    const pumpId = parts[3];
+    callback(pumpId, data);
+  });
+}
+
 export default {
   connect,
   disconnect,
@@ -315,4 +330,5 @@ export default {
   onSensorData,
   onAllSensorData,
   onAlerts,
+  onAiDecisions,
 };

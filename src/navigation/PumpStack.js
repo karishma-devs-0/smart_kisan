@@ -12,6 +12,7 @@ import PumpIrrigationScreen from '../features/pumps/screens/PumpIrrigationScreen
 import SensorBasedScreen from '../features/pumps/screens/SensorBasedScreen';
 import SoilMoistureControlScreen from '../features/pumps/screens/SoilMoistureControlScreen';
 import PumpHistoryScreen from '../features/pumps/screens/PumpHistoryScreen';
+import AIPumpScreen from '../features/aiPump/screens/AIPumpScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -48,6 +49,7 @@ const PumpStack = () => {
       <Stack.Screen name="SensorBased" component={SensorBasedScreen} />
       <Stack.Screen name="SoilMoistureControl" component={SoilMoistureControlScreen} />
       <Stack.Screen name="PumpHistory" component={PumpHistoryScreen} />
+      <Stack.Screen name="AIPump" component={AIPumpScreen} />
     </Stack.Navigator>
   );
 };

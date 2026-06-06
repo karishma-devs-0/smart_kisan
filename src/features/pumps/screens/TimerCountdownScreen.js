@@ -92,15 +92,24 @@ const TimerCountdownScreen = ({ navigation, route }) => {
       }
       setIsRunning(true);
       intervalRef.current = setInterval(() => {
+        let didFinish = false;
         setRemainingSeconds((prev) => {
           if (prev <= 1) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
+            didFinish = true;
             return 0;
           }
-          dispatch(tickTimer(pumpId));
           return prev - 1;
         });
+        // Side effects MUST live outside the setState updater — dispatching
+        // Redux from inside the updater fires "Cannot update a component
+        // (MyPumpsScreen) while rendering a different component" because
+        // updater functions run inside React's render phase.
+        if (didFinish) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        } else {
+          dispatch(tickTimer(pumpId));
+        }
       }, 1000);
     }
   };

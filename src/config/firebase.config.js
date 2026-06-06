@@ -18,8 +18,13 @@ export const GOOGLE_WEB_CLIENT_ID =
 // HuggingFace Spaces API URL for plant disease detection.
 export const HUGGINGFACE_SPACE_URL = 'https://karishma-devs-smartkisan-plant-disease.hf.space';
 
-// OpenWeatherMap API key (free tier: 1000 calls/day).
-// Set via .env or replace with your own key.
+// Weather providers (primary: OpenWeatherMap, fallback: Open-Meteo).
+//   - OWM is tried first when a key is set. Free tier = 1000 calls/day.
+//     Set EXPO_PUBLIC_OPENWEATHER_API_KEY in .env (or leave blank to skip OWM).
+//   - Open-Meteo (https://open-meteo.com) is used when OWM is missing/failing.
+//     Free for non-commercial use, no API key needed, ECMWF-based forecasts.
+// The fallback chain guarantees the app always has weather data even if the
+// OWM key isn't provisioned or the quota is exhausted.
 export const OPENWEATHER_API_KEY = process.env.EXPO_PUBLIC_OPENWEATHER_API_KEY || '';
 
 // MQTT Broker.

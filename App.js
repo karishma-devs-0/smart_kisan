@@ -36,8 +36,10 @@ import {
   onAllPumpStatus,
   onAllSensorData,
   onAlerts,
+  onAiDecisions,
 } from './src/services/mqtt';
 import { updatePumpStatusFromMQTT } from './src/features/pumps/slice/pumpsSlice';
+import { receiveMqttDecision } from './src/features/aiPump/slice/aiPumpSlice';
 import { registerForPushNotifications } from './src/services/notifications';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import { initNetworkListener } from './src/services/network';
@@ -118,6 +120,22 @@ function AuthGate({ children }) {
         });
         onAlerts((alert) => {
           if (__DEV__) console.log('[MQTT] Alert:', alert);
+        });
+        onAiDecisions((pumpId, decision) => {
+          if (__DEV__) console.log('[MQTT] AI decision:', pumpId, decision);
+          store.dispatch(receiveMqttDecision({
+            pumpId,
+            decision: {
+              id: `mqtt:${pumpId}:${decision.decidedAt}`,
+              pump_id: pumpId,
+              action: decision.action,
+              duration_min: decision.durationMin,
+              reason_key: decision.reasonKey,
+              reason_args: decision.reasonArgs,
+              decided_at: decision.decidedAt,
+              executed: decision.executed,
+            },
+          }));
         });
       } catch (mqttError) {
         if (__DEV__) console.warn('[MQTT] Connection failed:', mqttError.message);
