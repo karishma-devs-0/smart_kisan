@@ -28,7 +28,7 @@ import {
   restorePersistedSession,
 } from './src/services/secureAuth';
 import { loadSettings } from './src/features/settings/slice/settingsSlice';
-import { loadOnboardingStatus } from './src/features/onboarding/slice/onboardingSlice';
+import { loadOnboardingStatus, resetOnboarding } from './src/features/onboarding/slice/onboardingSlice';
 import { COLORS } from './src/constants/colors';
 import {
   connect as mqttConnect,
@@ -105,6 +105,11 @@ function AuthGate({ children }) {
   // tears it down. Subscriptions are re-registered on every connect.
   useEffect(() => {
     if (isAuthenticated && userId) {
+      // Re-fetch onboarding status on every auth change (fresh login OR session
+      // restore). The initial session-restore branch only fires once on boot;
+      // without this dispatch, a fresh login keeps onboarding.completed = false
+      // and the user gets sent back to the onboarding wizard each time.
+      store.dispatch(loadOnboardingStatus());
       try {
         mqttConnect(userId);
         if (__DEV__) console.log('[MQTT] Connected:', userId);

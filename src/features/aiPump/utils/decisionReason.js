@@ -18,9 +18,10 @@ const TEMPLATES = {
   skip_user_paused:     ()  => `Skipped — AI is paused by you.`,
   skip_user_requested:  ()  => `Skipped — you requested to skip the next run.`,
 
-  run_moisture_low:     (a) => `Running — soil moisture ${a.moisture}% is below the ${a.min}% target.`,
-  run_scheduled_et:     (a) => `Running — ${a.hours}h since last run, ET requirement ${a.etc}mm/day.`,
-  run_user_requested:   (a) => `Running — you requested ${a.minutes} min of irrigation.`,
+  run_moisture_low:       (a) => `Running — soil moisture ${a.moisture}% is below the ${a.min}% target.`,
+  run_scheduled_et:       (a) => `Running — ${a.hours}h since last run, ET requirement ${a.etc}mm/day.`,
+  run_scheduled_initial:  (a) => `Running — first scheduled run, ET requirement ${a.etc}mm/day.`,
+  run_user_requested:     (a) => `Running — you requested ${a.minutes} min of irrigation.`,
 };
 
 export function formatReason(decision) {

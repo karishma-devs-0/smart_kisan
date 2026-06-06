@@ -7,7 +7,7 @@ import { getFreshToken } from './secureAuth';
 // Backend URL - change this when deploying to cloud
 // 10.0.2.2 = Android emulator, 192.168.x.x = real device on same WiFi
 const API_BASE_URL = __DEV__
-  ? 'http://192.168.1.9:5000/api'  // Local dev — your computer's IP on WiFi
+  ? 'http://192.168.1.4:5000/api'  // Local dev — your computer's IP on WiFi
   : 'https://smartkisan-api.up.railway.app/api'; // Production URL (update after deploy)
 
 // Allow overriding via a global (useful for testing)
@@ -225,6 +225,21 @@ export const aiPumpAPI = {
     apiRequest(`/ai/decisions/${decisionId}/feedback`, {
       method: 'POST',
       body: JSON.stringify({ feedback }),
+    }),
+
+  /** Force an immediate decision for one pump (instead of waiting 15 min) */
+  tickPump: (pumpId) =>
+    apiRequest(`/ai/pumps/${pumpId}/tick`, {
+      method: 'POST',
+      // Empty body must still be valid JSON — body-parser rejects bare ''.
+      body: JSON.stringify({}),
+    }),
+
+  /** Publish a simulated sensor reading on the MQTT bridge */
+  simulateSensor: (reading) =>
+    apiRequest('/ai/simulate-sensor', {
+      method: 'POST',
+      body: JSON.stringify(reading),
     }),
 };
 

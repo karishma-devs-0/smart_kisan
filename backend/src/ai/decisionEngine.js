@@ -64,7 +64,11 @@ function decide(ctx) {
   };
 
   // ─── Safety: pump offline ────────────────────────────────────────────────
-  if (hoursSince(pump?.last_heartbeat_at) > HEARTBEAT_STALE_HOURS) {
+  // Only enforce when a heartbeat has actually been recorded at some point.
+  // Otherwise we assume real hardware isn't wired yet (dev/demo mode) and
+  // skip this check — otherwise every decision would skip with "offline"
+  // and the engine would never demonstrate any actual reasoning.
+  if (pump?.last_heartbeat_at && hoursSince(pump.last_heartbeat_at) > HEARTBEAT_STALE_HOURS) {
     return skip('skip_pump_offline', { hours: HEARTBEAT_STALE_HOURS }, inputs);
   }
 
@@ -108,6 +112,7 @@ function decide(ctx) {
 
   // ─── ET-based duration when moisture isn't actionable ────────────────────
   const hoursSinceLast = hoursSince(history?.lastRunAt);
+  const hasPriorRun = Boolean(history?.lastRunAt);
   if (hoursSinceLast >= cropMoisture.maxHoursBetweenRuns) {
     const et0 = weather ? calculateET0({
       tmin: weather.tmin, tmax: weather.tmax, latitude: weather.latitude,
@@ -116,10 +121,17 @@ function decide(ctx) {
     const litres = waterRequiredLitres(etc, m2(field?.area), 1);
     const mins = durationMinutes(litres, pump?.flow_rate);
     const capped = clamp(mins || 15, 5, pump?.max_run_minutes ?? 45);
-    return run(capped, 'run_scheduled_et', {
-      hours: Math.round(hoursSinceLast),
-      etc: Number(etc.toFixed(1)),
-    }, inputs);
+    // First-ever run vs follow-up — Infinity for hoursSinceLast would
+    // JSON-serialize as null in reason_args, which the formatter would
+    // render as "nullh since last run". Use a separate reason key instead.
+    return run(
+      capped,
+      hasPriorRun ? 'run_scheduled_et' : 'run_scheduled_initial',
+      hasPriorRun
+        ? { hours: Math.round(hoursSinceLast), etc: Number(etc.toFixed(1)) }
+        : { etc: Number(etc.toFixed(1)) },
+      inputs,
+    );
   }
 
   // ─── Sensor missing or stale + no schedule trigger → skip safely ─────────

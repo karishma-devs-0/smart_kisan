@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { mockDelay } from '../utils/mockDelay';
 import cache from './cache';
 import { getIsConnected } from './network';
@@ -771,22 +772,28 @@ export const fieldsService = {
 
 // ─── Onboarding / Profile Service ───────────────────────────────────────────
 
+// Persist onboarding completion per-user in AsyncStorage. We key by user id
+// so multi-account on the same device doesn't share onboarding state.
+const onboardingKey = (userId) => `@smartkisan:onboarding:${userId || 'guest'}`;
+
 export const onboardingService = {
-  loadProfile: async () => {
-    if (FIREBASE_ENABLED) {
-      return getFirestore().getSingleton('profile', 'onboarding');
+  loadProfile: async (userId) => {
+    try {
+      const raw = await AsyncStorage.getItem(onboardingKey(userId));
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
     }
-    return null;
   },
 
-  saveProfile: async (data) => {
-    if (FIREBASE_ENABLED) {
-      return getFirestore().setSingleton('profile', 'onboarding', {
-        ...data,
-        completedAt: new Date().toISOString(),
-      });
+  saveProfile: async (data, userId) => {
+    const profile = { ...data, completedAt: new Date().toISOString() };
+    try {
+      await AsyncStorage.setItem(onboardingKey(userId), JSON.stringify(profile));
+    } catch (e) {
+      if (__DEV__) console.warn('Onboarding save failed:', e.message);
     }
-    return data;
+    return profile;
   },
 };
 

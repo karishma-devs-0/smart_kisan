@@ -6,17 +6,18 @@ import { logout } from '../../auth/slice/authSlice';
 
 export const loadOnboardingStatus = createAsyncThunk(
   'onboarding/loadStatus',
-  async () => {
-    const profile = await onboardingService.loadProfile();
+  async (_, { getState }) => {
+    const userId = getState().auth?.user?.id;
+    const profile = await onboardingService.loadProfile(userId);
     return profile; // null if not yet onboarded
   },
 );
 
 export const completeOnboarding = createAsyncThunk(
   'onboarding/complete',
-  async (profileData) => {
-    await onboardingService.saveProfile(profileData);
-    return profileData;
+  async (profileData, { getState }) => {
+    const userId = getState().auth?.user?.id;
+    return await onboardingService.saveProfile(profileData, userId);
   },
 );
 

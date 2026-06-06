@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -61,7 +61,7 @@ const DEFAULT_PUMP = {
   waterLevel: 78,
 };
 
-// ─── Mode constants ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Mode constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const MODE_COLORS = {
   manual: '#607D8B',
@@ -99,7 +99,7 @@ const TIMER_PRESETS = [
   { label: '2 hr', display: '02:00:00', seconds: 7200 },
 ];
 
-// ─── Component ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const PumpDetailScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -234,7 +234,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
     }
   };
 
-  // ─── MQTT subscription ──────────────────────────────────────────────────
+  // â”€â”€â”€ MQTT subscription â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     const unsub = onPumpStatus(pumpId, (data) => {
@@ -253,7 +253,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
     }
   }, [mode, pumpId, dispatch]);
 
-  // ─── Handlers ───────────────────────────────────────────────────────────
+  // â”€â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const handleToggle = () => {
     const newAction = pump.status === 'on' ? 'off' : 'on';
@@ -291,7 +291,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
     }
   };
 
-  // ─── Mode Content Renderers ─────────────────────────────────────────────
+  // â”€â”€â”€ Mode Content Renderers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const renderManualMode = () => (
     <View style={styles.modeContent}>
@@ -434,7 +434,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
         <View style={styles.editingBanner}>
           <MaterialCommunityIcons name="pencil-outline" size={16} color={MODE_COLORS.schedule} />
           <Text style={styles.editingBannerText}>
-            Editing existing schedule — make your changes then tap Save.
+            Editing existing schedule â€” make your changes then tap Save.
           </Text>
           <TouchableOpacity onPress={cancelEditing}>
             <MaterialCommunityIcons name="close-circle" size={18} color={COLORS.danger} />
@@ -460,9 +460,9 @@ const PumpDetailScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* Day selector (used for recurring schedules — disabled when a specific date is set) */}
+        {/* Day selector (used for recurring schedules â€” disabled when a specific date is set) */}
         <Text style={[styles.scheduleLabel, { marginTop: SPACING.md }]}>
-          Repeat {scheduleDate ? '(disabled — one-time date set)' : ''}
+          Repeat {scheduleDate ? '(disabled â€” one-time date set)' : ''}
         </Text>
         <View style={styles.daysRow}>
           {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
@@ -489,7 +489,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
           ))}
         </View>
 
-        {/* One-time date picker — alternative to recurring days */}
+        {/* One-time date picker â€” alternative to recurring days */}
         <Text style={[styles.scheduleLabel, { marginTop: SPACING.md }]}>
           Or schedule for a specific date (one-time)
         </Text>
@@ -631,13 +631,13 @@ const PumpDetailScreen = ({ navigation, route }) => {
                   {formatISTTime(
                     s.startTime?._seconds ? s.startTime._seconds * 1000 : s.startTime,
                   )}
-                  {' → '}
+                  {' â†’ '}
                   {formatISTTime(
                     s.stopTime?._seconds ? s.stopTime._seconds * 1000 : s.stopTime,
                   )}
                 </Text>
                 <Text style={styles.scheduleCardRepeat}>
-                  {s.repeat || 'once'} \u2022 {(s.days || []).length} days
+                  {s.repeat || 'once'} • {(s.days || []).length} days
                 </Text>
               </View>
               <TouchableOpacity
@@ -699,7 +699,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
         {soilMoistureEnabled && (
           <View style={styles.thresholdInfo}>
             <Text style={styles.thresholdText}>
-              Turn ON below {moistureLow}% \u2022 Turn OFF above {moistureHigh}%
+              Turn ON below {moistureLow}% • Turn OFF above {moistureHigh}%
             </Text>
             <TouchableOpacity
               style={styles.thresholdButton}
@@ -766,7 +766,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
           </View>
           <View style={styles.aiStat}>
             <MaterialCommunityIcons name="thermometer" size={20} color="#FF9800" />
-            <Text style={styles.aiStatValue}>32\u00B0C</Text>
+            <Text style={styles.aiStatValue}>32°C</Text>
             <Text style={styles.aiStatLabel}>Temperature</Text>
           </View>
           <View style={styles.aiStat}>
@@ -789,31 +789,16 @@ const PumpDetailScreen = ({ navigation, route }) => {
         <View style={styles.weatherSnippet}>
           <MaterialCommunityIcons name="weather-partly-cloudy" size={18} color={COLORS.textSecondary} />
           <Text style={styles.weatherSnippetText}>
-            Today: 32\u00B0C, Partly Cloudy \u2022 Tomorrow: 30\u00B0C, Rain likely
+            Today: 32°C, Partly Cloudy • Tomorrow: 30°C, Rain likely
           </Text>
         </View>
 
         <TouchableOpacity
-          style={[
-            styles.actionButton,
-            {
-              backgroundColor:
-                (pump.soilMoisture || 42) >= 40 ? COLORS.textSecondary : MODE_COLORS.ai,
-            },
-          ]}
-          onPress={() => {
-            sendPumpCommand(pumpId, pump.status === 'on' ? 'off' : 'on');
-            dispatch(togglePump(pumpId));
-          }}
+          style={[styles.actionButton, { backgroundColor: MODE_COLORS.ai }]}
+          onPress={() => navigation.navigate('AIPump', { pumpId })}
         >
-          <MaterialCommunityIcons
-            name={pump.status === 'on' ? 'stop' : 'play'}
-            size={20}
-            color={COLORS.white}
-          />
-          <Text style={styles.actionButtonText}>
-            {pump.status === 'on' ? 'Stop AI Irrigation' : 'Start AI Irrigation'}
-          </Text>
+          <MaterialCommunityIcons name="view-dashboard" size={20} color={COLORS.white} />
+          <Text style={styles.actionButtonText}>Open AI Dashboard</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -918,7 +903,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
     }
   };
 
-  // ─── Change Mode Modal ─────────────────────────────────────────────────
+  // â”€â”€â”€ Change Mode Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const renderModeModal = () => (
     <Modal
@@ -988,7 +973,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
     </Modal>
   );
 
-  // ─── Main Render ────────────────────────────────────────────────────────
+  // â”€â”€â”€ Main Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -1113,7 +1098,7 @@ const PumpDetailScreen = ({ navigation, route }) => {
   );
 };
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const styles = StyleSheet.create({
   container: {
@@ -1250,7 +1235,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
 
-  // ─── Manual mode ────────────────────────────────────────────────────────
+  // â”€â”€â”€ Manual mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   manualCenter: {
     alignItems: 'center',
     paddingVertical: SPACING.xxxl,
@@ -1303,7 +1288,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border,
   },
 
-  // ─── Timer mode ─────────────────────────────────────────────────────────
+  // â”€â”€â”€ Timer mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   activeTimerBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1388,7 +1373,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
 
-  // ─── Schedule mode ──────────────────────────────────────────────────────
+  // â”€â”€â”€ Schedule mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   scheduleForm: {
     backgroundColor: COLORS.white,
     borderRadius: BORDER_RADIUS.lg,
@@ -1515,7 +1500,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // ─── Sensor mode ────────────────────────────────────────────────────────
+  // â”€â”€â”€ Sensor mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   sensorCard: {
     backgroundColor: COLORS.white,
     borderRadius: BORDER_RADIUS.lg,
@@ -1570,7 +1555,7 @@ const styles = StyleSheet.create({
     color: MODE_COLORS.sensor,
   },
 
-  // ─── AI mode ────────────────────────────────────────────────────────────
+  // â”€â”€â”€ AI mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   aiCard: {
     backgroundColor: COLORS.white,
     borderRadius: BORDER_RADIUS.lg,
@@ -1652,7 +1637,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
-  // ─── Automatic mode ─────────────────────────────────────────────────────
+  // â”€â”€â”€ Automatic mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   autoCard: {
     backgroundColor: COLORS.white,
     borderRadius: BORDER_RADIUS.lg,
@@ -1677,7 +1662,7 @@ const styles = StyleSheet.create({
     fontWeight: FONT_WEIGHTS.medium,
   },
 
-  // ─── Shared action button ──────────────────────────────────────────────
+  // â”€â”€â”€ Shared action button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1692,7 +1677,7 @@ const styles = StyleSheet.create({
     color: COLORS.white,
   },
 
-  // ─── Emergency Stop ────────────────────────────────────────────────────
+  // â”€â”€â”€ Emergency Stop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   emergencyButton: {
     position: 'absolute',
     left: SPACING.lg,
@@ -1712,7 +1697,7 @@ const styles = StyleSheet.create({
     color: COLORS.white,
   },
 
-  // ─── Mode Modal ─────────────────────────────────────────────────────────
+  // â”€â”€â”€ Mode Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

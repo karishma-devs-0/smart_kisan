@@ -75,6 +75,24 @@ export const submitFeedback = createAsyncThunk(
   },
 );
 
+export const simulateSensor = createAsyncThunk(
+  'aiPump/simulateSensor',
+  async ({ pumpId, reading, andTick = true }, { rejectWithValue }) => {
+    try {
+      await aiPumpAPI.simulateSensor(reading);
+      // Small delay so the MQTT bridge has time to write soil_current before
+      // the engine reads it on the next tick.
+      if (andTick && pumpId) {
+        await new Promise((r) => setTimeout(r, 500));
+        await aiPumpAPI.tickPump(pumpId);
+      }
+      return { pumpId, reading };
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
 // ─── Slice ─────────────────────────────────────────────────────────────────
 
 const initialState = {

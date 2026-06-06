@@ -28,9 +28,9 @@ function start() {
   if (tickHandle) return;
   console.log(`AI scheduler: starting (tick every ${TICK_SECONDS}s)`);
   // Run one tick on startup so we don't have to wait for the first interval.
-  tick().catch((e) => console.error('AI tick error (startup):', e.message));
+  tick().catch((e) => console.error('AI tick error (startup):', e?.message || e, e?.stack));
   tickHandle = setInterval(
-    () => tick().catch((e) => console.error('AI tick error:', e.message)),
+    () => tick().catch((e) => console.error('AI tick error:', e?.message || e, e?.stack)),
     TICK_SECONDS * 1000,
   );
 }
@@ -57,9 +57,28 @@ async function tick() {
   }
 }
 
-async function processPump(pump) {
+/**
+ * Force a decision for one specific pump immediately. Used by the simulate-
+ * sensor flow on the app so we don't have to wait for the 15-min interval.
+ *
+ * Passes skipOverrides=true so any queued Run-now/Skip-next/Pause overrides
+ * are NOT consumed — demoing sensor injection should always show the engine's
+ * fresh reasoning, not replay a stale override the user tapped 10 min ago.
+ */
+async function tickPump(pumpId, userId) {
+  const { rows } = await db.query(
+    `SELECT * FROM pumps WHERE id = $1 AND owner_id = $2`,
+    [pumpId, userId],
+  );
+  if (rows.length === 0) throw new Error('Pump not found');
+  await processPump(rows[0], { skipOverrides: true });
+}
+
+async function processPump(pump, opts = {}) {
   // ─── Check for pending farmer override ───────────────────────────────────
-  const override = await consumePendingOverride(pump.id);
+  // Skipped by the per-pump force-tick path so simulated-sensor demos show
+  // the engine's fresh reasoning instead of replaying a queued override.
+  const override = opts.skipOverrides ? null : await consumePendingOverride(pump.id);
   if (override?.kind === 'pause_until') {
     // pause active → just log a skip with reason, don't tick the engine.
     await persistDecision(pump, {
@@ -276,4 +295,4 @@ async function consumePendingOverride(pumpId) {
   return override;
 }
 
-module.exports = { start, stop, tick };
+module.exports = { start, stop, tick, tickPump };

@@ -33,6 +33,7 @@ export default {
     edit: 'Edit',
     remove: 'Remove',
     logout: 'Logout',
+    saving: 'Saving...',
   },
 
   // Language selector
@@ -530,6 +531,9 @@ export default {
     pumpNamePlaceholder: 'Enter pump name',
     fieldAssignment: 'Field Assignment',
     fieldAssignmentPlaceholder: 'Enter field assignment',
+    flowRate: 'Flow Rate (L/min)',
+    flowRateHint: 'How many litres per minute the pump dispenses. Required for AI mode.',
+    invalidFlowRate: 'Flow rate must be a positive number.',
     pumpType: 'Pump Type',
     tapToAddImage: 'Tap to add pump image',
     takePhotoOrGallery: 'Take a photo or choose from gallery',
@@ -903,5 +907,64 @@ export default {
     // Language
     languageTitle: 'Your Language',
     languageSubtitle: 'Choose the language you are most comfortable with. You can change this later in Settings.',
+  },
+
+  // AI Pump
+  ai: {
+    // AIControlCard (on PumpDetailScreen)
+    controlTitle: 'AI Control',
+    advisoryLabel: 'Advisory mode',
+    advisoryHintOn: 'AI suggests but never runs the pump on its own.',
+    advisoryHintOff: 'AI runs the pump automatically when conditions match.',
+    setupNeededTitle: 'Setup needed',
+    setupNeededBody: 'Before enabling AI mode, please link a crop, a field, and set the pump flow rate.',
+    latestDecisionLabel: 'Latest decision',
+    noDecisionsYet: 'No decisions yet — first run within 15 minutes.',
+    viewDashboard: 'View AI dashboard',
+    disabledHint: 'When enabled, the AI uses soil moisture, weather, and crop stage to decide when to run this pump.',
+    couldNotUpdate: 'Could not update',
+
+    // AIPumpScreen
+    headerTitle: 'AI_Pump',
+    aiOffStatus: 'AI is off',
+    aiAdvisingStatus: 'AI is advising',
+    aiRunningStatus: 'AI is running this pump',
+    aiOffLine: 'AI mode is off for this pump.',
+    waitingForFirst: 'Waiting for the first decision (within 15 minutes).',
+    safetyMaxRunsPerDay: 'Max {{count}}/day',
+    safetyMaxMinutesPerRun: '≤ {{minutes}} min/run',
+    safetyCooldown: '{{minutes}}m cooldown',
+    runNow: 'Run now',
+    skipNext: 'Skip next',
+    pause24h: 'Pause 24h',
+    runNowConfirmTitle: 'Run pump now?',
+    runNowConfirmBody: 'This will run "{{name}}" for 10 minutes.',
+    skipNextDone: 'The next scheduled run will be skipped.',
+    pauseConfirmTitle: 'Pause AI?',
+    pauseConfirmBody: 'AI will stop running this pump for the next 24 hours. You can re-enable any time.',
+    pauseConfirmAction: 'Pause for 24h',
+    recentDecisions: 'Recent decisions',
+    emptyDecisionsFeed: 'No decisions logged yet. The engine ticks every 15 minutes once AI is on.',
+    advisoryOnlyTag: '(advisory only)',
+    actionRun: 'RUN',
+    actionSkip: 'SKIP',
+    minutesShort: 'min',
+
+    // Decision reason templates — match reason_key emitted by decisionEngine.js
+    reasons: {
+      skip_pump_offline:   'Skipped — pump device offline (no heartbeat in {{hours}}h).',
+      skip_daily_cap:      'Skipped — already ran {{cap}} times today.',
+      skip_cooldown:       'Skipped — cooldown period ({{minutes}} min) not yet over.',
+      skip_rain_expected:  'Skipped — {{mm}}mm of rain expected in the next 24 hours.',
+      skip_soil_wet:       'Skipped — soil moisture {{moisture}}% is above the {{max}}% target.',
+      skip_sensor_stale:   'Skipped — moisture sensor reading is stale (>{{hours}}h).',
+      skip_within_band:    'Skipped — soil moisture {{moisture}}% is in the healthy range.',
+      skip_user_paused:    'Skipped — AI is paused by you.',
+      skip_user_requested: 'Skipped — you requested to skip the next run.',
+      run_moisture_low:       'Running — soil moisture {{moisture}}% is below the {{min}}% target.',
+      run_scheduled_et:       'Running — {{hours}}h since last run, ET requirement {{etc}}mm/day.',
+      run_scheduled_initial:  'Running — first scheduled run, ET requirement {{etc}}mm/day.',
+      run_user_requested:     'Running — you requested {{minutes}} min of irrigation.',
+    },
   },
 };

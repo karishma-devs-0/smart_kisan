@@ -15,12 +15,22 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 
 const db = require('../config/db');
-const { tick } = require('../ai/runScheduler');
+const { tick, tickPump } = require('../ai/runScheduler');
+const { getClient } = require('../services/mqttService');
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
 router.get('/pumps/:id/config', async (req, res) => {
   try {
+    // UPSERT a minimal pump row so the AIControlCard loads even when the
+    // pump only exists client-side (current state — savePump uses mock data).
+    await db.query(
+      `INSERT INTO pumps (id, owner_id, name, status, created_at, updated_at)
+       VALUES ($1, $2, $3, 'off', NOW(), NOW())
+       ON CONFLICT (id) DO NOTHING`,
+      [req.params.id, req.user.id, `Pump ${req.params.id}`],
+    );
+
     const { rows } = await db.query(
       `SELECT id, ai_enabled, ai_advisory_mode, linked_crop_id, linked_field_id,
               ai_min_moisture, ai_max_moisture, max_runs_per_day, max_run_minutes,
@@ -75,6 +85,18 @@ router.patch('/pumps/:id/config', async (req, res) => {
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No valid fields to update' });
     }
+
+    // The frontend savePump() flow doesn't currently hit the backend's
+    // /api/pumps POST route (it stores pumps in Redux/mock only). To unblock
+    // AI Pump end-to-end without rewriting pump CRUD, we UPSERT here: if the
+    // pump row is missing we create a minimal one tied to the current user,
+    // then apply the same patch.
+    await db.query(
+      `INSERT INTO pumps (id, owner_id, name, status, created_at, updated_at)
+       VALUES ($1, $2, $3, 'off', NOW(), NOW())
+       ON CONFLICT (id) DO NOTHING`,
+      [req.params.id, req.user.id, req.body.name || `Pump ${req.params.id}`],
+    );
 
     values.push(req.params.id, req.user.id);
     const { rows } = await db.query(
@@ -199,6 +221,43 @@ router.post('/tick', async (req, res) => {
     res.json({ message: 'Tick complete' });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Force an immediate decision for one specific pump (used right after
+// injecting simulated sensor data so the farmer sees the engine react).
+router.post('/pumps/:id/tick', async (req, res) => {
+  try {
+    await tickPump(req.params.id, req.user.id);
+    res.json({ message: 'Pump tick complete' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Sensor simulation ──────────────────────────────────────────────────────
+// Publishes a fake sensor reading to the MQTT topic the bridge listens on,
+// so the data flows through exactly the same path as a real ESP32 device
+// would. Body: { moisture, temperature, pH, ... } — any subset.
+
+router.post('/simulate-sensor', async (req, res) => {
+  try {
+    const client = getClient();
+    if (!client || !client.connected) {
+      return res.status(503).json({ error: 'MQTT broker not connected' });
+    }
+    const deviceId = req.body.deviceId || 'simulated';
+    const topic = `smartkisan/${req.user.id}/sensors/${deviceId}/data`;
+    const payload = JSON.stringify({
+      ...req.body,
+      simulated: true,
+      timestamp: new Date().toISOString(),
+    });
+    client.publish(topic, payload, { qos: 1 });
+    res.json({ message: 'Simulated reading published', topic });
+  } catch (err) {
+    console.error('POST /ai/simulate-sensor error:', err.message);
+    res.status(500).json({ error: 'Failed to publish simulated reading' });
   }
 });
 

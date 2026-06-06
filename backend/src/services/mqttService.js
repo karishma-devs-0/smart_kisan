@@ -35,22 +35,28 @@ function initMQTT() {
     console.log('MQTT: Connected to', BROKER_URL);
     client.subscribe('smartkisan/+/pump/+/command', { qos: 1 });
     client.subscribe('smartkisan/+/pump/+/timer', { qos: 1 });
-    console.log('MQTT: Subscribed to pump command & timer topics');
+    client.subscribe('smartkisan/+/sensors/+/data', { qos: 1 });
+    console.log('MQTT: Subscribed to pump command, timer, and sensor topics');
   });
 
   client.on('message', async (topic, payload) => {
     try {
       const data = JSON.parse(payload.toString());
       const parts = topic.split('/');
-      // smartkisan/{userId}/pump/{pumpId}/command|timer
+      // Routes:
+      //   smartkisan/{userId}/pump/{pumpId}/command|timer
+      //   smartkisan/{userId}/sensors/{deviceId}/data
       const userId = parts[1];
-      const pumpId = parts[3];
-      const type = parts[4]; // 'command' or 'timer'
+      const channel = parts[2]; // 'pump' | 'sensors'
 
-      if (type === 'command') {
-        await handlePumpCommand(userId, pumpId, data);
-      } else if (type === 'timer') {
-        await handlePumpTimer(userId, pumpId, data);
+      if (channel === 'pump') {
+        const pumpId = parts[3];
+        const type = parts[4];
+        if (type === 'command') await handlePumpCommand(userId, pumpId, data);
+        else if (type === 'timer') await handlePumpTimer(userId, pumpId, data);
+      } else if (channel === 'sensors') {
+        const deviceId = parts[3];
+        await handleSensorData(userId, deviceId, data);
       }
     } catch (err) {
       console.error('MQTT: Message handling error', err.message);
@@ -164,6 +170,89 @@ async function handlePumpTimer(userId, pumpId, data) {
 
   activeTimers.set(pumpId, handle);
   console.log(`MQTT: Timer set — pump ${pumpId} will auto-off in ${duration}s`);
+}
+
+// ─── Handle sensor data ────────────────────────────────────────────────────
+// Upserts the latest reading into soil_current. The decision engine reads
+// from this table, so simulated values flow through the same path real
+// hardware would use.
+
+async function handleSensorData(userId, deviceId, data) {
+  const moisture    = num(data.moisture);
+  const temperature = num(data.temperature);
+  const pH          = num(data.pH ?? data.ph);
+  const nitrogen    = num(data.nitrogen);
+  const phosphorus  = num(data.phosphorus);
+  const potassium   = num(data.potassium);
+  const ec          = num(data.ec);
+  const organic     = num(data.organicCarbon ?? data.organic_carbon);
+
+  // Ensure soil_current row exists for this user, then update non-null fields.
+  await db.query(
+    `INSERT INTO soil_current (user_id, updated_at)
+     VALUES ($1, NOW())
+     ON CONFLICT (user_id) DO NOTHING`,
+    [userId],
+  ).catch((e) => {
+    // Table may not exist on older DBs — try to create it lazily.
+    if (e.code === '42P01') return ensureSoilCurrentTable().then(() =>
+      db.query(
+        `INSERT INTO soil_current (user_id, updated_at)
+         VALUES ($1, NOW())
+         ON CONFLICT (user_id) DO NOTHING`,
+        [userId],
+      ),
+    );
+    throw e;
+  });
+
+  const updates = [];
+  const values = [];
+  let idx = 1;
+  const setIfPresent = (col, val) => {
+    if (val !== null) { updates.push(`${col} = $${idx++}`); values.push(val); }
+  };
+  setIfPresent('moisture', moisture);
+  setIfPresent('temperature', temperature);
+  setIfPresent('pH', pH);
+  setIfPresent('nitrogen', nitrogen);
+  setIfPresent('phosphorus', phosphorus);
+  setIfPresent('potassium', potassium);
+  setIfPresent('ec', ec);
+  setIfPresent('organic_carbon', organic);
+
+  if (updates.length > 0) {
+    values.push(userId);
+    await db.query(
+      `UPDATE soil_current SET ${updates.join(', ')}, updated_at = NOW()
+        WHERE user_id = $${idx}`,
+      values,
+    );
+  }
+
+  console.log(`MQTT: sensor ${deviceId} → soil moisture=${moisture}, temp=${temperature} for user ${userId}`);
+}
+
+function num(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+async function ensureSoilCurrentTable() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS soil_current (
+      user_id        VARCHAR(100) PRIMARY KEY,
+      moisture       REAL,
+      temperature    REAL,
+      "pH"           REAL,
+      nitrogen       REAL,
+      phosphorus     REAL,
+      potassium      REAL,
+      ec             REAL,
+      organic_carbon REAL,
+      updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 }
 
 // ─── Publish helpers ────────────────────────────────────────────────────────

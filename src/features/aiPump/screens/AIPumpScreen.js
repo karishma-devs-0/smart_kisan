@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList, Alert,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, TextInput, Modal,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,9 +16,13 @@ import {
   fetchDecisionsForPump,
   submitOverride,
   submitFeedback,
+  simulateSensor,
 } from '../slice/aiPumpSlice';
 import { formatReason, isRun, isSkip } from '../utils/decisionReason';
 import { formatRelativeTime } from '../../../utils/dateTime';
+
+// Stable reference — returning fresh `[]` from a selector triggers a Redux warning.
+const EMPTY_DECISIONS = [];
 
 /**
  * AIPumpScreen — full dashboard for one pump in AI mode.
@@ -36,9 +40,14 @@ export default function AIPumpScreen({ route, navigation }) {
   const dispatch = useDispatch();
 
   const config = useSelector((s) => s.aiPump.configsByPumpId[pumpId]);
-  const decisions = useSelector((s) => s.aiPump.decisionsByPumpId[pumpId] || []);
+  const decisions = useSelector((s) => s.aiPump.decisionsByPumpId[pumpId] || EMPTY_DECISIONS);
   const pump = useSelector((s) => s.pumps.pumps.find((p) => p.id === pumpId));
   const [refreshing, setRefreshing] = useState(false);
+  const [simOpen, setSimOpen] = useState(false);
+  const [simMoisture, setSimMoisture] = useState('25');
+  const [simTemp, setSimTemp] = useState('32');
+  const [simBusy, setSimBusy] = useState(false);
+  const [detail, setDetail] = useState(null); // a decision row, or null
 
   const loadAll = useCallback(async () => {
     if (!pumpId) return;
@@ -87,6 +96,30 @@ export default function AIPumpScreen({ route, navigation }) {
     dispatch(submitOverride({ pumpId, kind: 'skip_next' }))
       .then(() => Alert.alert('Done', 'The next scheduled run will be skipped.'))
       .then(() => setTimeout(loadAll, 1500));
+  };
+
+  const runSimulate = async () => {
+    const moisture = Number(simMoisture);
+    const temperature = Number(simTemp);
+    if (!Number.isFinite(moisture) || moisture < 0 || moisture > 100) {
+      Alert.alert('Invalid value', 'Moisture must be a number between 0 and 100.');
+      return;
+    }
+    setSimBusy(true);
+    try {
+      await dispatch(simulateSensor({
+        pumpId,
+        reading: { moisture, temperature: Number.isFinite(temperature) ? temperature : undefined },
+        andTick: true,
+      })).unwrap();
+      setSimOpen(false);
+      // Brief delay so the new decision has time to land in ai_decisions.
+      setTimeout(loadAll, 800);
+    } catch (err) {
+      Alert.alert('Simulation failed', String(err));
+    } finally {
+      setSimBusy(false);
+    }
   };
 
   const pauseAi = () => {
@@ -173,44 +206,73 @@ export default function AIPumpScreen({ route, navigation }) {
   // ─── Action buttons ──────────────────────────────────────────────────────
 
   const renderActions = () => (
-    <View style={styles.actionsRow}>
-      <ActionButton
-        icon="play"
-        label="Run now"
-        color={COLORS.primary}
-        onPress={runNow}
+    <>
+      <View style={styles.actionsRow}>
+        <ActionButton
+          icon="play"
+          label="Run now"
+          color={COLORS.primary}
+          onPress={runNow}
+          disabled={!config?.ai_enabled}
+        />
+        <ActionButton
+          icon="skip-next"
+          label="Skip next"
+          color="#F59E0B"
+          onPress={skipNext}
+          disabled={!config?.ai_enabled}
+        />
+        <ActionButton
+          icon="pause"
+          label="Pause 24h"
+          color="#6B7280"
+          onPress={pauseAi}
+          disabled={!config?.ai_enabled}
+        />
+      </View>
+      {/* Simulate Sensor — dev/test helper. Pushes a fake moisture reading
+          through the same MQTT path a real ESP32 would use, then forces an
+          immediate AI tick so the farmer sees the engine react live. */}
+      <TouchableOpacity
+        style={styles.simBtn}
+        onPress={() => setSimOpen(true)}
         disabled={!config?.ai_enabled}
-      />
-      <ActionButton
-        icon="skip-next"
-        label="Skip next"
-        color="#F59E0B"
-        onPress={skipNext}
-        disabled={!config?.ai_enabled}
-      />
-      <ActionButton
-        icon="pause"
-        label="Pause 24h"
-        color="#6B7280"
-        onPress={pauseAi}
-        disabled={!config?.ai_enabled}
-      />
-    </View>
+      >
+        <MaterialCommunityIcons
+          name="flask-outline"
+          size={18}
+          color={config?.ai_enabled ? COLORS.primary : COLORS.textTertiary}
+        />
+        <Text style={[
+          styles.simBtnText,
+          { color: config?.ai_enabled ? COLORS.primary : COLORS.textTertiary },
+        ]}>
+          Simulate sensor reading
+        </Text>
+      </TouchableOpacity>
+    </>
   );
 
   // ─── Decision row ────────────────────────────────────────────────────────
 
   const renderDecision = ({ item }) => {
     const run = isRun(item);
+    const litres = litresForDecision(item, config);
     return (
-      <View style={styles.decisionRow}>
+      <TouchableOpacity
+        style={styles.decisionRow}
+        activeOpacity={0.7}
+        onPress={() => setDetail(item)}
+      >
         <View style={[styles.decisionDot, {
           backgroundColor: run ? COLORS.primary : '#9CA3AF',
         }]} />
         <View style={{ flex: 1 }}>
           <View style={styles.decisionHeaderRow}>
             <Text style={styles.decisionActionText}>
-              {run ? `RUN • ${item.duration_min} min` : 'SKIP'}
+              {run
+                ? `RUN • ${item.duration_min} min${litres ? ` • ~${litres} L` : ''}`
+                : 'SKIP'}
             </Text>
             <Text style={styles.decisionTime}>
               {formatRelativeTime(item.decided_at) || '—'}
@@ -231,9 +293,10 @@ export default function AIPumpScreen({ route, navigation }) {
               icon="thumb-down"
               onPress={() => dispatch(submitFeedback({ decisionId: item.id, feedback: 'bad' }))}
             />
+            <Text style={styles.tapHint}>tap for details →</Text>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -275,6 +338,149 @@ export default function AIPumpScreen({ route, navigation }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
         }
       />
+
+      {/* Simulate Sensor modal */}
+      <Modal visible={simOpen} transparent animationType="fade" onRequestClose={() => setSimOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Simulate sensor reading</Text>
+            <Text style={styles.modalHint}>
+              Pushes a fake reading to the MQTT broker (as if from a real soil sensor),
+              then forces an immediate AI tick. Useful for demoing.
+            </Text>
+
+            <Text style={styles.modalLabel}>Soil moisture (%)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={simMoisture}
+              onChangeText={(v) => setSimMoisture(v.replace(/[^0-9.]/g, ''))}
+              keyboardType="numeric"
+              placeholder="25"
+            />
+
+            <Text style={styles.modalLabel}>Temperature (°C)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={simTemp}
+              onChangeText={(v) => setSimTemp(v.replace(/[^0-9.]/g, ''))}
+              keyboardType="numeric"
+              placeholder="32"
+            />
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnGhost]}
+                onPress={() => setSimOpen(false)}
+                disabled={simBusy}
+              >
+                <Text style={styles.modalBtnGhostText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: COLORS.primary }]}
+                onPress={runSimulate}
+                disabled={simBusy}
+              >
+                {simBusy
+                  ? <ActivityIndicator color={COLORS.white} />
+                  : <Text style={styles.modalBtnPrimaryText}>Inject + Tick</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Decision detail modal */}
+      <Modal visible={!!detail} transparent animationType="slide" onRequestClose={() => setDetail(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.detailHeaderRow}>
+              <Text style={styles.modalTitle}>
+                {detail && isRun(detail) ? 'Run decision' : 'Skip decision'}
+              </Text>
+              <TouchableOpacity onPress={() => setDetail(null)}>
+                <MaterialCommunityIcons name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {detail && (
+              <>
+                <Text style={styles.detailReason}>{formatReason(detail)}</Text>
+
+                {isRun(detail) && (
+                  <View style={styles.detailMetrics}>
+                    <DetailMetric label="Duration" value={`${detail.duration_min} min`} />
+                    <DetailMetric
+                      label="Water released"
+                      value={`~${litresForDecision(detail, config) ?? '–'} L`}
+                    />
+                    <DetailMetric label="Mode" value={detail.executed ? 'Executed' : 'Advisory'} />
+                  </View>
+                )}
+
+                <Text style={styles.detailSectionLabel}>What the AI saw</Text>
+                <View style={styles.detailInputsBox}>
+                  {renderInputs(detail.inputs_json)}
+                </View>
+
+                <Text style={styles.detailFootnote}>
+                  Decided {formatRelativeTime(detail.decided_at) || ''}.{' '}
+                  {detail.overridden ? `Overridden (${detail.override_kind}).` : ''}
+                </Text>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function litresForDecision(decision, config) {
+  if (!decision || decision.action !== 'run') return null;
+  const mins = Number(decision.duration_min);
+  const lpm = Number(config?.flow_rate);
+  if (!mins || !lpm) return null;
+  return Math.round(mins * lpm);
+}
+
+function renderInputs(inputs) {
+  if (!inputs) return <Text style={styles.detailInputValue}>—</Text>;
+  // inputs_json arrives as a string from PostgreSQL JSONB → parse defensively.
+  let obj = inputs;
+  if (typeof inputs === 'string') {
+    try { obj = JSON.parse(inputs); } catch { obj = {}; }
+  }
+  const PRETTY = {
+    cropName:      'Crop',
+    growthStage:   'Growth stage',
+    soilMoisture:  'Soil moisture (%)',
+    rainMm24h:     'Rain forecast 24h (mm)',
+    tmin:          'Min temp (°C)',
+    tmax:          'Max temp (°C)',
+    runsToday:     'Runs today',
+    lastRunAt:     'Last run',
+    flowRate:      'Flow rate (L/min)',
+  };
+  const order = Object.keys(PRETTY);
+  return (
+    <>
+      {order.filter((k) => obj[k] !== null && obj[k] !== undefined).map((k) => (
+        <View key={k} style={styles.detailInputRow}>
+          <Text style={styles.detailInputLabel}>{PRETTY[k]}</Text>
+          <Text style={styles.detailInputValue}>{String(obj[k])}</Text>
+        </View>
+      ))}
+    </>
+  );
+}
+
+function DetailMetric({ label, value }) {
+  return (
+    <View style={styles.detailMetric}>
+      <Text style={styles.detailMetricLabel}>{label}</Text>
+      <Text style={styles.detailMetricValue}>{value}</Text>
     </View>
   );
 }
@@ -490,5 +696,169 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xl,
     marginHorizontal: SPACING.xl,
     lineHeight: 20,
+  },
+
+  // ─── Simulate Sensor button ─────────────────────────────────────────────
+  simBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.xs,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: COLORS.border,
+  },
+  simBtnText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semiBold,
+  },
+  tapHint: {
+    marginLeft: 'auto',
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textTertiary,
+  },
+
+  // ─── Modals ─────────────────────────────────────────────────────────────
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.lg,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    maxHeight: '85%',
+  },
+  modalTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  modalHint: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.md,
+    lineHeight: 18,
+  },
+  modalLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semiBold,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.sm,
+    marginBottom: 4,
+  },
+  modalInput: {
+    height: 44,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.sm,
+    paddingHorizontal: SPACING.md,
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textPrimary,
+    backgroundColor: COLORS.background,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+  },
+  modalBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  modalBtnGhost: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
+  },
+  modalBtnGhostText: {
+    color: COLORS.textSecondary,
+    fontWeight: FONT_WEIGHTS.semiBold,
+  },
+  modalBtnPrimaryText: {
+    color: COLORS.white,
+    fontWeight: FONT_WEIGHTS.bold,
+  },
+
+  // ─── Decision detail ────────────────────────────────────────────────────
+  detailHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  detailReason: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.xs,
+    lineHeight: 20,
+  },
+  detailMetrics: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  detailMetric: {
+    flex: 1,
+    backgroundColor: '#F5F7F4',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.sm,
+  },
+  detailMetricLabel: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+  },
+  detailMetricValue: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.textPrimary,
+    marginTop: 2,
+  },
+  detailSectionLabel: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.xs,
+  },
+  detailInputsBox: {
+    backgroundColor: COLORS.background,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.sm,
+  },
+  detailInputRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  detailInputLabel: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+  },
+  detailInputValue: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textPrimary,
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  detailFootnote: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textTertiary,
+    marginTop: SPACING.md,
+    fontStyle: 'italic',
   },
 });
