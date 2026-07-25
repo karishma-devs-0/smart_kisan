@@ -56,12 +56,27 @@ important-tips/
 mqtt-guide.html
 rishab-pumpdetail-review.html
 weekly-status-*.html
+smartkisan_guide.html
+precision-spraying.html
+precision-spraying-integration.html
+SmartKisan_Feature_Testing_Guide.html
+
+# Screenshots / mockups referenced by the local HTML guides
+images/
+
+# Generated status reports & testing docs (local reporting only)
+SmartKisan_Daily_Status_Report*.xlsx
+SmartKisan_Feature_Testing_Guide.docx
+SmartKisan_Features_and_Testing_Guide.md
+generate_dsr.py
+generate_testing_docs.py
 
 # Code drops from other contributors (review locally, don't commit)
 rishab code/
 
 # Large datasets and ML model artifacts (do not commit, multi-GB)
 data/
+plantDetection/_split/
 plantDetection/huggingface/*.keras
 plantDetection/huggingface/*.tflite
 plantDetection/manual test/
@@ -72,4 +87,5 @@ PolyCab_v1.1.pdf
 # temporary/personal files
 tmp/
 *.zip
+*.rar
 rohit_code/

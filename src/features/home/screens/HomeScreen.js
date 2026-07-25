@@ -150,6 +150,7 @@ const HomeScreen = ({ navigation }) => {
         <QuickActionButton icon="weather-partly-cloudy" label={t('home.weather')} onPress={() => navigation.navigate('WeatherTab')} color="#2196F3" />
         <QuickActionButton icon="access-point" label={t('home.devices')} onPress={() => navigation.navigate('DeviceList')} color="#607D8B" />
         <QuickActionButton icon="tractor" label={t('home.farm')} onPress={() => navigation.navigate('FarmManagement')} color="#795548" />
+        <QuickActionButton icon="cctv" label={t('home.fieldMonitor', 'AI Monitor')} onPress={() => navigation.navigate('SettingsTab', { screen: 'WeedDetection' })} color="#2E7D32" />
       </View>
 
       {/* Today's Run Summary */}

@@ -159,9 +159,9 @@ def train():
     ]
 
     # ── Phase 1: Feature extraction ──────────────────────────────────────────
-    print('═' * 60)
+    print('=' * 60)
     print('Phase 1: Training with frozen base model...')
-    print('═' * 60)
+    print('=' * 60)
 
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=0.001),
@@ -171,9 +171,9 @@ def train():
     model.fit(train_ds, epochs=PHASE1_EPOCHS, validation_data=valid_ds, callbacks=callbacks)
 
     # ── Phase 2: Fine-tuning ─────────────────────────────────────────────────
-    print('\n' + '═' * 60)
+    print('\n' + '=' * 60)
     print('Phase 2: Fine-tuning last 30 layers...')
-    print('═' * 60)
+    print('=' * 60)
 
     base_model.trainable = True
     for layer in base_model.layers[:-30]:
@@ -215,10 +215,10 @@ def train():
     model.save(keras_path)
     print(f'Saved Keras model: {keras_path}')
 
-    print('\n' + '═' * 60)
-    print(f'DONE — Accuracy: {val_acc*100:.1f}%')
+    print('\n' + '=' * 60)
+    print(f'DONE - Accuracy: {val_acc*100:.1f}%')
     print(f'Model + labels saved to: {OUTPUT_DIR}')
-    print('═' * 60)
+    print('=' * 60)
 
 
 if __name__ == '__main__':
