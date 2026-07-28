@@ -1,0 +1,47 @@
+# What NOT to upload to EAS Build.
+#
+# IMPORTANT: when this file exists, EAS uses it INSTEAD of .gitignore to decide
+# what goes in the upload tarball — so it has to repeat the ordinary excludes
+# (node_modules, build output) as well as the project-specific ones.
+#
+# Without this, the archive came to 423 MB and the upload died with ECONNRESET
+# partway through. The mobile app itself is only a few MB; the bulk is ML
+# datasets, the separately-deployed backend, and local documentation.
+
+# ── deps & build output ──────────────────────────────────────────────────────
+node_modules/
+.expo/
+dist/
+web-build/
+.gradle/
+
+# ── native dirs: EAS runs its own prebuild, so don't ship local ones ─────────
+android/
+ios/
+
+# ── ML datasets & model artifacts (hundreds of MB, unused by the app build) ──
+data/
+plantDetection/
+images/
+
+# ── backend: deployed separately on Render, not part of the mobile build ─────
+backend/
+
+# ── local docs, reports and scratch files (root level only) ──────────────────
+important-tips/
+docs/
+/*.html
+/*.docx
+/*.doc
+/*.xlsx
+/*.md
+/*.py
+*.zip
+*.rar
+*.pdf
+
+# ── vcs & temp ───────────────────────────────────────────────────────────────
+.git/
+tmp/
+rohit_code/
+rishab code/
