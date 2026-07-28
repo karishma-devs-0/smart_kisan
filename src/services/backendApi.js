@@ -21,6 +21,32 @@ async function getAuthToken() {
   return await getFreshToken();
 }
 
+// Render's free tier spins the service down after ~15 min idle, and the next
+// request has to wait for a cold start (~50s). React Native reports that as a
+// bare "Network request failed", which is indistinguishable from a genuinely
+// dead server — so a tester's first login of the day would look broken.
+// We retry network-level failures to ride the wake-up out. HTTP errors (401 on
+// a bad password, say) are NOT retried: the server answered, so retrying would
+// just stall the user behind a verdict we already have.
+const COLD_START_ATTEMPTS = 3;
+const ATTEMPT_TIMEOUT_MS = 30000;
+const RETRY_DELAY_MS = 2000;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Marks an error as "server responded" so the retry loop leaves it alone. */
+class HttpError extends Error {}
+
+async function fetchWithTimeout(url, config, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...config, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Core fetch wrapper with auth, error handling, and JSON parsing
  */
@@ -42,22 +68,40 @@ async function apiRequest(endpoint, options = {}) {
   }
 
   const url = `${_baseUrl}${endpoint}`;
+  let lastError;
 
-  try {
-    const response = await fetch(url, config);
-    const data = await response.json();
+  for (let attempt = 1; attempt <= COLD_START_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetchWithTimeout(url, config, ATTEMPT_TIMEOUT_MS);
+      const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.error || `Request failed with status ${response.status}`);
+      if (!response.ok) {
+        throw new HttpError(
+          data.error || `Request failed with status ${response.status}`
+        );
+      }
+
+      return data;
+    } catch (error) {
+      if (error instanceof HttpError) throw error;
+
+      lastError = error;
+      if (attempt < COLD_START_ATTEMPTS) {
+        if (__DEV__) {
+          console.warn(
+            `API ${endpoint}: attempt ${attempt} failed (${error.message}) — ` +
+              'server may be waking, retrying'
+          );
+        }
+        await sleep(RETRY_DELAY_MS);
+      }
     }
-
-    return data;
-  } catch (error) {
-    if (error.message === 'Network request failed') {
-      throw new Error('Cannot connect to server. Check your internet connection.');
-    }
-    throw error;
   }
+
+  if (lastError?.name === 'AbortError' || lastError?.message === 'Network request failed') {
+    throw new Error('Cannot connect to server. Check your internet connection.');
+  }
+  throw lastError;
 }
 
 // ─── Auth APIs ────────────────────────────────────────────────────────────────
