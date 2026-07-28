@@ -27,6 +27,14 @@ const app = express();
 
 const PORT = process.env.PORT || 5000;
 
+// Render (and most PaaS) terminate TLS at a single proxy in front of the app,
+// so the client IP arrives in X-Forwarded-For. Without this, express-rate-limit
+// v8 rejects the request with ERR_ERL_UNEXPECTED_X_FORWARDED_FOR, and every
+// caller would otherwise be rate-limited as one shared proxy IP.
+// '1' (trust exactly one hop) rather than `true` — `true` would let a client
+// spoof X-Forwarded-For and slip the rate limiter.
+app.set('trust proxy', 1);
+
 // ============================================================
 // SECURITY
 // ============================================================
