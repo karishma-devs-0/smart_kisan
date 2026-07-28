@@ -4,11 +4,17 @@
  */
 import { getFreshToken } from './secureAuth';
 
-// Backend URL - change this when deploying to cloud
-// 10.0.2.2 = Android emulator, 192.168.x.x = real device on same WiFi
-const API_BASE_URL = __DEV__
-  ? 'http://192.168.1.4:5000/api'  // Local dev — your computer's IP on WiFi
-  : 'https://smartkisan-api.up.railway.app/api'; // Production URL (update after deploy)
+// Backend URL. The Render deployment is the default in dev as well as release,
+// so Expo Go works without anyone having to run a local server — the previous
+// setup hardcoded a LAN IP that silently went stale every time the dev machine
+// changed networks.
+//
+// To develop against a local backend instead, set EXPO_PUBLIC_API_URL in .env:
+//   EXPO_PUBLIC_API_URL=http://192.168.x.x:5000/api  (real device, same WiFi)
+//   EXPO_PUBLIC_API_URL=http://10.0.2.2:5000/api     (Android emulator)
+const PRODUCTION_API_URL = 'https://smartkisan-api.onrender.com/api';
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || PRODUCTION_API_URL;
 
 // Allow overriding via a global (useful for testing)
 let _baseUrl = API_BASE_URL;
