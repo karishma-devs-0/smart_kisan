@@ -293,6 +293,79 @@ export const aiPumpAPI = {
     }),
 };
 
+// ─── Field APIs ───────────────────────────────────────────────────────────────
+
+export const fieldAPI = {
+  fetchAll: () => apiRequest('/fields'),
+
+  fetchById: (id) => apiRequest(`/fields/${id}`),
+
+  create: (field) =>
+    apiRequest('/fields', { method: 'POST', body: JSON.stringify(field) }),
+
+  update: (id, updates) =>
+    apiRequest(`/fields/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
+
+  remove: (id) => apiRequest(`/fields/${id}`, { method: 'DELETE' }),
+};
+
+// ─── Crop APIs ────────────────────────────────────────────────────────────────
+
+export const cropAPI = {
+  fetchAll: () => apiRequest('/crops'),
+
+  create: (crop) =>
+    apiRequest('/crops', { method: 'POST', body: JSON.stringify(crop) }),
+
+  update: (id, updates) =>
+    apiRequest(`/crops/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
+
+  remove: (id) => apiRequest(`/crops/${id}`, { method: 'DELETE' }),
+};
+
+// ─── Device APIs ──────────────────────────────────────────────────────────────
+
+export const deviceAPI = {
+  fetchAll: () => apiRequest('/devices'),
+
+  create: (device) =>
+    apiRequest('/devices', { method: 'POST', body: JSON.stringify(device) }),
+
+  update: (id, updates) =>
+    apiRequest(`/devices/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
+
+  remove: (id) => apiRequest(`/devices/${id}`, { method: 'DELETE' }),
+};
+
+// ─── Soil APIs ────────────────────────────────────────────────────────────────
+
+export const soilAPI = {
+  /** Latest reading. `soil` is null when no sensor has ever reported. */
+  fetchCurrent: () => apiRequest('/soil'),
+
+  fetchHistory: (days = 7) => apiRequest(`/soil/history?days=${days}`),
+
+  record: (reading) =>
+    apiRequest('/soil', { method: 'POST', body: JSON.stringify(reading) }),
+};
+
+// ─── Profile / Onboarding APIs ────────────────────────────────────────────────
+
+export const profileAPI = {
+  /** Returns { profile, onboarded, counts } — counts drive the dashboard. */
+  fetch: () => apiRequest('/profile'),
+
+  /** Provisions the farm: profile + fields + crops + devices, transactionally. */
+  completeOnboarding: (setup) =>
+    apiRequest('/profile/onboarding', {
+      method: 'POST',
+      body: JSON.stringify(setup),
+    }),
+
+  update: (updates) =>
+    apiRequest('/profile', { method: 'PUT', body: JSON.stringify(updates) }),
+};
+
 // ─── Health Check ─────────────────────────────────────────────────────────────
 
 export const healthCheck = () =>

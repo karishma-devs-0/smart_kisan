@@ -27,7 +27,23 @@ import { setLocation, setLanguage } from '../../settings/slice/settingsSlice';
 import i18n from '../../../i18n';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 6;
+
+// Offered as one-tap starting points on the crop step. The farmer can still
+// type anything; these just save typing for the most common Indian crops.
+const COMMON_CROPS = [
+  'Wheat', 'Rice', 'Maize', 'Cotton', 'Sugarcane',
+  'Mustard', 'Potato', 'Tomato', 'Onion', 'Soybean',
+];
+
+const SOIL_TYPES = [
+  { id: 'loam', label: 'Loam' },
+  { id: 'clay', label: 'Clay' },
+  { id: 'sandy', label: 'Sandy' },
+  { id: 'silt', label: 'Silt' },
+  { id: 'black', label: 'Black' },
+  { id: 'red', label: 'Red' },
+];
 
 const FARM_TYPES = [
   { id: 'crop', icon: 'sprout', label: 'onboarding.farmTypeCrop' },
@@ -63,6 +79,46 @@ const OnboardingScreen = () => {
   const [locationSearch, setLocationSearch] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language || 'en');
 
+  // Fields and crops the farmer actually owns. These get provisioned server-side
+  // on finish, which is what makes the rest of the app show their farm rather
+  // than placeholder numbers.
+  const [fields, setFields] = useState([]);
+  const [fieldDraft, setFieldDraft] = useState({ name: '', area: '', soilType: '' });
+  const [crops, setCrops] = useState([]);
+  const [cropDraft, setCropDraft] = useState({ name: '', fieldName: '' });
+  const [submitError, setSubmitError] = useState(null);
+
+  const addField = () => {
+    const name = fieldDraft.name.trim();
+    if (!name) return;
+    setFields((prev) => [
+      ...prev,
+      {
+        name,
+        area: parseFloat(fieldDraft.area) || null,
+        soilType: fieldDraft.soilType || null,
+      },
+    ]);
+    setFieldDraft({ name: '', area: '', soilType: '' });
+  };
+
+  const removeField = (index) =>
+    setFields((prev) => prev.filter((_, i) => i !== index));
+
+  const addCrop = (name, fieldName) => {
+    const cropName = (name || cropDraft.name).trim();
+    if (!cropName) return;
+    setCrops((prev) =>
+      prev.some((c) => c.name === cropName && c.fieldName === fieldName)
+        ? prev
+        : [...prev, { name: cropName, fieldName: fieldName || null }]
+    );
+    setCropDraft({ name: '', fieldName: '' });
+  };
+
+  const removeCrop = (index) =>
+    setCrops((prev) => prev.filter((_, i) => i !== index));
+
   const animateProgress = (toStep) => {
     Animated.timing(progressAnim, {
       toValue: toStep / (TOTAL_STEPS - 1),
@@ -96,13 +152,19 @@ const OnboardingScreen = () => {
       case 2:
         return selectedLocation !== null;
       case 3:
+        return fields.length > 0; // a farm needs at least one field
+      case 4:
+        return true; // crops are optional — land can be fallow
+      case 5:
         return true; // Language always has a default
       default:
         return false;
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    setSubmitError(null);
+
     // Apply language
     i18n.changeLanguage(selectedLanguage);
     dispatch(setLanguage(selectedLanguage));
@@ -112,16 +174,28 @@ const OnboardingScreen = () => {
       dispatch(setLocation(selectedLocation));
     }
 
-    // Save profile to Firestore
-    dispatch(
-      completeOnboarding({
-        farmName: farmName.trim(),
-        farmType,
-        farmSize,
-        location: selectedLocation,
-        language: selectedLanguage,
-      }),
-    );
+    // Provision the farm server-side. This is awaited — it used to be
+    // fire-and-forget, which was harmless when it only wrote to AsyncStorage,
+    // but now a failure means the farm was never created. Surfacing it here
+    // keeps the user on this screen with their answers intact rather than
+    // dropping them onto an empty dashboard.
+    try {
+      await dispatch(
+        completeOnboarding({
+          farmName: farmName.trim(),
+          farmType,
+          farmSize,
+          location: selectedLocation,
+          language: selectedLanguage,
+          fields,
+          crops,
+        }),
+      ).unwrap();
+    } catch (error) {
+      setSubmitError(
+        error?.message || t('onboarding.setupFailed', 'Could not save your farm. Please try again.'),
+      );
+    }
   };
 
   const filteredLocations = locationSearch.trim()
@@ -308,7 +382,184 @@ const OnboardingScreen = () => {
     </View>
   );
 
-  const steps = [renderWelcome, renderFarmProfile, renderLocation, renderLanguage];
+  const renderFields = () => (
+    <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
+      <Text style={styles.stepTitle}>{t('onboarding.fieldsTitle', 'Your fields')}</Text>
+      <Text style={styles.stepSubtitle}>
+        {t(
+          'onboarding.fieldsSubtitle',
+          'Add each plot you farm. These become the fields you monitor in the app.',
+        )}
+      </Text>
+
+      {fields.map((f, i) => (
+        <View key={`${f.name}-${i}`} style={styles.listRow}>
+          <MaterialCommunityIcons name="grid" size={20} color={COLORS.primary} />
+          <View style={styles.listRowBody}>
+            <Text style={styles.listRowTitle}>{f.name}</Text>
+            <Text style={styles.listRowMeta}>
+              {[f.area ? `${f.area} acre` : null, f.soilType].filter(Boolean).join(' · ') ||
+                t('onboarding.noDetails', 'No extra details')}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => removeField(i)} hitSlop={8}>
+            <MaterialCommunityIcons name="close-circle" size={22} color={COLORS.textTertiary} />
+          </TouchableOpacity>
+        </View>
+      ))}
+
+      <Text style={styles.fieldLabel}>{t('onboarding.fieldNameLabel', 'Field name')}</Text>
+      <TextInput
+        style={styles.textInput}
+        placeholder={t('onboarding.fieldNamePlaceholder', 'e.g. North Plot')}
+        placeholderTextColor={COLORS.textTertiary}
+        value={fieldDraft.name}
+        onChangeText={(v) => setFieldDraft((d) => ({ ...d, name: v }))}
+        autoCapitalize="words"
+      />
+
+      <Text style={styles.fieldLabel}>{t('onboarding.fieldAreaLabel', 'Area (acres)')}</Text>
+      <TextInput
+        style={styles.textInput}
+        placeholder="0.0"
+        placeholderTextColor={COLORS.textTertiary}
+        value={fieldDraft.area}
+        onChangeText={(v) => setFieldDraft((d) => ({ ...d, area: v }))}
+        keyboardType="decimal-pad"
+      />
+
+      <Text style={styles.fieldLabel}>{t('onboarding.soilTypeLabel', 'Soil type')}</Text>
+      <View style={styles.chipGrid}>
+        {SOIL_TYPES.map((s) => (
+          <TouchableOpacity
+            key={s.id}
+            style={[styles.chip, fieldDraft.soilType === s.label && styles.chipActive]}
+            onPress={() =>
+              setFieldDraft((d) => ({
+                ...d,
+                soilType: d.soilType === s.label ? '' : s.label,
+              }))
+            }
+          >
+            <Text
+              style={[
+                styles.chipText,
+                fieldDraft.soilType === s.label && styles.chipTextActive,
+              ]}
+            >
+              {s.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <TouchableOpacity
+        style={[styles.addButton, !fieldDraft.name.trim() && styles.addButtonDisabled]}
+        onPress={addField}
+        disabled={!fieldDraft.name.trim()}
+      >
+        <MaterialCommunityIcons name="plus" size={20} color={COLORS.white} />
+        <Text style={styles.addButtonText}>{t('onboarding.addField', 'Add field')}</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+
+  const renderCrops = () => (
+    <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
+      <Text style={styles.stepTitle}>{t('onboarding.cropsTitle', 'What are you growing?')}</Text>
+      <Text style={styles.stepSubtitle}>
+        {t('onboarding.cropsSubtitle', 'Optional — you can add crops later from My Crops.')}
+      </Text>
+
+      {crops.map((c, i) => (
+        <View key={`${c.name}-${i}`} style={styles.listRow}>
+          <MaterialCommunityIcons name="sprout" size={20} color={COLORS.primary} />
+          <View style={styles.listRowBody}>
+            <Text style={styles.listRowTitle}>{c.name}</Text>
+            <Text style={styles.listRowMeta}>
+              {c.fieldName || t('onboarding.unassigned', 'Not assigned to a field')}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => removeCrop(i)} hitSlop={8}>
+            <MaterialCommunityIcons name="close-circle" size={22} color={COLORS.textTertiary} />
+          </TouchableOpacity>
+        </View>
+      ))}
+
+      <Text style={styles.fieldLabel}>{t('onboarding.commonCrops', 'Common crops')}</Text>
+      <View style={styles.chipGrid}>
+        {COMMON_CROPS.map((name) => (
+          <TouchableOpacity
+            key={name}
+            style={styles.chip}
+            onPress={() => addCrop(name, cropDraft.fieldName)}
+          >
+            <Text style={styles.chipText}>{name}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {fields.length > 0 && (
+        <>
+          <Text style={styles.fieldLabel}>
+            {t('onboarding.assignToField', 'Assign to field (optional)')}
+          </Text>
+          <View style={styles.chipGrid}>
+            {fields.map((f) => (
+              <TouchableOpacity
+                key={f.name}
+                style={[styles.chip, cropDraft.fieldName === f.name && styles.chipActive]}
+                onPress={() =>
+                  setCropDraft((d) => ({
+                    ...d,
+                    fieldName: d.fieldName === f.name ? '' : f.name,
+                  }))
+                }
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    cropDraft.fieldName === f.name && styles.chipTextActive,
+                  ]}
+                >
+                  {f.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
+
+      <Text style={styles.fieldLabel}>{t('onboarding.otherCrop', 'Other crop')}</Text>
+      <TextInput
+        style={styles.textInput}
+        placeholder={t('onboarding.cropNamePlaceholder', 'Type a crop name')}
+        placeholderTextColor={COLORS.textTertiary}
+        value={cropDraft.name}
+        onChangeText={(v) => setCropDraft((d) => ({ ...d, name: v }))}
+        autoCapitalize="words"
+        onSubmitEditing={() => addCrop(null, cropDraft.fieldName)}
+      />
+
+      <TouchableOpacity
+        style={[styles.addButton, !cropDraft.name.trim() && styles.addButtonDisabled]}
+        onPress={() => addCrop(null, cropDraft.fieldName)}
+        disabled={!cropDraft.name.trim()}
+      >
+        <MaterialCommunityIcons name="plus" size={20} color={COLORS.white} />
+        <Text style={styles.addButtonText}>{t('onboarding.addCrop', 'Add crop')}</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+
+  const steps = [
+    renderWelcome,
+    renderFarmProfile,
+    renderLocation,
+    renderFields,
+    renderCrops,
+    renderLanguage,
+  ];
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
@@ -345,6 +596,14 @@ const OnboardingScreen = () => {
 
         {/* Step Content */}
         <View style={styles.content}>{steps[step]()}</View>
+
+        {/* Provisioning failure — keeps the user here with their answers */}
+        {submitError ? (
+          <View style={styles.errorBanner}>
+            <MaterialCommunityIcons name="alert-circle" size={18} color={COLORS.danger} />
+            <Text style={styles.errorBannerText}>{submitError}</Text>
+          </View>
+        ) : null}
 
         {/* Bottom Button */}
         <TouchableOpacity
@@ -522,6 +781,64 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: COLORS.white,
+  },
+
+  // Field / crop list rows
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    padding: SPACING.lg,
+    marginBottom: SPACING.sm,
+    borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: COLORS.background,
+  },
+  listRowBody: {
+    flex: 1,
+  },
+  listRowTitle: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.semiBold,
+    color: COLORS.textPrimary,
+  },
+  listRowMeta: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.xl,
+    borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: COLORS.primary,
+  },
+  addButtonDisabled: {
+    opacity: 0.4,
+  },
+  addButtonText: {
+    color: COLORS.white,
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.semiBold,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginHorizontal: SPACING.xl,
+    marginBottom: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: '#FFEBEE',
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.danger,
   },
 
   // Size cards

@@ -3,7 +3,14 @@ import { mockDelay } from '../utils/mockDelay';
 import cache from './cache';
 import { getIsConnected } from './network';
 import { FIREBASE_ENABLED, HUGGINGFACE_SPACE_URL } from '../config/firebase.config';
-import { authAPI } from './backendApi';
+import {
+  authAPI,
+  fieldAPI,
+  cropAPI,
+  deviceAPI,
+  soilAPI,
+  profileAPI,
+} from './backendApi';
 import * as weatherAPI from './weather';
 
 import { MOCK_USER, MOCK_TOKEN } from '../features/auth/mock/authMockData';
@@ -106,6 +113,67 @@ const firebaseUserToAppUser = (fbUser) => ({
   phone: fbUser.phoneNumber || '',
   avatar: fbUser.photoURL || null,
 });
+
+// ─── Row Mappers ─────────────────────────────────────────────────────────────
+// Postgres hands back snake_case columns; the screens and slices were written
+// against camelCase mock objects. These keep that contract intact so switching
+// a service from mock to backend doesn't ripple into every component.
+
+const mapField = (r) => ({
+  id: r.id,
+  name: r.name,
+  area: r.area,
+  areaUnit: r.area_unit,
+  soilType: r.soil_type,
+  cropName: r.crop_name,
+  crop: r.crop_name, // some screens read `crop`
+  latitude: r.latitude,
+  longitude: r.longitude,
+  status: r.status,
+  createdAt: r.created_at,
+});
+
+const mapCrop = (r) => ({
+  id: r.id,
+  name: r.name,
+  variety: r.variety,
+  season: r.season,
+  area: r.area,
+  fieldId: r.field_id,
+  sownOn: r.sown_on,
+  sowingDate: r.sown_on,
+  expectedHarvest: r.expected_harvest,
+  harvestDate: r.expected_harvest,
+  stage: r.stage,
+  health: r.health,
+});
+
+const mapDevice = (r) => ({
+  id: r.id,
+  name: r.name,
+  type: r.type,
+  model: r.model,
+  fieldId: r.field_id,
+  isOnline: r.is_online,
+  status: r.is_online ? 'online' : 'offline',
+  batteryPct: r.battery_pct,
+  battery: r.battery_pct,
+  lastSeen: r.last_seen,
+});
+
+const mapSoil = (r) =>
+  r && {
+    moisture: r.moisture,
+    temperature: r.temperature,
+    ph: r.pH,
+    pH: r.pH,
+    nitrogen: r.nitrogen,
+    phosphorus: r.phosphorus,
+    potassium: r.potassium,
+    ec: r.ec,
+    organicCarbon: r.organic_carbon,
+    updatedAt: r.updated_at,
+  };
 
 // ─── Auth Service ────────────────────────────────────────────────────────────
 
@@ -423,24 +491,19 @@ export const pumpService = {
 
 export const cropService = {
   fetchCrops: async () => {
-    if (FIREBASE_ENABLED) {
-      return offlineAwareRemember('crops:all', () => getFirestore().getAll('crops'), [...MOCK_CROPS], 300);
+    try {
+      const { crops } = await cropAPI.fetchAll();
+      return crops.map(mapCrop);
+    } catch (error) {
+      if (__DEV__) console.warn('fetchCrops failed, using mock:', error.message);
+      return [...MOCK_CROPS];
     }
-    await mockDelay(600);
-    return [...MOCK_CROPS];
   },
 
   addCrop: async (crop) => {
-    if (FIREBASE_ENABLED && shouldUseOffline()) {
-      throw new Error('Offline — cannot add crop. Changes will sync when you reconnect.');
-    }
-    if (FIREBASE_ENABLED) {
-      const result = await getFirestore().create('crops', crop);
-      await cache.del('crops:all');
-      return result;
-    }
-    await mockDelay(500);
-    return { ...crop, id: Date.now().toString() };
+    const { crop: created } = await cropAPI.create(crop);
+    await cache.del('crops:all');
+    return mapCrop(created);
   },
 
   updateCrop: async (crop) => {
@@ -474,16 +537,27 @@ export const cropService = {
 
 export const soilService = {
   fetchSoilData: async () => {
-    if (FIREBASE_ENABLED) {
-      const fallback = { current: { ...MOCK_SOIL_CURRENT }, soilCrops: SOIL_CROPS.slice(0, 5), soilReadings: [...MOCK_SOIL_READINGS] };
-      return offlineAwareRemember('soil:current', () => getFirestore().getSingleton('soil', 'current'), fallback, 300);
+    try {
+      const { soil } = await soilAPI.fetchCurrent();
+      // `soil` is null until a sensor reports. Fall back to the mock reading so
+      // the gauges have something to render rather than showing an empty dial —
+      // unlike fields/crops, a soil value the user never entered isn't
+      // misleading about what they set up.
+      return {
+        current: mapSoil(soil) || { ...MOCK_SOIL_CURRENT },
+        hasLiveReading: !!soil,
+        soilCrops: SOIL_CROPS.slice(0, 5),
+        soilReadings: [...MOCK_SOIL_READINGS],
+      };
+    } catch (error) {
+      if (__DEV__) console.warn('fetchSoilData failed, using mock:', error.message);
+      return {
+        current: { ...MOCK_SOIL_CURRENT },
+        hasLiveReading: false,
+        soilCrops: SOIL_CROPS.slice(0, 5),
+        soilReadings: [...MOCK_SOIL_READINGS],
+      };
     }
-    await mockDelay(600);
-    return {
-      current: { ...MOCK_SOIL_CURRENT },
-      soilCrops: SOIL_CROPS.slice(0, 5),
-      soilReadings: [...MOCK_SOIL_READINGS],
-    };
   },
 
   fetchMoistureHistory: async () => {
@@ -643,11 +717,13 @@ export const reportService = {
 
 export const deviceService = {
   fetchDevices: async () => {
-    if (FIREBASE_ENABLED) {
-      return offlineAwareRemember('devices:all', () => getFirestore().getAll('devices'), [...MOCK_DEVICES], 300);
+    try {
+      const { devices } = await deviceAPI.fetchAll();
+      return devices.map(mapDevice);
+    } catch (error) {
+      if (__DEV__) console.warn('fetchDevices failed, using mock:', error.message);
+      return [...MOCK_DEVICES];
     }
-    await mockDelay(600);
-    return [...MOCK_DEVICES];
   },
 
   updateDevice: async (id, updates) => {
@@ -742,32 +818,37 @@ export const farmService = {
 
 export const fieldsService = {
   fetchFields: async () => {
-    if (FIREBASE_ENABLED) {
-      const fields = await offlineAwareRemember('fields:all', () => getFirestore().getAll('fields'), [...MOCK_FIELDS], 300);
+    // Real fields, created during onboarding. An empty array is a legitimate
+    // answer (a farm with no fields yet) — we deliberately do NOT substitute
+    // mock fields for it, because showing five imaginary plots was exactly what
+    // made the dashboard meaningless. Mock data is only a fallback for a failed
+    // request, so the app still renders something when the network is down.
+    try {
+      const { fields } = await fieldAPI.fetchAll();
       return {
-        fields,
+        fields: fields.map(mapField),
+        growthData: [...MOCK_FIELD_GROWTH_DATA],
+      };
+    } catch (error) {
+      if (__DEV__) console.warn('fetchFields failed, using mock:', error.message);
+      return {
+        fields: [...MOCK_FIELDS],
         growthData: [...MOCK_FIELD_GROWTH_DATA],
       };
     }
-    await mockDelay(600);
-    return {
-      fields: [...MOCK_FIELDS],
-      growthData: [...MOCK_FIELD_GROWTH_DATA],
-    };
+  },
+
+  createField: async (field) => {
+    const { field: created } = await fieldAPI.create(field);
+    return mapField(created);
   },
 
   updateField: async (id, updates) => {
-    if (FIREBASE_ENABLED && shouldUseOffline()) {
-      throw new Error('Offline — cannot update field. Changes will sync when you reconnect.');
-    }
-    if (FIREBASE_ENABLED) {
-      const result = await getFirestore().update('fields', id, updates);
-      await cache.del('fields:all');
-      return result;
-    }
-    await mockDelay(500);
-    return { id, ...updates };
+    const { field } = await fieldAPI.update(id, updates);
+    return mapField(field);
   },
+
+  deleteField: async (id) => fieldAPI.remove(id),
 };
 
 // ─── Onboarding / Profile Service ───────────────────────────────────────────
@@ -777,22 +858,103 @@ export const fieldsService = {
 const onboardingKey = (userId) => `@smartkisan:onboarding:${userId || 'guest'}`;
 
 export const onboardingService = {
+  /**
+   * The server is the source of truth for whether a user has onboarded, so the
+   * farm follows them to a new device instead of living only in AsyncStorage.
+   * The local copy is kept as a cache so the app can decide which screen to show
+   * before the network answers (and while Render's free tier is waking up).
+   */
   loadProfile: async (userId) => {
     try {
-      const raw = await AsyncStorage.getItem(onboardingKey(userId));
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
+      const { profile, onboarded, counts } = await profileAPI.fetch();
+      if (!onboarded) return null;
+
+      const merged = {
+        farmName: profile.farm_name,
+        farmType: profile.farm_type,
+        farmSize: profile.size_band || profile.farm_size,
+        farmSizeAcres: profile.farm_size,
+        sizeUnit: profile.size_unit,
+        locationName: profile.location_name,
+        location:
+          profile.latitude != null
+            ? { name: profile.location_name, lat: profile.latitude, lng: profile.longitude }
+            : null,
+        language: profile.language,
+        counts,
+        completedAt: profile.onboarded_at,
+      };
+
+      await AsyncStorage.setItem(onboardingKey(userId), JSON.stringify(merged)).catch(
+        () => {}
+      );
+      return merged;
+    } catch (error) {
+      if (__DEV__) console.warn('loadProfile failed, using cache:', error.message);
+      try {
+        const raw = await AsyncStorage.getItem(onboardingKey(userId));
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
     }
   },
 
+  /**
+   * Provisions the farm server-side: profile plus the fields, crops and devices
+   * described during setup, all in one transaction. This is what makes the
+   * onboarding answers actually drive the app rather than vanish into local
+   * storage.
+   */
   saveProfile: async (data, userId) => {
-    const profile = { ...data, completedAt: new Date().toISOString() };
+    // Onboarding picks a size band, not a number, and may also collect exact
+    // acreage. Send the band verbatim and a numeric acreage when we have one —
+    // parseFloat('medium') is NaN, which would silently discard the answer.
+    const BAND_ACRES = { small: 1, medium: 6, large: 30, xlarge: 75 };
+    const exactAcres = parseFloat(data.farmSizeAcres);
+
+    const setup = {
+      farmName: data.farmName,
+      farmType: data.farmType,
+      farmSize: Number.isFinite(exactAcres)
+        ? exactAcres
+        : BAND_ACRES[data.farmSize] ?? null,
+      sizeBand: typeof data.farmSize === 'string' ? data.farmSize : null,
+      sizeUnit: data.sizeUnit || 'acre',
+      locationName: data.location?.name || data.locationName || null,
+      latitude: data.location?.lat ?? null,
+      longitude: data.location?.lng ?? null,
+      language: data.language,
+      fields: data.fields || [],
+      crops: data.crops || [],
+      devices: data.devices || [],
+    };
+
+    const result = await profileAPI.completeOnboarding(setup);
+
+    const profile = {
+      ...data,
+      provisioned: {
+        fields: result.fields?.length || 0,
+        crops: result.crops?.length || 0,
+        devices: result.devices?.length || 0,
+      },
+      completedAt: result.profile?.onboarded_at || new Date().toISOString(),
+    };
+
+    // Cache locally so the next launch can route instantly without waiting on
+    // the network. The server copy remains authoritative.
     try {
       await AsyncStorage.setItem(onboardingKey(userId), JSON.stringify(profile));
     } catch (e) {
-      if (__DEV__) console.warn('Onboarding save failed:', e.message);
+      if (__DEV__) console.warn('Onboarding cache write failed:', e.message);
     }
+
+    // Freshly provisioned farm invalidates anything we cached from the old
+    // (empty) state.
+    await cache.delByPrefix('fields:');
+    await cache.delByPrefix('crops:');
+
     return profile;
   },
 };

@@ -19,6 +19,11 @@ const authRoutes = require('./routes/auth');
 const pumpRoutes = require('./routes/pumps');
 const pumpGroupRoutes = require('./routes/pumpGroups');
 const aiPumpRoutes = require('./routes/aiPump');
+const fieldRoutes = require('./routes/fields');
+const cropRoutes = require('./routes/crops');
+const deviceRoutes = require('./routes/devices');
+const soilRoutes = require('./routes/soil');
+const profileRoutes = require('./routes/profile');
 
 // AI scheduler
 const { start: startAiScheduler } = require('./ai/runScheduler');
@@ -108,6 +113,36 @@ app.use(
   '/api/ai',
   authMiddleware,
   aiPumpRoutes
+);
+
+app.use(
+  '/api/fields',
+  authMiddleware,
+  fieldRoutes
+);
+
+app.use(
+  '/api/crops',
+  authMiddleware,
+  cropRoutes
+);
+
+app.use(
+  '/api/devices',
+  authMiddleware,
+  deviceRoutes
+);
+
+app.use(
+  '/api/soil',
+  authMiddleware,
+  soilRoutes
+);
+
+app.use(
+  '/api/profile',
+  authMiddleware,
+  profileRoutes
 );
 
 // ============================================================
