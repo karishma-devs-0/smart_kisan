@@ -89,3 +89,11 @@ tmp/
 *.zip
 *.rar
 rohit_code/
+
+# Built APKs (large, distribute out-of-band)
+*.apk
+
+# Weed detection training: venv, dataset and model artifacts (multi-GB)
+weedDetection/.venv/
+weedDetection/data/
+weedDetection/model/
