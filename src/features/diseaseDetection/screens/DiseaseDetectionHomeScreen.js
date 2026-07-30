@@ -67,7 +67,14 @@ const DiseaseDetectionHomeScreen = ({ navigation }) => {
         if (action.meta.requestStatus === 'fulfilled') {
           navigation.navigate('ScanResult', { scan: action.payload });
         } else if (action.meta.requestStatus === 'rejected') {
-          Alert.alert('Scan Failed', 'Could not analyze the image. Please try again.');
+          // Show why it failed. A scan now fails rather than inventing a
+          // diagnosis, so the reason is the only thing the user can act on.
+          Alert.alert(
+            'Scan Failed',
+            action.error?.message ||
+              action.payload ||
+              'Could not analyze the image. Please try again.',
+          );
         }
       }).catch(() => {
         Alert.alert('Error', 'Something went wrong. Please try again.');

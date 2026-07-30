@@ -18,15 +18,12 @@ import {
   MOCK_PUMPS,
   MOCK_PUMP_GROUPS,
 } from '../features/pumps/mock/pumpsMockData';
-import { MOCK_CROPS } from '../features/crops/mock/cropsMockData';
 import {
-  MOCK_SOIL_CURRENT,
   MOCK_MOISTURE_HISTORY,
   MOCK_PH_HISTORY,
   MOCK_NPK_HISTORY,
   MOCK_FERTILIZER_HISTORY,
   SOIL_CROPS,
-  MOCK_SOIL_READINGS,
 } from '../features/soil/mock/soilMockData';
 import {
   MOCK_CURRENT_WEATHER,
@@ -44,7 +41,6 @@ import {
   MOCK_HARVEST_PERFORMANCE,
   MOCK_GENERAL_METRICS,
 } from '../features/reports/mock/reportsMockData';
-import { MOCK_DEVICES } from '../features/devices/mock/devicesMockData';
 import {
   MOCK_CROP_HEALTH,
   MOCK_AI_INSIGHTS,
@@ -178,39 +174,32 @@ const mapSoil = (r) =>
 // ─── Auth Service ────────────────────────────────────────────────────────────
 
 export const authService = {
+  // These used to hand out MOCK_TOKEN ('mock-jwt-token-smartkisan-2024') on
+  // fallback. That is not a signed JWT, so the backend rejects it on every
+  // protected route: the user lands on the dashboard "logged in" but nothing
+  // loads, with no indication why. Harmless while all data was mock, broken now
+  // that fields, crops, soil and the profile come from the API. A failed login
+  // must fail, not grant an unusable session.
+
   loginWithEmail: async (email, password) => {
-    try {
-      const response = await authAPI.login(email, password);
-      // Backend should return { user: { id, name, email }, token: '...' }
-      return response;
-    } catch (error) {
-      if (__DEV__) console.warn('Login Error:', error.message);
-      // Fallback to mock for testing if backend is completely unavailable
-      if (email === 'rajesh@example.com' && password === 'password') {
-        return { user: MOCK_USER, token: MOCK_TOKEN };
-      }
-      throw error;
-    }
+    const response = await authAPI.login(email, password);
+    // Backend returns { user: { id, name, email }, token: '...' }
+    return response;
   },
 
   loginWithPhone: async (phone, otp) => {
-    await mockDelay(800);
-    if (otp === '123456') {
-      return { user: MOCK_USER, token: MOCK_TOKEN };
-    }
-    throw new Error('Invalid OTP');
+    // No OTP provider is wired up server-side yet, so there is no way to
+    // authenticate a phone number for real.
+    throw new Error(
+      'Phone sign-in is not available yet. Please sign in with your email and password.'
+    );
   },
 
   loginWithUsername: async (username, password) => {
-    if (FIREBASE_ENABLED) {
-      const email = `${username}@smartkisan.app`;
-      return authService.loginWithEmail(email, password);
-    }
-    await mockDelay(800);
-    if (username === 'rajesh' && password === 'password') {
-      return { user: MOCK_USER, token: MOCK_TOKEN };
-    }
-    throw new Error('Invalid username or password');
+    // The backend authenticates by email; there is no username lookup.
+    throw new Error(
+      'Username sign-in is not available yet. Please sign in with your email and password.'
+    );
   },
 
   register: async (userData) => {
@@ -495,8 +484,10 @@ export const cropService = {
       const { crops } = await cropAPI.fetchAll();
       return crops.map(mapCrop);
     } catch (error) {
-      if (__DEV__) console.warn('fetchCrops failed, using mock:', error.message);
-      return [...MOCK_CROPS];
+      // Surface the failure instead of showing someone else's sample crops as
+      // if they were this farmer's.
+      if (__DEV__) console.warn('fetchCrops failed:', error.message);
+      throw new Error('Could not load your crops. Check your connection and try again.');
     }
   },
 
@@ -537,25 +528,30 @@ export const cropService = {
 
 export const soilService = {
   fetchSoilData: async () => {
+    // No invented readings. Moisture, pH and NPK drive irrigation and
+    // fertiliser decisions, so a fabricated 45% is worse than a blank dial:
+    // it reads as a measurement from a sensor that never reported.
+    //
+    // Returns {} rather than null when there is no reading — MySoilScreen
+    // reads current.moisture unguarded but already treats absent/zero values
+    // as its empty state (see its `hasData` check), so {} shows that state
+    // without a crash.
     try {
       const { soil } = await soilAPI.fetchCurrent();
-      // `soil` is null until a sensor reports. Fall back to the mock reading so
-      // the gauges have something to render rather than showing an empty dial —
-      // unlike fields/crops, a soil value the user never entered isn't
-      // misleading about what they set up.
       return {
-        current: mapSoil(soil) || { ...MOCK_SOIL_CURRENT },
+        current: mapSoil(soil) || {},
         hasLiveReading: !!soil,
         soilCrops: SOIL_CROPS.slice(0, 5),
-        soilReadings: [...MOCK_SOIL_READINGS],
+        soilReadings: [],
       };
     } catch (error) {
-      if (__DEV__) console.warn('fetchSoilData failed, using mock:', error.message);
+      if (__DEV__) console.warn('fetchSoilData failed:', error.message);
       return {
-        current: { ...MOCK_SOIL_CURRENT },
+        current: {},
         hasLiveReading: false,
+        error: 'Could not load soil data.',
         soilCrops: SOIL_CROPS.slice(0, 5),
-        soilReadings: [...MOCK_SOIL_READINGS],
+        soilReadings: [],
       };
     }
   },
@@ -721,8 +717,8 @@ export const deviceService = {
       const { devices } = await deviceAPI.fetchAll();
       return devices.map(mapDevice);
     } catch (error) {
-      if (__DEV__) console.warn('fetchDevices failed, using mock:', error.message);
-      return [...MOCK_DEVICES];
+      if (__DEV__) console.warn('fetchDevices failed:', error.message);
+      throw new Error('Could not load your devices. Check your connection and try again.');
     }
   },
 
@@ -830,11 +826,8 @@ export const fieldsService = {
         growthData: [...MOCK_FIELD_GROWTH_DATA],
       };
     } catch (error) {
-      if (__DEV__) console.warn('fetchFields failed, using mock:', error.message);
-      return {
-        fields: [...MOCK_FIELDS],
-        growthData: [...MOCK_FIELD_GROWTH_DATA],
-      };
+      if (__DEV__) console.warn('fetchFields failed:', error.message);
+      throw new Error('Could not load your fields. Check your connection and try again.');
     }
   },
 
@@ -989,6 +982,8 @@ export const diseaseDetectionService = {
       throw new Error('Offline — scan unavailable. Please connect to the internet to use disease detection.');
     }
 
+    let lastError = null;
+
     // Try real AI model (HuggingFace Space)
     if (HUGGINGFACE_SPACE_URL) {
       try {
@@ -1057,44 +1052,21 @@ export const diseaseDetectionService = {
           };
         }
       } catch (err) {
-        if (__DEV__) console.warn('AI model unavailable, using mock:', err.message);
+        lastError = err;
+        if (__DEV__) console.warn('Disease scan failed:', err.message);
       }
     }
 
-    // Simulated fallback when the AI model is unreachable.
-    //
-    // This picks a disease at random and attaches a confidence score and a
-    // chemical treatment with a dosage. Previously it was returned looking
-    // exactly like a real prediction — no aiSource, nothing for the UI to key
-    // off — so a farmer could be shown an invented diagnosis and spray for it.
-    // It is now explicitly flagged; the result screen must not present a
-    // simulated scan as a diagnosis.
-    await mockDelay(1500);
-    const crops = ['Tomato', 'Rice', 'Wheat', 'Cotton', 'Maize', 'Potato'];
-    const isHealthy = Math.random() > 0.6;
-    const matchedDisease = isHealthy
-      ? null
-      : MOCK_DISEASES[Math.floor(Math.random() * MOCK_DISEASES.length)];
-
-    return {
-      id: Date.now().toString(),
-      cropName: matchedDisease ? matchedDisease.crop : crops[Math.floor(Math.random() * crops.length)],
-      imagePath: imageUri,
-      disease: isHealthy ? 'Healthy' : matchedDisease.name,
-      confidence: isHealthy ? 95 + Math.floor(Math.random() * 5) : 75 + Math.floor(Math.random() * 20),
-      severity: isHealthy ? 'none' : ['mild', 'moderate', 'severe'][Math.floor(Math.random() * 3)],
-      date: new Date().toISOString().split('T')[0],
-      symptoms: matchedDisease ? matchedDisease.symptoms : [],
-      treatments: isHealthy
-        ? []
-        : [
-            { type: 'chemical', name: 'Mancozeb 75% WP', dosage: '2.5 g/L water', method: 'Foliar spray every 7-10 days' },
-            { type: 'organic', name: 'Neem Oil', dosage: '5 ml/L water', method: 'Spray on affected leaves early morning' },
-          ],
-      preventiveMeasures: matchedDisease ? matchedDisease.preventiveMeasures : [],
-      aiSource: 'simulated',
-      isSimulated: true,
-    };
+    // No fabricated result. This used to invent a diagnosis at random —
+    // random disease, 75-95% confidence, a chemical treatment with a dosage —
+    // and return it looking exactly like a real prediction. Spraying a crop for
+    // a disease it does not have costs money and can damage the plant, so a
+    // scan that could not run must fail rather than guess.
+    throw new Error(
+      lastError?.name === 'AbortError'
+        ? 'The AI model took too long to respond. It may be waking up — please try again in a moment.'
+        : 'Could not reach the AI model. Check your connection and try again.'
+    );
   },
 
   saveScanResult: async (result) => {

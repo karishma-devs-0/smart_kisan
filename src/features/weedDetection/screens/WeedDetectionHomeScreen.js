@@ -505,7 +505,22 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
       scrollable={true}
     >
       <View style={styles.masterContainer}>
-        
+
+        {/*
+          This screen simulates the pole-mounted camera spraying rig — that
+          hardware does not exist yet, and there is no weed model behind it.
+          Every detection here is generated locally, so it must say so: the
+          labels and confidence scores look identical to a real result, and
+          without this banner a viewer would reasonably read them as live.
+        */}
+        <View style={styles.simBanner}>
+          <MaterialCommunityIcons name="flask-outline" size={18} color="#E65100" />
+          <Text style={styles.simBannerText}>
+            Simulation — demonstrates the planned camera rig. Detections shown are
+            generated, not live readings.
+          </Text>
+        </View>
+
         {/* UNIFIED INTERACTIVE SATELLITE SCANNER MAP CONTAINER */}
         <View style={styles.mapContainer}>
           <WebView
@@ -861,6 +876,24 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  simBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: '#FFB74D',
+    backgroundColor: '#FFF3E0',
+  },
+  simBannerText: {
+    flex: 1,
+    fontSize: FONT_SIZES.xs,
+    color: '#E65100',
+    lineHeight: 15,
+  },
   masterContainer: {
     width: '100%',
   },
