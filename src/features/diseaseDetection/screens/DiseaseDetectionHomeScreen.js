@@ -13,6 +13,7 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { fetchScanHistory, scanImage } from '../slice/diseaseDetectionSlice';
+import { diseaseDetectionService } from '../../../services/api';
 
 const severityColors = {
   none: COLORS.success,
@@ -28,6 +29,12 @@ const DiseaseDetectionHomeScreen = ({ navigation }) => {
 
   useEffect(() => {
     dispatch(fetchScanHistory());
+
+    // Wake the model as soon as the screen opens. The Space sleeps when idle
+    // and takes ~9s to come back — long enough that a scan fired immediately
+    // after opening would spend its whole budget waiting on the wake-up. By the
+    // time the user has framed a leaf it is usually ready.
+    diseaseDetectionService.warmUp();
   }, [dispatch]);
 
   const pickImage = useCallback(async (useCamera) => {

@@ -962,6 +962,27 @@ export const onboardingService = {
 // ─── Disease Detection Service ──────────────────────────────────────────────
 
 export const diseaseDetectionService = {
+  /**
+   * Wakes the HuggingFace Space. Free Spaces sleep after inactivity and take
+   * ~9s to come back, which is long enough that a scan started immediately
+   * afterwards times out. Calling this when the Disease screen opens means the
+   * model is usually warm by the time the user has framed a photo.
+   *
+   * Deliberately fire-and-forget: it is an optimisation, never a blocker.
+   */
+  warmUp: async () => {
+    if (!HUGGINGFACE_SPACE_URL || shouldUseOffline()) return false;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 20000);
+      const res = await fetch(HUGGINGFACE_SPACE_URL, { signal: controller.signal });
+      clearTimeout(timer);
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
   scanImage: async (imageUri) => {
     // Offline check — disease detection requires network
     if (shouldUseOffline()) {
@@ -971,23 +992,39 @@ export const diseaseDetectionService = {
     // Try real AI model (HuggingFace Space)
     if (HUGGINGFACE_SPACE_URL) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        // A cold Space needs ~9s just to wake, before upload and inference.
+        // The old 15s budget expired mid-wake and dropped the user into the
+        // simulated path, so allow a genuine cold start and retry once.
+        const attempt = async (timeoutMs) => {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-        const formData = new FormData();
-        formData.append('file', {
-          uri: imageUri,
-          type: 'image/jpeg',
-          name: 'plant_image.jpg',
-        });
+          const formData = new FormData();
+          formData.append('file', {
+            uri: imageUri,
+            type: 'image/jpeg',
+            name: 'plant_image.jpg',
+          });
 
-        const response = await fetch(`${HUGGINGFACE_SPACE_URL}/predict`, {
-          method: 'POST',
-          body: formData,
-          headers: { 'Content-Type': 'multipart/form-data' },
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
+          try {
+            return await fetch(`${HUGGINGFACE_SPACE_URL}/predict`, {
+              method: 'POST',
+              body: formData,
+              headers: { 'Content-Type': 'multipart/form-data' },
+              signal: controller.signal,
+            });
+          } finally {
+            clearTimeout(timeoutId);
+          }
+        };
+
+        let response;
+        try {
+          response = await attempt(45000);
+        } catch (firstError) {
+          if (__DEV__) console.warn('Scan attempt 1 failed, retrying:', firstError.message);
+          response = await attempt(45000);
+        }
 
         if (response.ok) {
           const result = await response.json();
@@ -1016,15 +1053,22 @@ export const diseaseDetectionService = {
               : ['Crop rotation', 'Use disease-resistant varieties', 'Ensure proper spacing'],
             top3: result.top3 || [],
             aiSource: 'huggingface',
+            isSimulated: false,
           };
         }
       } catch (err) {
-        clearTimeout(timeoutId);
         if (__DEV__) console.warn('AI model unavailable, using mock:', err.message);
       }
     }
 
-    // Mock fallback when AI model is unavailable
+    // Simulated fallback when the AI model is unreachable.
+    //
+    // This picks a disease at random and attaches a confidence score and a
+    // chemical treatment with a dosage. Previously it was returned looking
+    // exactly like a real prediction — no aiSource, nothing for the UI to key
+    // off — so a farmer could be shown an invented diagnosis and spray for it.
+    // It is now explicitly flagged; the result screen must not present a
+    // simulated scan as a diagnosis.
     await mockDelay(1500);
     const crops = ['Tomato', 'Rice', 'Wheat', 'Cotton', 'Maize', 'Potato'];
     const isHealthy = Math.random() > 0.6;
@@ -1048,6 +1092,8 @@ export const diseaseDetectionService = {
             { type: 'organic', name: 'Neem Oil', dosage: '5 ml/L water', method: 'Spray on affected leaves early morning' },
           ],
       preventiveMeasures: matchedDisease ? matchedDisease.preventiveMeasures : [],
+      aiSource: 'simulated',
+      isSimulated: true,
     };
   },
 

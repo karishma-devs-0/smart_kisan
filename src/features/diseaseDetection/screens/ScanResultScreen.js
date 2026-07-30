@@ -111,6 +111,22 @@ const ScanResultScreen = ({ navigation, route }) => {
 
   return (
     <ScreenLayout title="Scan Result" showBack onBack={() => navigation.goBack()}>
+      {/* The AI model was unreachable and this result was generated at random.
+          It must never read as a diagnosis — a farmer acting on an invented
+          disease would spray the wrong chemical. */}
+      {scan.isSimulated ? (
+        <View style={styles.simulatedBanner}>
+          <MaterialCommunityIcons name="alert" size={20} color="#E65100" />
+          <View style={styles.simulatedBody}>
+            <Text style={styles.simulatedTitle}>Demo result — not a real diagnosis</Text>
+            <Text style={styles.simulatedText}>
+              The AI model could not be reached, so this is sample data. Check your
+              connection and scan again for an actual result.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       {/* Image Preview */}
       <View style={styles.imageContainer}>
         {scan.imagePath ? (
@@ -236,6 +252,31 @@ const ScanResultScreen = ({ navigation, route }) => {
 
 const styles = StyleSheet.create({
   // Image
+  simulatedBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.md,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: '#FFB74D',
+    backgroundColor: '#FFF3E0',
+  },
+  simulatedBody: {
+    flex: 1,
+  },
+  simulatedTitle: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: '#E65100',
+    marginBottom: 2,
+  },
+  simulatedText: {
+    fontSize: FONT_SIZES.sm,
+    color: '#8D6E63',
+    lineHeight: 18,
+  },
   imageContainer: {
     height: 200,
     borderRadius: BORDER_RADIUS.lg,
