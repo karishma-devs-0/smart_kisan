@@ -41,6 +41,15 @@ import {
 import { updatePumpStatusFromMQTT } from './src/features/pumps/slice/pumpsSlice';
 import { receiveMqttDecision } from './src/features/aiPump/slice/aiPumpSlice';
 import { registerForPushNotifications } from './src/services/notifications';
+import { connectSocket, disconnectSocket } from './src/services/socketService';
+import {
+  addNotification,
+  setNotifications,
+} from './src/features/notifications/slice/notificationSlice';
+import {
+  saveNotifications,
+  getNotifications,
+} from './src/navigation/notificationStorage';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import { initNetworkListener } from './src/services/network';
 import './src/i18n';
@@ -58,6 +67,17 @@ initNetworkListener();
 // ─────────────────────────────────────────────────────────────
 // Auth Gate — restores session from SecureStore (no Firebase)
 // ─────────────────────────────────────────────────────────────
+/**
+ * Adds a notification to the store and mirrors the list to AsyncStorage so it
+ * survives a restart. Persisting from here keeps the slice a plain reducer
+ * rather than giving it a storage side effect.
+ */
+function recordNotification(notification) {
+  store.dispatch(addNotification(notification));
+  const { notifications } = store.getState().notifications;
+  saveNotifications(notifications).catch(() => {});
+}
+
 function AuthGate({ children }) {
   const [ready, setReady] = useState(false);
   // Watch Redux auth state so MQTT can connect on any login, not only on
@@ -110,6 +130,32 @@ function AuthGate({ children }) {
       // without this dispatch, a fresh login keeps onboarding.completed = false
       // and the user gets sent back to the onboarding wizard each time.
       store.dispatch(loadOnboardingStatus());
+
+      // Restore the notification history. notificationStorage existed but was
+      // never imported, so notifications vanished on every app restart.
+      getNotifications()
+        .then((stored) => {
+          if (Array.isArray(stored) && stored.length) {
+            store.dispatch(setNotifications(stored));
+          }
+        })
+        .catch(() => {});
+
+      // Server-pushed events. The socket client was never connected by the app,
+      // so the backend's pumpStatus emit had no listener.
+      try {
+        const socket = connectSocket(userId);
+        socket.off('pumpStatus');
+        socket.on('pumpStatus', (data) => {
+          const status = typeof data === 'string' ? data : data?.status;
+          if (data?.pumpId && (status === 'on' || status === 'off')) {
+            store.dispatch(updatePumpStatusFromMQTT({ pumpId: data.pumpId, status }));
+          }
+        });
+      } catch (socketError) {
+        if (__DEV__) console.warn('[Socket] connect failed:', socketError.message);
+      }
+
       try {
         mqttConnect(userId);
         if (__DEV__) console.log('[MQTT] Connected:', userId);
@@ -125,6 +171,17 @@ function AuthGate({ children }) {
         });
         onAlerts((alert) => {
           if (__DEV__) console.log('[MQTT] Alert:', alert);
+          // Turn real alerts into notifications. Nothing dispatched
+          // addNotification before this, so the notification list rendered
+          // empty forever and the bell badge could never leave zero.
+          recordNotification({
+            id: `mqtt:${alert?.id || Date.now()}`,
+            title: alert?.title || 'Farm alert',
+            body: alert?.message || alert?.body || '',
+            severity: alert?.severity || 'info',
+            createdAt: new Date().toISOString(),
+            read: false,
+          });
         });
         onAiDecisions((pumpId, decision) => {
           if (__DEV__) console.log('[MQTT] AI decision:', pumpId, decision);
@@ -147,6 +204,7 @@ function AuthGate({ children }) {
       }
     } else if (!isAuthenticated) {
       try { mqttDisconnect(); } catch (e) { /* ignore */ }
+      try { disconnectSocket(); } catch (e) { /* ignore */ }
     }
   }, [isAuthenticated, userId]);
 
