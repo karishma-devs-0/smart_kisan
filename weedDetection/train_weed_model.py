@@ -39,7 +39,15 @@ LABELS_CSV = os.path.join(DATA_DIR, 'labels.csv')
 OUTPUT_DIR = os.environ.get('SMARTKISAN_WEED_OUTPUT_DIR') or os.path.join(HERE, 'model')
 
 IMG_SIZE = 224
-BATCH_SIZE = 32
+# 32 exhausted memory on this 15 GB machine: the first run reached epoch 3 and
+# was killed during validation with no traceback. Each decoded image is a
+# 224*224*3 float32 (~600 KB), and with AUTOTUNE the parallel map workers and
+# prefetch buffers hold many of them at once. Halving the batch and bounding the
+# buffers below keeps the pipeline within budget.
+BATCH_SIZE = 16
+SHUFFLE_BUFFER = 2048
+MAP_WORKERS = 4
+PREFETCH = 2
 VALID_FRACTION = 0.2
 SEED = 1337
 
@@ -103,14 +111,18 @@ def build_dataset(pairs, class_names, training):
 
     ds = tf.data.Dataset.from_tensor_slices((paths, labels))
     if training:
-        ds = ds.shuffle(len(paths), seed=SEED, reshuffle_each_iteration=True)
+        # Bounded buffer rather than len(paths): a full-dataset shuffle keeps
+        # the whole index resident and grows with the dataset.
+        ds = ds.shuffle(
+            min(SHUFFLE_BUFFER, len(paths)), seed=SEED, reshuffle_each_iteration=True
+        )
 
     def decode(path, label):
         img = tf.io.decode_jpeg(tf.io.read_file(path), channels=3)
         img = tf.image.resize(img, (IMG_SIZE, IMG_SIZE))
         return img, tf.one_hot(label, len(class_names))
 
-    ds = ds.map(decode, num_parallel_calls=tf.data.AUTOTUNE)
+    ds = ds.map(decode, num_parallel_calls=MAP_WORKERS)
 
     if training:
         # Weeds have no canonical orientation and field light varies widely, so
@@ -124,14 +136,14 @@ def build_dataset(pairs, class_names, training):
             img = tf.image.random_contrast(img, 0.8, 1.2)
             return tf.clip_by_value(img, 0.0, 255.0), label
 
-        ds = ds.map(augment, num_parallel_calls=tf.data.AUTOTUNE)
+        ds = ds.map(augment, num_parallel_calls=MAP_WORKERS)
 
     # MobileNetV2 expects inputs scaled to [-1, 1].
     ds = ds.map(
         lambda x, y: (keras.applications.mobilenet_v2.preprocess_input(x), y),
-        num_parallel_calls=tf.data.AUTOTUNE,
+        num_parallel_calls=MAP_WORKERS,
     )
-    return ds.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+    return ds.batch(BATCH_SIZE).prefetch(PREFETCH)
 
 
 def compute_class_weights(pairs, class_names):
