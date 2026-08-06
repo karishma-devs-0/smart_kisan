@@ -54,6 +54,7 @@ const HomeScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const user = useSelector((state) => state.auth.user);
+  const unreadCount = useSelector((state) => state.notifications?.unreadCount ?? 0);
   const fields = useSelector((state) => state.fields.fields);
   const devices = useSelector((state) => state.devices.devices);
   const pumps = useSelector((state) => state.pumps.pumps);
@@ -99,9 +100,16 @@ const HomeScreen = ({ navigation }) => {
         <Text style={styles.greeting}>{getGreeting()},</Text>
         <Text style={styles.userName}>{user?.name || t('home.farmer')}</Text>
       </View>
-      <TouchableOpacity style={styles.notificationButton}>
+      {/* The bell was previously inert: no onPress, and a badge View that was
+          always rendered, so it showed an unread dot whether or not anything
+          was unread. Now it opens the notification list and the dot reflects
+          the real count. */}
+      <TouchableOpacity
+        style={styles.notificationButton}
+        onPress={() => navigation.navigate('Notification')}
+      >
         <MaterialCommunityIcons name="bell-outline" size={24} color={COLORS.white} />
-        <View style={styles.notificationBadge} />
+        {unreadCount > 0 && <View style={styles.notificationBadge} />}
       </TouchableOpacity>
     </View>
   );

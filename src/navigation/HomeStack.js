@@ -1,6 +1,9 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from '../features/home/screens/HomeScreen';
+// Notifications
+import NotificationScreen from '../features/notifications/screens/NotificationScreen';
+import NotificationDetailScreen from '../features/notifications/screens/NotificationDetailScreen';
 // Device Management
 import DeviceListScreen from '../features/devices/screens/DeviceListScreen';
 import DeviceDetailScreen from '../features/devices/screens/DeviceDetailScreen';
@@ -21,6 +24,8 @@ const HomeStack = () => {
       }}
     >
       <Stack.Screen name="HomeMain" component={HomeScreen} />
+      <Stack.Screen name="Notification" component={NotificationScreen} />
+      <Stack.Screen name="NotificationDetail" component={NotificationDetailScreen} />
 
       {/* ── Device Management ── */}
       <Stack.Screen name="DeviceList" component={DeviceListScreen} />

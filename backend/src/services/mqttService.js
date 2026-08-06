@@ -10,6 +10,7 @@
 const mqtt = require('mqtt');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/db');
+const { getIO } = require('../socket/socketService');
 
 let client = null;
 const activeTimers = new Map(); // pumpId → setTimeout handle
@@ -52,6 +53,18 @@ function initMQTT() {
       if (channel === 'pump') {
         const pumpId = parts[3];
         const type = parts[4];
+
+        // Mirror pump traffic to connected apps in real time. Wrapped because
+        // getIO() throws if Socket.IO hasn't initialised yet — a socket problem
+        // must not stop the pump command itself from being handled.
+        try {
+          getIO().emit('pumpStatus', { ...data, userId, pumpId, topic });
+        } catch (socketError) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('MQTT: socket emit skipped —', socketError.message);
+          }
+        }
+
         if (type === 'command') await handlePumpCommand(userId, pumpId, data);
         else if (type === 'timer') await handlePumpTimer(userId, pumpId, data);
       } else if (channel === 'sensors') {

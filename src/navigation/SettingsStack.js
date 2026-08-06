@@ -11,6 +11,7 @@ import DiseaseDetectionHomeScreen from '../features/diseaseDetection/screens/Dis
 import ScanResultScreen from '../features/diseaseDetection/screens/ScanResultScreen';
 import FertilizerCalculatorScreen from '../features/fertilizerCalc/screens/FertilizerCalculatorScreen';
 import WeedDetectionHomeScreen from '../features/weedDetection/screens/WeedDetectionHomeScreen';
+import DeleteAccountScreen from '../features/settings/screens/DeleteAccountScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -37,6 +38,7 @@ const SettingsStack = () => {
       <Stack.Screen name="ScanResult" component={ScanResultScreen} />
       <Stack.Screen name="FertilizerCalculator" component={FertilizerCalculatorScreen} />
       <Stack.Screen name="WeedDetection" component={WeedDetectionHomeScreen} />
+      <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
     </Stack.Navigator>
   );
 };

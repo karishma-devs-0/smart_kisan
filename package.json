@@ -20,6 +20,7 @@
     "@react-navigation/native-stack": "^7.13.0",
     "@reduxjs/toolkit": "^2.11.2",
     "@shopify/react-native-skia": "2.6.2",
+    "axios": "^1.19.0",
     "babel-preset-expo": "~56.0.0",
     "dayjs": "^1.11.19",
     "expo": "^56.0.0",
@@ -55,7 +56,8 @@
     "react-native-web": "^0.21.0",
     "react-native-webview": "13.16.1",
     "react-native-worklets": "0.8.3",
-    "react-redux": "^9.2.0"
+    "react-redux": "^9.2.0",
+    "socket.io-client": "^4.8.3"
   },
   "private": true,
   "devDependencies": {

@@ -16,6 +16,13 @@ const PRODUCTION_API_URL = 'https://smartkisan-api.onrender.com/api';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || PRODUCTION_API_URL;
 
+/**
+ * Server origin without the /api suffix. Socket.IO attaches at the origin, so
+ * it needs this rather than the REST base — deriving it here keeps the socket
+ * and the REST client from drifting apart.
+ */
+export const getApiOrigin = () => _baseUrl.replace(/\/api\/?$/, '');
+
 // Allow overriding via a global (useful for testing)
 let _baseUrl = API_BASE_URL;
 export const setBaseUrl = (url) => { _baseUrl = url; };
@@ -291,6 +298,13 @@ export const aiPumpAPI = {
       method: 'POST',
       body: JSON.stringify(reading),
     }),
+};
+
+// ─── User / Account APIs ──────────────────────────────────────────────────────
+
+export const userAPI = {
+  /** Play Store requires an in-app account deletion path. */
+  deleteAccount: () => apiRequest('/auth/delete-account', { method: 'DELETE' }),
 };
 
 // ─── Field APIs ───────────────────────────────────────────────────────────────

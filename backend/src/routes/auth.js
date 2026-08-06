@@ -5,6 +5,8 @@ const { OAuth2Client } = require('google-auth-library');
 
 const router = express.Router();
 const db = require('../config/db');
+const pool = require('../config/database');
+const authMiddleware = require('../middleware/auth');
 
 const GOOGLE_CLIENT_ID =
   process.env.GOOGLE_WEB_CLIENT_ID ||
@@ -185,6 +187,67 @@ router.post('/google', async (req, res) => {
   } catch (err) {
     console.error('Google auth error:', err.message);
     res.status(401).json({ error: 'Google sign-in failed' });
+  }
+});
+
+// ============================================================
+// DELETE ACCOUNT
+// ============================================================
+// Google Play requires an in-app deletion path, and "delete my account" has to
+// mean the data goes too.
+//
+// There are no ON DELETE CASCADE constraints on the user-scoped tables, so
+// removing only the `users` row would leave the profile, fields, crops,
+// devices, pumps and soil history behind indefinitely. Every table is cleared
+// explicitly, in one transaction, so a partial failure cannot leave an account
+// half-deleted.
+//
+// Note the two different column names: the farm tables key on owner_id, the
+// sensor/history tables on user_id.
+
+router.delete('/delete-account', authMiddleware, async (req, res) => {
+
+  const client = await pool.connect();
+
+  try {
+
+    const userId = req.user.id;
+
+    await client.query('BEGIN');
+
+    const byOwner = ['fields', 'crops', 'devices', 'pumps', 'pump_groups'];
+    const byUser = ['user_profile', 'soil_current', 'soil_history', 'pump_history'];
+
+    for (const table of byOwner) {
+      await client.query(`DELETE FROM ${table} WHERE owner_id = $1`, [userId]);
+    }
+
+    for (const table of byUser) {
+      await client.query(`DELETE FROM ${table} WHERE user_id = $1`, [userId]);
+    }
+
+    await client.query('DELETE FROM users WHERE id = $1', [userId]);
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: 'Account deleted successfully',
+    });
+
+  } catch (error) {
+
+    await client.query('ROLLBACK').catch(() => {});
+
+    console.error('DELETE /auth/delete-account error:', error);
+
+    res.status(500).json({
+      error: 'Failed to delete account',
+    });
+
+  } finally {
+
+    client.release();
   }
 });
 
