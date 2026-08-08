@@ -129,6 +129,31 @@ def _scan_plantvillage(root):
     return pairs
 
 
+def load_cofly():
+    """In-crop Green-on-Green patches produced by prepare_cofly.py.
+
+    This is the only genuinely green-on-green source available: weeds inside a
+    cotton canopy, rather than DeepWeeds' rangeland plants against soil. It is
+    small (3.4k patches from 201 UAV frames), so it is meant as a fine-tuning
+    stage on top of a DeepWeeds-trained backbone, not a standalone dataset.
+    """
+    root = os.path.join(HERE, 'data', 'cofly_patches')
+    if not os.path.isdir(root):
+        raise SystemExit(f'Missing {root} — run prepare_cofly.py first.')
+
+    rows = []
+    for folder in sorted(os.listdir(root)):
+        d = os.path.join(root, folder)
+        if not os.path.isdir(d):
+            continue
+        for name in os.listdir(d):
+            if name.lower().endswith(('.jpg', '.jpeg', '.png')):
+                rows.append((os.path.join(d, name), folder))
+
+    class_names = sorted({c for _, c in rows})
+    return stratified_split(rows, VALID_FRACTION, SEED), class_names
+
+
 def load_yog():
     """PlantVillage, regrouped into healthy / chlorosis / other_stress.
 
@@ -303,7 +328,7 @@ def run_phase(model, phase, epochs, train_ds, valid_ds, class_weight,
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--task', choices=['gog', 'yog'], required=True)
+    ap.add_argument('--task', choices=['gog', 'yog', 'cofly'], required=True)
     ap.add_argument('--epochs1', type=int, default=10)
     ap.add_argument('--epochs2', type=int, default=15)
     ap.add_argument('--limit', type=int, default=0, help='cap images (smoke test)')
@@ -324,8 +349,8 @@ def main():
 
     tf.random.set_seed(SEED)
 
-    (train_pairs, valid_pairs), class_names = \
-        load_gog() if args.task == 'gog' else load_yog()
+    loaders = {'gog': load_gog, 'yog': load_yog, 'cofly': load_cofly}
+    (train_pairs, valid_pairs), class_names = loaders[args.task]()
 
     if args.limit:
         rng = random.Random(SEED)
@@ -382,6 +407,30 @@ def main():
         model = keras.models.load_model(best_path)
 
     loss, acc = model.evaluate(valid_ds, verbose=0)
+
+    # Per-class recall. Overall accuracy hides a class the model never gets
+    # right — with GOG at 52% Negative, or CoFly's field_bindweed at 50 patches
+    # from 14 frames, the headline number can look respectable while a class is
+    # effectively unlearned. A spray decision needs that visible.
+    n = len(class_names)
+    hits = [0] * n
+    totals = [0] * n
+    for batch_x, batch_y in valid_ds:
+        preds = model.predict(batch_x, verbose=0).argmax(axis=1)
+        truth = batch_y.numpy().argmax(axis=1)
+        for t, p in zip(truth, preds):
+            totals[t] += 1
+            if t == p:
+                hits[t] += 1
+
+    print('\n  per-class recall on the validation split:')
+    for i, name in enumerate(class_names):
+        if totals[i]:
+            pct = 100 * hits[i] / totals[i]
+            flag = '   <-- unreliable' if pct < 50 else ''
+            print(f'    {name:<18} {pct:5.1f}%  ({hits[i]}/{totals[i]}){flag}')
+        else:
+            print(f'    {name:<18}    n/a  (no validation samples)')
 
     keras_out = os.path.join(out_dir, f'{args.task}_model.keras')
     model.save(keras_out)
