@@ -1,134 +1,197 @@
 """
-Trains the GOG (Green-on-Green) weed classifier and exports a TFLite model.
+Trains the field-monitoring classifiers and exports TFLite models.
 
-Mirrors plantDetection/train_model.py deliberately: same MobileNetV2 backbone,
-same 224px input, same two-phase schedule and the same .keras + .tflite export.
-That keeps one inference path in the app and one deployment pattern for the
-HuggingFace Space.
+Two tasks, matching the modes in WeedDetectionHomeScreen:
 
-Two things differ from the plant-disease pipeline, both forced by the data:
+  --task gog   Green-on-Green: which weed species is present.
+               Source: DeepWeeds (weedDetection/data), 9 classes.
 
-1. DeepWeeds ships as a flat image folder plus labels.csv, not folder-per-class,
-   so the split is built here from the CSV rather than with
-   image_dataset_from_directory.
+  --task yog   Yellow-on-Green: is the canopy showing chlorosis / stress.
+               Source: the PlantVillage split already on disk at
+               plantDetection/_split, remapped to healthy / chlorosis /
+               other_stress.
 
-2. DeepWeeds is 52% "Negative" (9,106 of 17,509 images). Left alone, a model
-   scores 52% by predicting Negative for everything, so class weights are
-   applied. For a spraying rig the Negative class is worth keeping rather than
-   discarding — not spraying is a real decision — but it must not dominate.
+Both mirror plantDetection/train_model.py: MobileNetV2 backbone, two-phase
+schedule (frozen head, then fine-tune the last 30 layers), .keras + .tflite
+export. One inference path in the app, one deployment pattern.
+
+RESUMABILITY
+------------
+This machine runs with very little free RAM (other applications routinely hold
+12+ GB of the 15 GB), and TensorFlow gets killed mid-epoch when it asks for a
+spike. Two earlier runs died silently that way and lost everything. So the model
+and a small state file are written after EVERY epoch, and a re-run picks up
+where it stopped. A kill now costs one epoch, not the whole run.
 
 Usage:
-    .venv/Scripts/python.exe train_weed_model.py
-    .venv/Scripts/python.exe train_weed_model.py --epochs1 2 --epochs2 2   # smoke test
+    .venv/Scripts/python.exe train_weed_model.py --task gog
+    .venv/Scripts/python.exe train_weed_model.py --task yog
+    .venv/Scripts/python.exe train_weed_model.py --task gog --fresh   # ignore state
 """
 
 import argparse
 import csv
+import gc
 import json
 import os
 import random
 
-import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(HERE, 'data')
-IMAGES_DIR = os.path.join(DATA_DIR, 'images')
-LABELS_CSV = os.path.join(DATA_DIR, 'labels.csv')
-OUTPUT_DIR = os.environ.get('SMARTKISAN_WEED_OUTPUT_DIR') or os.path.join(HERE, 'model')
+REPO = os.path.dirname(HERE)
+
+# ── GOG: DeepWeeds ───────────────────────────────────────────────────────────
+GOG_DIR = os.path.join(HERE, 'data')
+GOG_IMAGES = os.path.join(GOG_DIR, 'images')
+GOG_LABELS = os.path.join(GOG_DIR, 'labels.csv')
+
+# ── YOG: PlantVillage split already present for the disease model ────────────
+YOG_TRAIN = os.path.join(REPO, 'plantDetection', '_split', 'train')
+YOG_VALID = os.path.join(REPO, 'plantDetection', '_split', 'valid')
+
+# PlantVillage is labelled by disease, not by nutrient status, so it cannot
+# teach "nitrogen deficiency" as such. What it can teach is the visual question
+# YOG actually asks of a canopy: is this leaf green and healthy, is it yellowing
+# (chlorotic), or is it damaged some other way. Classes below are grouped on the
+# dominant symptom.
+#
+# `chlorosis` = diseases whose primary sign is yellowing/mottling rather than
+# discrete dark lesions. Citrus greening and the tomato viruses are the textbook
+# cases; Esca produces interveinal chlorosis; rust and Northern Leaf Blight
+# produce chlorotic flecking around the lesions.
+YOG_CHLOROSIS = {
+    'Orange___Haunglongbing_(Citrus_greening)',
+    'Tomato___Tomato_Yellow_Leaf_Curl_Virus',
+    'Tomato___Tomato_mosaic_virus',
+    'Grape___Esca_(Black_Measles)',
+    'Corn_(maize)___Common_rust_',
+    'Corn_(maize)___Northern_Leaf_Blight',
+    'Tomato___Spider_mites Two-spotted_spider_mite',
+    'Strawberry___Leaf_scorch',
+    'Squash___Powdery_mildew',
+    'Cherry_(including_sour)___Powdery_mildew',
+}
 
 IMG_SIZE = 224
-# 32 exhausted memory on this 15 GB machine: the first run reached epoch 3 and
-# was killed during validation with no traceback. Each decoded image is a
-# 224*224*3 float32 (~600 KB), and with AUTOTUNE the parallel map workers and
-# prefetch buffers hold many of them at once. Halving the batch and bounding the
-# buffers below keeps the pipeline within budget.
-BATCH_SIZE = 16
-SHUFFLE_BUFFER = 2048
-MAP_WORKERS = 4
-PREFETCH = 2
+# Other applications routinely leave under 1 GB free on this machine. A decoded
+# image is 224*224*3 float32 (~600 KB) and every buffer multiplies that, so all
+# of these stay small and fixed rather than AUTOTUNE.
+BATCH_SIZE = 8
+SHUFFLE_BUFFER = 1024
+MAP_WORKERS = 2
+PREFETCH = 1
 VALID_FRACTION = 0.2
 SEED = 1337
 
 
-def load_rows():
-    """Read labels.csv into (filename, species) pairs, keeping only files present."""
-    if not os.path.exists(LABELS_CSV):
-        raise SystemExit(f'Missing {LABELS_CSV}')
-    if not os.path.isdir(IMAGES_DIR):
-        raise SystemExit(
-            f'Missing {IMAGES_DIR}. Download images.zip from the DeepWeeds repo '
-            'and extract it there.'
-        )
+# ─── Data loading ────────────────────────────────────────────────────────────
+
+def load_gog():
+    """DeepWeeds: flat image folder + labels.csv."""
+    if not os.path.isdir(GOG_IMAGES):
+        raise SystemExit(f'Missing {GOG_IMAGES} — extract DeepWeeds images.zip there.')
 
     rows, missing = [], 0
-    with open(LABELS_CSV, newline='', encoding='utf-8') as fh:
+    with open(GOG_LABELS, newline='', encoding='utf-8') as fh:
         for row in csv.DictReader(fh):
-            path = os.path.join(IMAGES_DIR, row['Filename'])
+            path = os.path.join(GOG_IMAGES, row['Filename'])
             if os.path.exists(path):
                 rows.append((path, row['Species']))
             else:
                 missing += 1
-
     if missing:
-        print(f'  note: {missing} rows in labels.csv have no image file, skipped')
-    if not rows:
-        raise SystemExit('No images matched labels.csv — check the extraction path.')
-    return rows
+        print(f'  note: {missing} labelled files absent, skipped')
+
+    class_names = sorted({s for _, s in rows})
+    return stratified_split(rows, VALID_FRACTION, SEED), class_names
+
+
+def _yog_bucket(folder):
+    if folder.endswith('___healthy'):
+        return 'healthy'
+    if folder in YOG_CHLOROSIS:
+        return 'chlorosis'
+    return 'other_stress'
+
+
+def _scan_plantvillage(root):
+    pairs = []
+    for folder in sorted(os.listdir(root)):
+        d = os.path.join(root, folder)
+        if not os.path.isdir(d):
+            continue
+        bucket = _yog_bucket(folder)
+        for name in os.listdir(d):
+            if name.lower().endswith(('.jpg', '.jpeg', '.png')):
+                pairs.append((os.path.join(d, name), bucket))
+    return pairs
+
+
+def load_yog():
+    """PlantVillage, regrouped into healthy / chlorosis / other_stress.
+
+    Reuses the train|valid split already prepared for the disease model, so the
+    two models never disagree about which images were held out.
+    """
+    if not os.path.isdir(YOG_TRAIN):
+        raise SystemExit(f'Missing {YOG_TRAIN} — the PlantVillage split is required.')
+
+    train = _scan_plantvillage(YOG_TRAIN)
+    valid = _scan_plantvillage(YOG_VALID)
+    class_names = sorted({b for _, b in train})
+
+    rng = random.Random(SEED)
+    rng.shuffle(train)
+    rng.shuffle(valid)
+    return (train, valid), class_names
 
 
 def stratified_split(rows, valid_fraction, seed):
-    """Split per-class so every species keeps its proportion in both sets.
-
-    A plain random split would be acceptable at this size, but the classes are
-    uneven enough (52% Negative vs ~6% each species) that stratifying removes a
-    real source of run-to-run variance in the validation score.
-    """
+    """Split per class so each keeps its proportion in both sets."""
     by_class = {}
-    for path, species in rows:
-        by_class.setdefault(species, []).append(path)
+    for path, label in rows:
+        by_class.setdefault(label, []).append(path)
 
     rng = random.Random(seed)
     train, valid = [], []
-    for species, paths in sorted(by_class.items()):
+    for label, paths in sorted(by_class.items()):
         paths = sorted(paths)
         rng.shuffle(paths)
         cut = int(len(paths) * valid_fraction)
-        valid += [(p, species) for p in paths[:cut]]
-        train += [(p, species) for p in paths[cut:]]
+        valid += [(p, label) for p in paths[:cut]]
+        train += [(p, label) for p in paths[cut:]]
 
     rng.shuffle(train)
     rng.shuffle(valid)
     return train, valid
 
 
+# ─── Pipeline ────────────────────────────────────────────────────────────────
+
 def build_dataset(pairs, class_names, training):
-    """Decode + resize on the fly; augmentation only on the training split."""
     index = {name: i for i, name in enumerate(class_names)}
     paths = [p for p, _ in pairs]
     labels = [index[s] for _, s in pairs]
 
     ds = tf.data.Dataset.from_tensor_slices((paths, labels))
     if training:
-        # Bounded buffer rather than len(paths): a full-dataset shuffle keeps
-        # the whole index resident and grows with the dataset.
-        ds = ds.shuffle(
-            min(SHUFFLE_BUFFER, len(paths)), seed=SEED, reshuffle_each_iteration=True
-        )
+        ds = ds.shuffle(min(SHUFFLE_BUFFER, len(paths)), seed=SEED,
+                        reshuffle_each_iteration=True)
 
     def decode(path, label):
-        img = tf.io.decode_jpeg(tf.io.read_file(path), channels=3)
+        img = tf.io.decode_image(tf.io.read_file(path), channels=3,
+                                 expand_animations=False)
         img = tf.image.resize(img, (IMG_SIZE, IMG_SIZE))
         return img, tf.one_hot(label, len(class_names))
 
     ds = ds.map(decode, num_parallel_calls=MAP_WORKERS)
 
     if training:
-        # Weeds have no canonical orientation and field light varies widely, so
-        # flips plus mild brightness/contrast jitter are safe. No vertical crop
-        # distortion — that would change apparent leaf shape, which is the
-        # signal being learned.
+        # Neither weeds nor leaves have a canonical orientation, and field light
+        # varies widely, so flips and mild photometric jitter are safe. No crop
+        # or shear: those change apparent leaf shape, which is the signal.
         def augment(img, label):
             img = tf.image.random_flip_left_right(img)
             img = tf.image.random_flip_up_down(img)
@@ -138,117 +201,204 @@ def build_dataset(pairs, class_names, training):
 
         ds = ds.map(augment, num_parallel_calls=MAP_WORKERS)
 
-    # MobileNetV2 expects inputs scaled to [-1, 1].
-    ds = ds.map(
-        lambda x, y: (keras.applications.mobilenet_v2.preprocess_input(x), y),
-        num_parallel_calls=MAP_WORKERS,
-    )
+    ds = ds.map(lambda x, y: (keras.applications.mobilenet_v2.preprocess_input(x), y),
+                num_parallel_calls=MAP_WORKERS)
     return ds.batch(BATCH_SIZE).prefetch(PREFETCH)
 
 
 def compute_class_weights(pairs, class_names):
-    """Inverse-frequency weights, so Negative cannot swamp the eight species."""
+    """Inverse frequency. GOG is 52% Negative and YOG is dominated by
+    other_stress, so without this both collapse to the majority class."""
     counts = {name: 0 for name in class_names}
-    for _, species in pairs:
-        counts[species] += 1
+    for _, label in pairs:
+        counts[label] += 1
     total = sum(counts.values())
     n = len(class_names)
-    return {
-        i: (total / (n * counts[name]) if counts[name] else 0.0)
-        for i, name in enumerate(class_names)
-    }
+    return {i: (total / (n * counts[name]) if counts[name] else 0.0)
+            for i, name in enumerate(class_names)}
+
+
+def build_model(num_classes):
+    base = keras.applications.MobileNetV2(
+        input_shape=(IMG_SIZE, IMG_SIZE, 3), include_top=False, weights='imagenet')
+    base.trainable = False
+    model = keras.Sequential([
+        base,
+        keras.layers.GlobalAveragePooling2D(),
+        keras.layers.Dropout(0.3),
+        keras.layers.Dense(num_classes, activation='softmax'),
+    ])
+    return model, base
+
+
+# ─── Resumable training ──────────────────────────────────────────────────────
+
+class EpochState(keras.callbacks.Callback):
+    """Writes the model and a cursor after every epoch.
+
+    Without this a kill mid-run loses everything — which is exactly what
+    happened twice. `save_best_only` is deliberately NOT used here: the point is
+    to be able to continue, which needs the latest weights, not the best ones.
+    Best weights are tracked separately.
+    """
+
+    def __init__(self, out_dir, phase, total_epochs, best_path, state_path):
+        super().__init__()
+        self.latest = os.path.join(out_dir, 'latest.keras')
+        self.best_path = best_path
+        self.state_path = state_path
+        self.phase = phase
+        self.total_epochs = total_epochs
+        self.best_acc = _read_state(state_path).get('best_acc', 0.0)
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        acc = float(logs.get('val_accuracy') or 0.0)
+        self.model.save(self.latest)
+
+        if acc > self.best_acc:
+            self.best_acc = acc
+            self.model.save(self.best_path)
+
+        _write_state(self.state_path, {
+            'phase': self.phase,
+            'epoch': epoch + 1,
+            'total_epochs': self.total_epochs,
+            'best_acc': self.best_acc,
+            'last_val_acc': acc,
+        })
+        gc.collect()
+
+
+def _read_state(path):
+    try:
+        with open(path, encoding='utf-8') as fh:
+            return json.load(fh)
+    except Exception:
+        return {}
+
+
+def _write_state(path, state):
+    with open(path, 'w', encoding='utf-8') as fh:
+        json.dump(state, fh, indent=2)
+
+
+def run_phase(model, phase, epochs, train_ds, valid_ds, class_weight,
+              out_dir, best_path, state_path, start_epoch):
+    remaining = epochs - start_epoch
+    if remaining <= 0:
+        print(f'  phase {phase}: already complete ({start_epoch}/{epochs})')
+        return
+    print(f'\nPhase {phase}: epochs {start_epoch + 1}..{epochs}')
+    model.fit(
+        train_ds,
+        epochs=epochs,
+        initial_epoch=start_epoch,
+        validation_data=valid_ds,
+        class_weight=class_weight,
+        callbacks=[EpochState(out_dir, phase, epochs, best_path, state_path)],
+        verbose=1,
+    )
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs1', type=int, default=10, help='frozen-backbone epochs')
-    parser.add_argument('--epochs2', type=int, default=15, help='fine-tuning epochs')
-    parser.add_argument('--limit', type=int, default=0, help='cap images (smoke test)')
-    args = parser.parse_args()
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--task', choices=['gog', 'yog'], required=True)
+    ap.add_argument('--epochs1', type=int, default=10)
+    ap.add_argument('--epochs2', type=int, default=15)
+    ap.add_argument('--limit', type=int, default=0, help='cap images (smoke test)')
+    ap.add_argument('--fresh', action='store_true', help='ignore saved state')
+    args = ap.parse_args()
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    out_dir = os.environ.get('SMARTKISAN_WEED_OUTPUT_DIR') or \
+        os.path.join(HERE, 'model', args.task)
+    os.makedirs(out_dir, exist_ok=True)
+    best_path = os.path.join(out_dir, 'best.keras')
+    latest_path = os.path.join(out_dir, 'latest.keras')
+    state_path = os.path.join(out_dir, 'state.json')
+
+    if args.fresh:
+        for p in (best_path, latest_path, state_path):
+            if os.path.exists(p):
+                os.remove(p)
+
     tf.random.set_seed(SEED)
 
-    rows = load_rows()
+    (train_pairs, valid_pairs), class_names = \
+        load_gog() if args.task == 'gog' else load_yog()
+
     if args.limit:
-        random.Random(SEED).shuffle(rows)
-        rows = rows[: args.limit]
+        rng = random.Random(SEED)
+        rng.shuffle(train_pairs)
+        rng.shuffle(valid_pairs)
+        train_pairs = train_pairs[: args.limit]
+        valid_pairs = valid_pairs[: max(1, args.limit // 4)]
 
-    class_names = sorted({s for _, s in rows})
-    train_pairs, valid_pairs = stratified_split(rows, VALID_FRACTION, SEED)
-
-    print('=' * 60)
-    print(f'{len(class_names)} classes, {len(train_pairs)} train, {len(valid_pairs)} valid')
+    print('=' * 62)
+    print(f'task={args.task}  {len(class_names)} classes  '
+          f'{len(train_pairs)} train  {len(valid_pairs)} valid')
     for name in class_names:
-        print(f'   {name:<16} {sum(1 for _, s in rows if s == name):>6}')
-    print('=' * 60)
+        n = sum(1 for _, l in train_pairs if l == name)
+        print(f'   {name:<28} {n:>7}')
+    print('=' * 62)
 
     train_ds = build_dataset(train_pairs, class_names, training=True)
     valid_ds = build_dataset(valid_pairs, class_names, training=False)
     class_weight = compute_class_weights(train_pairs, class_names)
 
-    base_model = keras.applications.MobileNetV2(
-        input_shape=(IMG_SIZE, IMG_SIZE, 3), include_top=False, weights='imagenet'
-    )
-    base_model.trainable = False
+    state = _read_state(state_path)
+    resume_phase = state.get('phase', 1)
+    resume_epoch = state.get('epoch', 0)
 
-    model = keras.Sequential([
-        base_model,
-        keras.layers.GlobalAveragePooling2D(),
-        keras.layers.Dropout(0.3),
-        keras.layers.Dense(len(class_names), activation='softmax'),
-    ])
+    if os.path.exists(latest_path) and state:
+        print(f'resuming: phase {resume_phase}, {resume_epoch} epochs done, '
+              f'best val_accuracy {state.get("best_acc", 0):.4f}')
+        model = keras.models.load_model(latest_path)
+        base = model.layers[0]
+    else:
+        model, base = build_model(len(class_names))
+        resume_phase, resume_epoch = 1, 0
 
-    ckpt = os.path.join(OUTPUT_DIR, 'best.keras')
-    callbacks = [
-        keras.callbacks.ModelCheckpoint(ckpt, save_best_only=True, monitor='val_accuracy'),
-        keras.callbacks.EarlyStopping(patience=5, restore_best_weights=True, monitor='val_accuracy'),
-    ]
+    # ── Phase 1: frozen backbone ──
+    if resume_phase == 1:
+        base.trainable = False
+        model.compile(optimizer=keras.optimizers.Adam(1e-3),
+                      loss='categorical_crossentropy', metrics=['accuracy'])
+        run_phase(model, 1, args.epochs1, train_ds, valid_ds, class_weight,
+                  out_dir, best_path, state_path, resume_epoch)
+        resume_epoch = 0  # phase 2 starts fresh
 
-    print('\nPhase 1: frozen backbone')
-    model.compile(
-        optimizer=keras.optimizers.Adam(1e-3),
-        loss='categorical_crossentropy',
-        metrics=['accuracy'],
-    )
-    model.fit(
-        train_ds, epochs=args.epochs1, validation_data=valid_ds,
-        callbacks=callbacks, class_weight=class_weight,
-    )
-
-    print('\nPhase 2: fine-tuning last 30 layers')
-    base_model.trainable = True
-    for layer in base_model.layers[:-30]:
+    # ── Phase 2: fine-tune the last 30 layers ──
+    base.trainable = True
+    for layer in base.layers[:-30]:
         layer.trainable = False
-    model.compile(
-        optimizer=keras.optimizers.Adam(1e-5),
-        loss='categorical_crossentropy',
-        metrics=['accuracy'],
-    )
-    model.fit(
-        train_ds, epochs=args.epochs2, validation_data=valid_ds,
-        callbacks=callbacks, class_weight=class_weight,
-    )
+    model.compile(optimizer=keras.optimizers.Adam(1e-5),
+                  loss='categorical_crossentropy', metrics=['accuracy'])
+    run_phase(model, 2, args.epochs2, train_ds, valid_ds, class_weight,
+              out_dir, best_path, state_path, resume_epoch if resume_phase == 2 else 0)
+
+    # ── Export the best weights, not the last ──
+    if os.path.exists(best_path):
+        model = keras.models.load_model(best_path)
 
     loss, acc = model.evaluate(valid_ds, verbose=0)
 
-    keras_path = os.path.join(OUTPUT_DIR, 'weed_model.keras')
-    model.save(keras_path)
+    keras_out = os.path.join(out_dir, f'{args.task}_model.keras')
+    model.save(keras_out)
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    tflite_path = os.path.join(OUTPUT_DIR, 'weed_model.tflite')
-    with open(tflite_path, 'wb') as fh:
+    tflite_out = os.path.join(out_dir, f'{args.task}_model.tflite')
+    with open(tflite_out, 'wb') as fh:
         fh.write(converter.convert())
 
-    with open(os.path.join(OUTPUT_DIR, 'class_labels.json'), 'w', encoding='utf-8') as fh:
+    with open(os.path.join(out_dir, 'class_labels.json'), 'w', encoding='utf-8') as fh:
         json.dump(class_names, fh, indent=2)
 
-    print('\n' + '=' * 60)
-    print(f'DONE - validation accuracy: {acc * 100:.1f}%')
-    print(f'  {keras_path}')
-    print(f'  {tflite_path} ({os.path.getsize(tflite_path) / 1048576:.1f} MB)')
-    print('=' * 60)
+    print('\n' + '=' * 62)
+    print(f'DONE [{args.task}] - validation accuracy: {acc * 100:.1f}%')
+    print(f'  {tflite_out} ({os.path.getsize(tflite_out) / 1048576:.1f} MB)')
+    print('=' * 62)
 
 
 if __name__ == '__main__':
