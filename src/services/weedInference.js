@@ -31,9 +31,17 @@ const MODELS = {
   gog: {
     asset: require('../../assets/models/gog_model.tflite'),
     labels: GOG_LABELS,
-    // DeepWeeds' "Negative" means no weed present. It is a real answer, not a
-    // failure, and the rig needs it to decide not to spray.
-    negativeLabel: 'Negative',
+    // "background" means crop or bare soil — no weed. A real answer, not a
+    // failure: it is what tells a sprayer not to fire.
+    //
+    // This model is the in-crop one: a DeepWeeds-trained backbone fine-tuned on
+    // CoFly (UAV frames over a cotton field). DeepWeeds alone scored higher on
+    // paper (77.6% vs 73.7%) but on an easier problem — its weeds sit against
+    // soil and scrub, so it never learns to separate weed from crop when both
+    // are green, which is what Green-on-Green means. Its species are also
+    // mostly Australian rangeland, whereas purslane, johnson grass and field
+    // bindweed are all common in Indian fields.
+    negativeLabel: 'background',
   },
   yog: {
     asset: require('../../assets/models/yog_model.tflite'),
@@ -43,6 +51,26 @@ const MODELS = {
 };
 
 const loaded = {};
+
+// Dataset folder names are snake_case; farmers should not be shown
+// "field_bindweed". Anything unmapped falls back to a de-underscored,
+// capitalised form rather than the raw label.
+const DISPLAY_NAMES = {
+  background: 'No weed (crop / soil)',
+  field_bindweed: 'Field Bindweed',
+  johnson_grass: 'Johnson Grass',
+  purslane: 'Purslane',
+  healthy: 'Healthy canopy',
+  chlorosis: 'Chlorosis (yellowing)',
+  other_stress: 'Other stress / damage',
+};
+
+function displayName(label) {
+  if (DISPLAY_NAMES[label]) return DISPLAY_NAMES[label];
+  return label
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 /**
  * Loads and caches a model. First call pays the disk read; later calls are free.
@@ -134,16 +162,17 @@ export async function classify(task, imageUri) {
   const scores = Array.from(outputs[0]);
 
   const ranked = scores
-    .map((score, i) => ({ label: spec.labels[i], confidence: score * 100 }))
+    .map((score, i) => ({ raw: spec.labels[i], confidence: score * 100 }))
     .sort((a, b) => b.confidence - a.confidence);
 
   const best = ranked[0];
   return {
-    label: best.label,
+    label: displayName(best.raw),
+    rawLabel: best.raw,
     confidence: Math.round(best.confidence * 10) / 10,
-    isNegative: best.label === spec.negativeLabel,
+    isNegative: best.raw === spec.negativeLabel,
     top3: ranked.slice(0, 3).map((r) => ({
-      label: r.label,
+      label: displayName(r.raw),
       confidence: Math.round(r.confidence * 10) / 10,
     })),
   };

@@ -26,6 +26,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 
 import ScreenLayout from '../../../components/common/ScreenLayout';
@@ -57,6 +58,12 @@ const MODES = [
 // only signal separating a real call from a guess.
 const LOW_CONFIDENCE = 60;
 
+// Scan history is worth keeping between sessions — a farmer comparing today's
+// canopy against last week's is the point of recording it at all. Capped so the
+// stored image URIs cannot grow without bound.
+const HISTORY_KEY = '@smartkisan:weedScans';
+const HISTORY_LIMIT = 10;
+
 const WeedDetectionHomeScreen = ({ navigation }) => {
   const { t } = useTranslation();
 
@@ -71,6 +78,20 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
     // Loading a model costs a disk read; doing it on screen open means the
     // first scan is no slower than the rest.
     preloadModels().then(setModelReady);
+
+    AsyncStorage.getItem(HISTORY_KEY)
+      .then((raw) => {
+        if (raw) setHistory(JSON.parse(raw));
+      })
+      .catch(() => {});
+  }, []);
+
+  const rememberScan = useCallback((entry) => {
+    setHistory((prev) => {
+      const next = [entry, ...prev].slice(0, HISTORY_LIMIT);
+      AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
   }, []);
 
   const runScan = useCallback(
@@ -103,7 +124,7 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
       try {
         const prediction = await classify(mode, uri);
         setResult(prediction);
-        setHistory((prev) => [{ uri, mode, ...prediction, at: Date.now() }, ...prev].slice(0, 10));
+        rememberScan({ uri, mode, ...prediction, at: Date.now() });
       } catch (error) {
         // A failed scan reports the failure. It does not invent a species —
         // acting on a fabricated weed identification means spraying the wrong
@@ -117,7 +138,7 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
         setBusy(false);
       }
     },
-    [mode, t]
+    [mode, t, rememberScan]
   );
 
   const activeMode = MODES.find((m) => m.id === mode);
@@ -278,7 +299,7 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
           <Text style={styles.disclosureText}>
             {t(
               'weedDetection.modelNote',
-              'Runs offline on this device. Weed identification is trained on the DeepWeeds dataset and canopy stress on PlantVillage; neither is validated on Indian field conditions yet, so treat low-confidence results as a prompt to inspect, not a diagnosis.'
+              'Runs offline on this device. Weed identification is trained on UAV imagery of a cotton field (CoFly) on top of a DeepWeeds backbone; canopy stress is trained on PlantVillage. Neither is validated on Indian field conditions yet, so treat low-confidence results as a prompt to inspect, not a diagnosis.'
             )}
           </Text>
         </View>

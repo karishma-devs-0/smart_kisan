@@ -243,9 +243,31 @@ def compute_class_weights(pairs, class_names):
             for i, name in enumerate(class_names)}
 
 
-def build_model(num_classes):
-    base = keras.applications.MobileNetV2(
-        input_shape=(IMG_SIZE, IMG_SIZE, 3), include_top=False, weights='imagenet')
+def build_model(num_classes, init_from=None):
+    """MobileNetV2 + a fresh classification head.
+
+    `init_from` names another trained task whose backbone should be reused
+    instead of plain ImageNet weights. That is the point of the CoFly stage:
+    ImageNet knows about objects in general, DeepWeeds has already learned what
+    weed foliage looks like under field light, and CoFly is only 3.4k patches —
+    far too few to learn those features from scratch. Starting from the
+    DeepWeeds backbone means CoFly only has to teach the harder, narrower
+    thing: separating weed from crop when both are green.
+
+    The head is always new, because the class sets differ (9 rangeland species
+    vs 4 in-crop labels).
+    """
+    if init_from:
+        src = os.path.join(HERE, 'model', init_from, 'best.keras')
+        if not os.path.exists(src):
+            raise SystemExit(f'--init-from {init_from}: {src} not found')
+        print(f'  initialising backbone from {init_from} ({src})')
+        source_model = keras.models.load_model(src)
+        base = source_model.layers[0]
+    else:
+        base = keras.applications.MobileNetV2(
+            input_shape=(IMG_SIZE, IMG_SIZE, 3), include_top=False, weights='imagenet')
+
     base.trainable = False
     model = keras.Sequential([
         base,
@@ -333,6 +355,8 @@ def main():
     ap.add_argument('--epochs2', type=int, default=15)
     ap.add_argument('--limit', type=int, default=0, help='cap images (smoke test)')
     ap.add_argument('--fresh', action='store_true', help='ignore saved state')
+    ap.add_argument('--init-from', choices=['gog', 'yog'], default=None,
+                    help='reuse a trained backbone instead of ImageNet weights')
     args = ap.parse_args()
 
     out_dir = os.environ.get('SMARTKISAN_WEED_OUTPUT_DIR') or \
@@ -381,7 +405,7 @@ def main():
         model = keras.models.load_model(latest_path)
         base = model.layers[0]
     else:
-        model, base = build_model(len(class_names))
+        model, base = build_model(len(class_names), init_from=args.init_from)
         resume_phase, resume_epoch = 1, 0
 
     # ── Phase 1: frozen backbone ──
