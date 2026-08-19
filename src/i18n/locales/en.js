@@ -994,7 +994,7 @@ export default {
     lowConfidence: 'Low confidence — take a closer, well-lit photo before acting on this.',
     scanFailed: 'Scan failed',
     scanFailedBody: 'Could not analyse the image. Please try again.',
-    modelNote: 'Runs offline on this device. Weed identification is trained on UAV imagery of a cotton field (CoFly) on top of a DeepWeeds backbone; canopy stress is trained on PlantVillage. Neither is validated on Indian field conditions yet, so treat low-confidence results as a prompt to inspect, not a diagnosis.',
+    modelNote: 'Runs offline on this device. Weed detection is trained on Indian field photographs taken by hand at close range (97% on held-out images); canopy stress is still trained on lab imagery and is less reliable outdoors. Low-confidence results are a prompt to look closer, not a diagnosis.',
   },
 };
 

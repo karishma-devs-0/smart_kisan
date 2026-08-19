@@ -6,17 +6,22 @@
  * standing in a field usually has no usable signal, and because these models
  * are small enough that there is no reason to make them a network round trip.
  *
- *   gog  Green-on-Green  — which weed species is present (9 classes)
+ *   gog  Green-on-Green  — crop / grass weed / broadleaf weed
  *   yog  Yellow-on-Green — canopy stress: healthy / chlorosis / other_stress
  *
  * ACCURACY, HONESTLY
  * ------------------
- * GOG scores 77.6% on DeepWeeds, which is rangeland imagery — weeds against
- * soil and scrub. It has not been validated on weeds inside an Indian crop
- * canopy, which is the harder problem the name describes. YOG scores 99.2% on
- * PlantVillage, which is single leaves under controlled lighting; that number
- * will not hold on field photographs. Both are baselines, not field-proven
- * accuracy, and the UI reports confidence so a weak call is visible.
+ * GOG scores 97.4% on the held-out test split of SorghumWeedDataset — images
+ * the model saw during neither training nor validation. That set is Indian and
+ * shot handheld at 20-40 cm, so it is a fair proxy for app use, but it is one
+ * farm in Tamil Nadu: expect lower on a different crop or region.
+ *
+ * YOG still runs on PlantVillage, where its 99.2% is a property of the dataset
+ * rather than a field result — single leaves, uniform backgrounds, controlled
+ * light. Treat it as unvalidated until it is retrained on field imagery.
+ *
+ * The UI shows confidence and flags anything under 60%, so a weak call is
+ * visible rather than implied to be certain.
  */
 import { loadTensorflowModel } from 'react-native-fast-tflite';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -31,17 +36,24 @@ const MODELS = {
   gog: {
     asset: require('../../assets/models/gog_model.tflite'),
     labels: GOG_LABELS,
-    // "background" means crop or bare soil — no weed. A real answer, not a
-    // failure: it is what tells a sprayer not to fire.
+    // 'crop' means the plant in frame is the crop, not a weed — a real answer,
+    // and the one that tells a sprayer not to fire.
     //
-    // This model is the in-crop one: a DeepWeeds-trained backbone fine-tuned on
-    // CoFly (UAV frames over a cotton field). DeepWeeds alone scored higher on
-    // paper (77.6% vs 73.7%) but on an easier problem — its weeds sit against
-    // soil and scrub, so it never learns to separate weed from crop when both
-    // are green, which is what Green-on-Green means. Its species are also
-    // mostly Australian rangeland, whereas purslane, johnson grass and field
-    // bindweed are all common in Indian fields.
-    negativeLabel: 'background',
+    // Trained on SorghumWeedDataset (Tamil Nadu, CC BY): 4,312 images shot
+    // handheld 20-40 cm from the plant, across morning and afternoon light,
+    // sun, high wind and light rain. That capture style is the reason it is
+    // here. The two models tried before were trained on imagery no phone
+    // photograph resembles — CoFly is a drone at 5 m looking straight down,
+    // DeepWeeds is Australian rangeland — so both were being asked to
+    // generalise across a gap no amount of training fixes.
+    //
+    // 97.4% on the authors' held-out test split, which the model saw during
+    // neither training nor validation.
+    //
+    // Three coarse classes rather than named species, because herbicide choice
+    // turns on grass vs broadleaf. Naming the species is trivia if the action
+    // is the same; this is the distinction that changes what a farmer does.
+    negativeLabel: 'crop',
   },
   yog: {
     asset: require('../../assets/models/yog_model.tflite'),
@@ -56,10 +68,9 @@ const loaded = {};
 // "field_bindweed". Anything unmapped falls back to a de-underscored,
 // capitalised form rather than the raw label.
 const DISPLAY_NAMES = {
-  background: 'No weed (crop / soil)',
-  field_bindweed: 'Field Bindweed',
-  johnson_grass: 'Johnson Grass',
-  purslane: 'Purslane',
+  crop: 'Crop — no weed detected',
+  grass_weed: 'Grass weed',
+  broadleaf_weed: 'Broadleaf weed',
   healthy: 'Healthy canopy',
   chlorosis: 'Chlorosis (yellowing)',
   other_stress: 'Other stress / damage',

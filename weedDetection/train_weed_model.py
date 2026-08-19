@@ -154,6 +154,61 @@ def load_cofly():
     return stratified_split(rows, VALID_FRACTION, SEED), class_names
 
 
+def load_sorghum():
+    """SorghumWeedDataset — Tamil Nadu, India (Mendeley, CC BY).
+
+    The best available match for how this app is actually used. Captured
+    handheld at 20-40 cm from the plant across morning and afternoon light,
+    sunshine, high wind and light rain, during early crop growth — which is
+    both when weeding matters and roughly what a farmer photographing a
+    suspect plant will produce.
+
+    Contrast with what shipped before: CoFly is drone imagery from 5 m looking
+    straight down, a view no handheld photo will ever resemble, and DeepWeeds
+    is Australian rangeland.
+
+    Three classes — crop, grass weed, broadleaf weed. Coarser than naming a
+    species, and more useful: herbicide selection turns on grass vs broadleaf,
+    so this is the distinction that changes what a farmer does. It also avoids
+    the tiny-class problem that made field_bindweed meaningless.
+
+    The authors ship a 7:2:1 split, used as-is. Their split is by photograph,
+    so unlike the CoFly patches there is no same-frame leak between train and
+    validation.
+    """
+    root = os.path.join(HERE, 'data', 'sorghum', 'SorghumWeedDataset_Classification')
+    if not os.path.isdir(root):
+        raise SystemExit(f'Missing {root}')
+
+    pretty = {
+        'Class0_Sorghum': 'crop',
+        'Class1_Grass': 'grass_weed',
+        'Class2_BroadLeafWeed': 'broadleaf_weed',
+    }
+
+    def scan(split):
+        pairs = []
+        base = os.path.join(root, split)
+        for folder in sorted(os.listdir(base)):
+            d = os.path.join(base, folder)
+            if not os.path.isdir(d):
+                continue
+            label = pretty.get(folder, folder)
+            for name in os.listdir(d):
+                if name.lower().endswith(('.jpg', '.jpeg', '.png')):
+                    pairs.append((os.path.join(d, name), label))
+        return pairs
+
+    train = scan('Train')
+    valid = scan('Validate')
+    class_names = sorted({l for _, l in train})
+
+    rng = random.Random(SEED)
+    rng.shuffle(train)
+    rng.shuffle(valid)
+    return (train, valid), class_names
+
+
 def load_yog():
     """PlantVillage, regrouped into healthy / chlorosis / other_stress.
 
@@ -350,7 +405,7 @@ def run_phase(model, phase, epochs, train_ds, valid_ds, class_weight,
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--task', choices=['gog', 'yog', 'cofly'], required=True)
+    ap.add_argument('--task', choices=['gog', 'yog', 'cofly', 'sorghum'], required=True)
     ap.add_argument('--epochs1', type=int, default=10)
     ap.add_argument('--epochs2', type=int, default=15)
     ap.add_argument('--limit', type=int, default=0, help='cap images (smoke test)')
@@ -373,7 +428,8 @@ def main():
 
     tf.random.set_seed(SEED)
 
-    loaders = {'gog': load_gog, 'yog': load_yog, 'cofly': load_cofly}
+    loaders = {'gog': load_gog, 'yog': load_yog, 'cofly': load_cofly,
+               'sorghum': load_sorghum}
     (train_pairs, valid_pairs), class_names = loaders[args.task]()
 
     if args.limit:
