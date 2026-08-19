@@ -21,6 +21,7 @@ export const CONSENT_VERSION_KEY = '@smartkisan:consent_v1';
 
 const ConsentScreen = ({ onAccept }) => {
   const [scrolledToEnd, setScrolledToEnd] = useState(false);
+  const [frameHeight, setFrameHeight] = useState(0);
   const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,6 +30,18 @@ const ConsentScreen = ({ onAccept }) => {
     const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
     const distanceFromBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
     if (distanceFromBottom < 40) setScrolledToEnd(true);
+  };
+
+  // If the document is shorter than the frame there is nothing to scroll, so
+  // onScroll never fires and the checkbox would stay disabled forever — the
+  // user could not get past this screen at all. Reachable on a large screen or
+  // with a shorter translation, so enable as soon as we know it all fits.
+  const handleContentSizeChange = (_w, contentHeight) => {
+    if (frameHeight > 0 && contentHeight <= frameHeight + 40) setScrolledToEnd(true);
+  };
+
+  const handleFrameLayout = ({ nativeEvent }) => {
+    setFrameHeight(nativeEvent.layout.height);
   };
 
   const handleAccept = async () => {
@@ -57,11 +70,20 @@ const ConsentScreen = ({ onAccept }) => {
         </Text>
       </View>
 
-      <View style={styles.scrollFrame}>
+      <View style={styles.scrollFrame} onLayout={handleFrameLayout}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           onScroll={handleScroll}
-          scrollEventThrottle={250}
+          // 250ms was the bug: flicking to the bottom let the scroll settle
+          // between throttle ticks, so the last event delivered was measured
+          // mid-flight and still read as short of the end. The user had to
+          // scroll up and back down to force another event. 16ms is one frame.
+          scrollEventThrottle={16}
+          // Belt and braces — both fire once the scroll actually comes to rest,
+          // which is exactly the moment the throttled stream could miss.
+          onMomentumScrollEnd={handleScroll}
+          onScrollEndDrag={handleScroll}
+          onContentSizeChange={handleContentSizeChange}
           showsVerticalScrollIndicator={true}
         >
           <Text style={styles.docHeader}>Terms of Service</Text>

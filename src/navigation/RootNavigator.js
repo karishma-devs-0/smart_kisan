@@ -33,7 +33,16 @@ const RootNavigator = () => {
     return <AuthStack />;
   }
 
-  if (onboardingLoaded && !onboardingDone) {
+  // Hold until the onboarding status is known. Previously an unknown status
+  // fell through to the main app, so a newly signed-in user saw the dashboard
+  // for a moment and was then thrown into the onboarding wizard once the
+  // profile request came back — which reads as the app glitching right after a
+  // login that already felt slow.
+  if (!onboardingLoaded) {
+    return null;
+  }
+
+  if (!onboardingDone) {
     return <OnboardingScreen />;
   }
 

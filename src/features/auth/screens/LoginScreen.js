@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
+import { healthCheck } from '../../../services/backendApi';
 import LoginTabBar from '../components/LoginTabBar';
 import EmailLoginForm from '../components/EmailLoginForm';
 import PhoneLoginForm from '../components/PhoneLoginForm';
@@ -38,6 +39,18 @@ const GoogleLogo = () => (
 );
 
 const LoginScreen = ({ navigation }) => {
+
+  // Wake the API while the login screen is on show. The host sleeps when idle
+  // and takes roughly a minute to come back, and previously nothing touched it
+  // until the user had already finished signing in — so the whole cold start
+  // landed on them, after Google had returned and the app looked like it had
+  // hung. Tapping through the Google account picker is several seconds of dead
+  // time that pays for the wake-up instead.
+  //
+  // Fire and forget: this is an optimisation and must never gate the form.
+  useEffect(() => {
+    healthCheck().catch(() => {});
+  }, []);
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const { loading, error, loginMethod } = useSelector((state) => state.auth);
