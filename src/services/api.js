@@ -10,6 +10,7 @@ import {
   deviceAPI,
   soilAPI,
   profileAPI,
+  pumpAPI,
 } from './backendApi';
 import * as weatherAPI from './weather';
 
@@ -157,6 +158,31 @@ const mapDevice = (r) => ({
   lastSeen: r.last_seen,
 });
 
+// The pumps table stores what the hardware needs; the screens were written
+// against a richer mock shape. Live values (moisture, water level) arrive over
+// MQTT rather than being columns, and mode/group are app-side concepts, so they
+// default here rather than being invented.
+const mapPump = (r) => ({
+  id: r.id,
+  name: r.name,
+  type: r.type,
+  hp: r.power_rating ? parseFloat(r.power_rating) : null,
+  flowRate: r.flow_rate,
+  field: r.location || '',
+  location: r.location || '',
+  status: r.status || 'off',
+  isOnline: r.is_online !== false,
+  mode: r.mode || 'manual',
+  groupId: r.group_id || null,
+  imageUri: null,
+  lastRun: r.last_turned_on,
+  lastAction: r.last_action,
+  totalRunTimeSec: r.total_run_time_sec || 0,
+  soilMoisture: null,
+  waterLevel: null,
+  nextRun: null,
+});
+
 const mapSoil = (r) =>
   r && {
     moisture: r.moisture,
@@ -234,11 +260,17 @@ export const authService = {
 
 export const pumpService = {
   fetchPumps: async () => {
-    if (FIREBASE_ENABLED) {
-      return offlineAwareRemember('pumps:all', () => getFirestore().getAll('pumps'), [...MOCK_PUMPS], 300);
+    // Was returning MOCK_PUMPS unconditionally, so every account saw the same
+    // sample pumps and a pump the user added vanished on restart. The backend
+    // route and the API client both already existed; this service simply never
+    // called them.
+    try {
+      const { pumps } = await pumpAPI.fetchAll();
+      return pumps.map(mapPump);
+    } catch (error) {
+      if (__DEV__) console.warn('fetchPumps failed:', error.message);
+      throw new Error('Could not load your pumps. Check your connection and try again.');
     }
-    await mockDelay(600);
-    return [...MOCK_PUMPS];
   },
 
   fetchGroups: async () => {
@@ -250,31 +282,23 @@ export const pumpService = {
   },
 
   savePump: async (pump) => {
-    if (FIREBASE_ENABLED) {
-      if (shouldUseOffline()) {
-        throw new Error('Offline — cannot save pump. Changes will sync when you reconnect.');
-      }
-      try {
-        if (pump.id) {
-          const result = await getFirestore().update('pumps', pump.id, pump);
-          await cache.del('pumps:all');
-          return result;
-        }
-        const result = await getFirestore().create('pumps', pump);
-        await cache.del('pumps:all');
-        return result;
-      } catch (e) {
-        // Fall back to local save if Firebase auth fails (Local Mode)
-        if (__DEV__) console.warn('Firestore save failed, using local:', e.message);
-        if (!pump.id) return { ...pump, id: Date.now().toString() };
-        return { ...pump };
-      }
-    }
-    await mockDelay(500);
-    if (!pump.id) {
-      return { ...pump, id: Date.now().toString() };
-    }
-    return { ...pump };
+    // Previously returned the pump with a Date.now() id and never contacted the
+    // server, so a newly added pump appeared in the list and was gone on the
+    // next launch — it had only ever existed in Redux.
+    const payload = {
+      name: pump.name,
+      type: pump.type,
+      powerRating: pump.hp != null ? String(pump.hp) : null,
+      flowRate: pump.flowRate ?? null,
+      location: pump.field ?? pump.location ?? null,
+    };
+
+    const result = pump.id
+      ? await pumpAPI.update(pump.id, payload)
+      : await pumpAPI.create(payload);
+
+    await cache.del('pumps:all');
+    return mapPump(result.pump || result);
   },
 
   saveGroup: async (group) => {
@@ -293,13 +317,9 @@ export const pumpService = {
   },
 
   deletePump: async (pumpId) => {
-    if (FIREBASE_ENABLED) {
-      await getFirestore().remove('pumps', pumpId);
-      await cache.del('pumps:all');
-      return { message: 'Pump deleted' };
-    }
-    await mockDelay(300);
-    return { message: 'Pump deleted' };
+    await pumpAPI.remove(pumpId);
+    await cache.del('pumps:all');
+    return { success: true, id: pumpId };
   },
 
   deleteGroup: async (groupId) => {
@@ -594,8 +614,22 @@ export const soilService = {
   },
 
   addSoilReading: async (reading) => {
-    await mockDelay(400);
-    return { ...reading, id: Date.now().toString() };
+    // Was a no-op that handed back a fake id, so a reading the user entered was
+    // never sent anywhere and disappeared as soon as the app restarted. The
+    // endpoint and the API client both already existed.
+    await soilAPI.record({
+      moisture: reading.moisture,
+      temperature: reading.temperature,
+      pH: reading.pH ?? reading.ph,
+      nitrogen: reading.nitrogen,
+      phosphorus: reading.phosphorus,
+      potassium: reading.potassium,
+    });
+
+    // The reading changes what the soil screens show, so drop anything cached
+    // from before it.
+    await cache.delByPrefix('soil:');
+    return { ...reading, id: reading.id || Date.now().toString() };
   },
 
   deleteSoilReading: async (readingId) => {

@@ -86,6 +86,8 @@ export default {
     loginLink: 'Login',
     errors: {
       nameRequired: 'Name is required',
+      emailInvalid: 'Enter a valid email address',
+      phoneInvalid: 'Enter a valid 10-digit mobile number',
       emailRequired: 'Email is required',
       phoneRequired: 'Phone is required',
       passwordRequired: 'Password is required',
@@ -529,6 +531,7 @@ export default {
   // Edit Pump
   editPump: {
     title: 'Edit Pump',
+    addTitle: 'Add Pump',
     pumpName: 'Pump Name',
     pumpNamePlaceholder: 'Enter pump name',
     fieldAssignment: 'Field Assignment',

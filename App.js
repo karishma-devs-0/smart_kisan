@@ -27,7 +27,7 @@ import {
 import {
   restorePersistedSession,
 } from './src/services/secureAuth';
-import { loadSettings } from './src/features/settings/slice/settingsSlice';
+import { loadSettings, setLocation } from './src/features/settings/slice/settingsSlice';
 import { loadOnboardingStatus, resetOnboarding } from './src/features/onboarding/slice/onboardingSlice';
 import { COLORS } from './src/constants/colors';
 import {
@@ -129,7 +129,19 @@ function AuthGate({ children }) {
       // restore). The initial session-restore branch only fires once on boot;
       // without this dispatch, a fresh login keeps onboarding.completed = false
       // and the user gets sent back to the onboarding wizard each time.
-      store.dispatch(loadOnboardingStatus());
+      // The farm's location is stored server-side with the profile, but nothing
+      // fed it back into settings, which is what the weather screens read. On a
+      // reinstall or a second device that setting fell back to a hardcoded
+      // default, so the forecast was for somewhere the farmer had never chosen.
+      store
+        .dispatch(loadOnboardingStatus())
+        .unwrap()
+        .then((profile) => {
+          if (profile?.location?.lat != null) {
+            store.dispatch(setLocation(profile.location));
+          }
+        })
+        .catch(() => {});
 
       // Restore the notification history. notificationStorage existed but was
       // never imported, so notifications vanished on every app restart.

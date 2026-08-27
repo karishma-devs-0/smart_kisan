@@ -143,7 +143,11 @@ const EditPumpScreen = ({ navigation, route }) => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('editPump.title')}</Text>
+        {/* One screen serves both add and edit. It always read "Edit Pump",
+            so adding a pump showed an edit heading. */}
+        <Text style={styles.headerTitle}>
+          {pumpId ? t('editPump.title') : t('editPump.addTitle', 'Add Pump')}
+        </Text>
         <TouchableOpacity
           style={styles.closeButton}
           onPress={handleCancel}

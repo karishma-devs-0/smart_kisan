@@ -42,11 +42,34 @@ const RegisterScreen = ({ navigation }) => {
     }
   };
 
+  // Only presence was checked before, so "abc" passed as an email and any digits
+  // passed as a phone number. The address is what a password reset would go to,
+  // and a malformed one is only discovered when the user needs it.
+  const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+  // Indian mobile numbers are ten digits starting 6-9. Spaces, dashes and a
+  // +91 or 0 prefix are stripped first, since people type all of those.
+  const isIndianMobile = (raw) => {
+    const digits = raw.replace(/[\s-]/g, '').replace(/^(\+91|91|0)/, '');
+    return /^[6-9]\d{9}$/.test(digits);
+  };
+
   const validate = () => {
     const errors = {};
     if (!form.name.trim()) errors.name = t('register.errors.nameRequired');
-    if (!form.email.trim()) errors.email = t('register.errors.emailRequired');
-    if (!form.phone.trim()) errors.phone = t('register.errors.phoneRequired');
+
+    if (!form.email.trim()) {
+      errors.email = t('register.errors.emailRequired');
+    } else if (!EMAIL_PATTERN.test(form.email.trim())) {
+      errors.email = t('register.errors.emailInvalid', 'Enter a valid email address');
+    }
+
+    if (!form.phone.trim()) {
+      errors.phone = t('register.errors.phoneRequired');
+    } else if (!isIndianMobile(form.phone)) {
+      errors.phone = t('register.errors.phoneInvalid', 'Enter a valid 10-digit mobile number');
+    }
+
     if (!form.password) errors.password = t('register.errors.passwordRequired');
     else if (form.password.length < 6) errors.password = t('register.errors.passwordMinLength');
     if (form.password !== form.confirmPassword) errors.confirmPassword = t('register.errors.passwordMismatch');

@@ -22,7 +22,7 @@ import PhoneLoginForm from '../components/PhoneLoginForm';
 import UsernameLoginForm from '../components/UsernameLoginForm';
 import { BORDER_RADIUS } from '../../../constants/layout';
 import LanguageSelector, { LanguageButton } from '../../../components/common/LanguageSelector';
-import { loginWithEmail, loginWithPhone, loginWithUsername, setLoginMethod } from '../slice/authSlice';
+import { loginWithEmail, loginWithPhone, loginWithUsername, setLoginMethod, clearError } from '../slice/authSlice';
 import useGoogleAuth from '../hooks/useGoogleAuth';
 
 const GoogleLogo = () => (
@@ -59,6 +59,11 @@ const LoginScreen = ({ navigation }) => {
   const { promptAsync, ready: googleReady } = useGoogleAuth();
 
   const handleTabChange = (tab) => {
+    // The error banner lives above the tab bar and is shared by all three tabs,
+    // so a failure on one stayed on screen after switching — a wrong OTP was
+    // still showing while the user was on the email form. Clear it on switch:
+    // the message no longer relates to what is now in front of them.
+    dispatch(clearError());
     dispatch(setLoginMethod(tab));
   };
 
