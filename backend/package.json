@@ -7,7 +7,8 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "db:init": "node src/scripts/initDb.js",
-    "db:ai": "node src/scripts/addAiPumpSchema.js"
+    "db:ai": "node src/scripts/addAiPumpSchema.js",
+    "e2e": "node scripts/e2eCheck.js"
   },
   "keywords": [
     "smartkisan",

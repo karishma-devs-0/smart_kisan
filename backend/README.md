@@ -54,6 +54,25 @@ If you need to test against live *data* rather than a live *server*, ask for a
 QA account instead — that gives you a normal login without handing out
 infrastructure credentials.
 
+## Verifying the API
+
+`npm run e2e` walks the whole user journey against a running server — sign up,
+sign in, onboarding, farm record edits, sensor readings, isolation from a second
+account, and account deletion — then checks the deleted data is actually gone.
+
+```bash
+npm run e2e                                  # live deployment
+API=http://localhost:5000/api npm run e2e    # local
+```
+
+It creates throwaway accounts and deletes both before finishing, so it leaves
+nothing behind and is safe to point at production. Exit code is non-zero if any
+check fails, so it can gate a deploy.
+
+Run it after any change to routes, auth or the schema. The isolation and
+deletion checks are the ones worth watching: they cover one user reading
+another's rows, and deletion leaving data behind.
+
 ## API surface
 
 All routes are prefixed `/api`. Everything except `/health` and `/auth/*`
