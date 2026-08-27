@@ -169,8 +169,17 @@ export async function classify(task, imageUri) {
   const pixels = decodeToRgb(jpegBytes);
   const input = toFloat32Input(pixels);
 
-  const outputs = await model.run([input]);
-  const scores = Array.from(outputs[0]);
+  // run() takes and returns ArrayBuffers, not typed arrays. Passing the
+  // Float32Array itself, and then calling Array.from on the returned buffer,
+  // silently produced an empty array — Array.from(ArrayBuffer) is [] because an
+  // ArrayBuffer is not iterable. `best` was therefore undefined and the scan
+  // threw, which is why a photo could be taken and no result ever appeared.
+  const outputs = await model.run([input.buffer]);
+  const scores = Array.from(new Float32Array(outputs[0]));
+
+  if (!scores.length) {
+    throw new Error('The model returned no output. Please try again.');
+  }
 
   const ranked = scores
     .map((score, i) => ({ raw: spec.labels[i], confidence: score * 100 }))
