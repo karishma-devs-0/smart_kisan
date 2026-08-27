@@ -3,6 +3,7 @@ const router = express.Router();
 
 const db = require('../config/db');
 const { nanoid } = require('nanoid');
+const { str, num, handle } = require('../middleware/validate');
 
 // ============================================================
 // GET ALL FIELDS
@@ -78,26 +79,23 @@ router.get('/:id', async (req, res) => {
 // CREATE FIELD
 // ============================================================
 
-router.post('/', async (req, res) => {
+router.post('/', handle(async (req, res) => {
+
+  // Validation runs OUTSIDE the try below on purpose. Inside it, the catch
+  // would swallow a ValidationError and return a generic 500, so the caller
+  // would never see which field was wrong — the validation would be dead code.
+  //
+  // An area of "abc" or a 10,000-character name previously reached Postgres and
+  // came back as an opaque 500 for the same reason.
+  const name = str(req.body.name, { field: 'Field name', required: true });
+  const area = num(req.body.area, { field: 'Area', min: 0, max: 100000 });
+  const areaUnit = str(req.body.areaUnit, { field: 'Area unit', max: 20 });
+  const soilType = str(req.body.soilType, { field: 'Soil type', max: 100 });
+  const cropName = str(req.body.cropName, { field: 'Crop name' });
+  const latitude = num(req.body.latitude, { field: 'Latitude', min: -90, max: 90 });
+  const longitude = num(req.body.longitude, { field: 'Longitude', min: -180, max: 180 });
 
   try {
-
-    const {
-      name,
-      area,
-      areaUnit,
-      soilType,
-      cropName,
-      latitude,
-      longitude,
-    } = req.body;
-
-    if (!name) {
-
-      return res.status(400).json({
-        error: 'Field name is required',
-      });
-    }
 
     const id = `field_${nanoid(10)}`;
 
@@ -132,7 +130,7 @@ router.post('/', async (req, res) => {
       error: 'Failed to create field',
     });
   }
-});
+}));
 
 // ============================================================
 // UPDATE FIELD

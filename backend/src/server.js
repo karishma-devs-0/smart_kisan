@@ -4,13 +4,14 @@ const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 
 // Socket.IO — real-time notification delivery
 const { initSocket } = require('./socket/socketService');
 
 // PostgreSQL Connection
-require('./config/database');
+const pool = require('./config/database');
+const db = require('./config/db');
 
 // MQTT
 const { initMQTT } = require('./services/mqttService');
@@ -65,12 +66,16 @@ app.use(cors());
 // JSON PARSER
 // ============================================================
 
-app.use(express.json());
+// Explicit rather than relying on the default, so the limit is visible and
+// cannot change under us on a dependency upgrade. Nothing this API accepts
+// comes close to 100kb.
+app.use(express.json({ limit: '100kb' }));
 
 // ============================================================
 // RATE LIMIT
 // ============================================================
 
+// General ceiling for ordinary API traffic.
 app.use(
   '/api/',
   rateLimit({
@@ -79,16 +84,67 @@ app.use(
   })
 );
 
+// Credential endpoints need a much tighter limit than the rest. Under the
+// general rule an attacker gets 100 password guesses per minute per IP, which
+// is ample for working through a common-password list. These endpoints are
+// also the only ones that can be called without already holding a token.
+//
+// skipSuccessfulRequests means a legitimate user who signs in correctly does
+// not spend their allowance, so only failed attempts count toward the limit.
+// Keyed on the account being targeted, not just the caller's IP.
+//
+// Indian mobile carriers put large numbers of subscribers behind shared NAT
+// addresses, so an IP-only limit means ten bad attempts from any one of them
+// locks out everyone else on that carrier. Including the email confines the
+// lockout to the account actually under attack, which is the thing worth
+// protecting; the IP is still mixed in so an attacker cannot dodge the limit
+// by cycling through invented addresses.
+app.use(
+  ['/api/auth/login', '/api/auth/register', '/api/auth/google'],
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    skipSuccessfulRequests: true,
+    keyGenerator: (req) => {
+      const ip = ipKeyGenerator(req.ip);
+      const account =
+        typeof req.body?.email === 'string'
+          ? req.body.email.toLowerCase().trim()
+          : 'anonymous';
+      return `${ip}:${account}`;
+    },
+    message: { error: 'Too many attempts. Please try again in a few minutes.' },
+  })
+);
+
 // ============================================================
 // HEALTH ROUTE
 // ============================================================
 
-app.get('/api/health', (req, res) => {
-  res.json({
+// The hosting platform polls this to decide whether the instance is healthy.
+// It previously reported ok without checking anything, so an instance that had
+// lost its database would keep serving traffic and every request would fail —
+// the one situation the check exists to catch. A cheap SELECT 1 makes the
+// answer mean something.
+app.get('/api/health', async (req, res) => {
+  const body = {
     status: 'ok',
     service: 'SmartKisan API',
     timestamp: new Date().toISOString(),
-  });
+  };
+
+  try {
+    const started = Date.now();
+    await db.query('SELECT 1');
+    body.database = { status: 'ok', latencyMs: Date.now() - started };
+  } catch (error) {
+    body.status = 'degraded';
+    body.database = { status: 'error', message: error.message };
+    console.error('Health check: database unreachable —', error.message);
+    return res.status(503).json(body);
+  }
+
+  res.json(body);
 });
 
 // ============================================================
@@ -246,6 +302,56 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(
     `Pumps API: http://localhost:${PORT}/api/pumps\n`
   );
+});
+
+
+// ============================================================
+// GRACEFUL SHUTDOWN
+// ============================================================
+// The platform sends SIGTERM on every deploy and before idling the instance,
+// then kills the process shortly after. Without handling it, in-flight requests
+// are dropped mid-response and the database pool is torn down without closing
+// its connections — which on a connection-capped tier leaves sockets lingering
+// server-side until they time out.
+//
+// Closing the HTTP server first stops new connections while letting current
+// requests finish, then the pool is drained.
+
+let shuttingDown = false;
+
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`
+${signal} received — shutting down`);
+
+  // Backstop: if something refuses to settle, exit anyway rather than being
+  // hard-killed mid-write.
+  const failsafe = setTimeout(() => {
+    console.error('Shutdown timed out — exiting');
+    process.exit(1);
+  }, 10000);
+  failsafe.unref();
+
+  server.close(async () => {
+    try {
+      await pool.end();
+      console.log('Database pool closed');
+    } catch (error) {
+      console.error('Error closing pool:', error.message);
+    }
+    clearTimeout(failsafe);
+    process.exit(0);
+  });
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+// An unhandled rejection leaves the process in an unknown state. Log it loudly
+// rather than letting Node terminate on a stack trace with no context.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
 });
 
 module.exports = app;

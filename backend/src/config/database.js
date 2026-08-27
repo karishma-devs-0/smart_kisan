@@ -20,6 +20,20 @@ const pool = new Pool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   ssl: useSsl ? { rejectUnauthorized: false } : false,
+
+  // Neon's free tier caps concurrent connections, and the default pool size of
+  // 10 plus a second instance during a rolling deploy is enough to hit it —
+  // which surfaces as intermittent 500s rather than anything obviously
+  // connection-related.
+  max: Number(process.env.DB_POOL_MAX) || 5,
+
+  // Neon closes idle connections on its side. Recycling before that happens
+  // avoids handing a dead socket to a request.
+  idleTimeoutMillis: 30000,
+
+  // Fail a stuck connection attempt rather than letting the request hang until
+  // the client times out.
+  connectionTimeoutMillis: 10000,
 });
 
 pool.on('connect', () => {
