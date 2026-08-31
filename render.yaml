@@ -44,3 +44,16 @@ services:
         sync: false
       - key: MQTT_PASSWORD
         sync: false
+      # Email delivery for sign-in codes, address verification and password
+      # reset. Without these the OTP endpoints return 500 in production, since
+      # the mail service refuses to silently not send an authentication code.
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false
