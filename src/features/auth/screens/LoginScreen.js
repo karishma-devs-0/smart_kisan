@@ -18,11 +18,16 @@ import { SPACING } from '../../../constants/spacing';
 import { healthCheck } from '../../../services/backendApi';
 import LoginTabBar from '../components/LoginTabBar';
 import EmailLoginForm from '../components/EmailLoginForm';
-import PhoneLoginForm from '../components/PhoneLoginForm';
-import UsernameLoginForm from '../components/UsernameLoginForm';
+import CodeLoginForm from '../components/CodeLoginForm';
 import { BORDER_RADIUS } from '../../../constants/layout';
 import LanguageSelector, { LanguageButton } from '../../../components/common/LanguageSelector';
-import { loginWithEmail, loginWithPhone, loginWithUsername, setLoginMethod, clearError } from '../slice/authSlice';
+import {
+  loginWithEmail,
+  requestLoginCode,
+  loginWithCode,
+  setLoginMethod,
+  clearError,
+} from '../slice/authSlice';
 import useGoogleAuth from '../hooks/useGoogleAuth';
 
 const GoogleLogo = () => (
@@ -71,22 +76,32 @@ const LoginScreen = ({ navigation }) => {
     dispatch(loginWithEmail({ email, password }));
   };
 
-  const handlePhoneLogin = ({ phone, otp }) => {
-    dispatch(loginWithPhone({ phone, otp }));
+  /**
+   * Returns true when the request was accepted, so the form knows whether to
+   * advance to the code entry step. It deliberately does not reveal whether the
+   * address is registered — the server answers the same either way.
+   */
+  const handleRequestCode = async (email) => {
+    const result = await dispatch(requestLoginCode({ email, purpose: 'login' }));
+    return result.meta.requestStatus === 'fulfilled';
   };
 
-  const handleUsernameLogin = ({ username, password }) => {
-    dispatch(loginWithUsername({ username, password }));
+  const handleCodeLogin = (email, code) => {
+    dispatch(loginWithCode({ email, code }));
   };
 
   const renderForm = () => {
     switch (loginMethod) {
       case 'email':
         return <EmailLoginForm onLogin={handleEmailLogin} loading={loading} />;
-      case 'phone':
-        return <PhoneLoginForm onLogin={handlePhoneLogin} loading={loading} />;
-      case 'username':
-        return <UsernameLoginForm onLogin={handleUsernameLogin} loading={loading} />;
+      case 'code':
+        return (
+          <CodeLoginForm
+            onRequestCode={handleRequestCode}
+            onSubmitCode={handleCodeLogin}
+            loading={loading}
+          />
+        );
       default:
         return <EmailLoginForm onLogin={handleEmailLogin} loading={loading} />;
     }

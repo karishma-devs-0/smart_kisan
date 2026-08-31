@@ -5,7 +5,11 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 
-const TAB_KEYS = ['email', 'phone', 'username'];
+// 'phone' and 'username' were removed rather than left in place. Neither
+// could work — there is no SMS provider and no username lookup — so both
+// existed only to report themselves unavailable, which QA reasonably filed
+// as broken. 'code' replaces them with a second way in that does work.
+const TAB_KEYS = ['email', 'code'];
 
 const LoginTabBar = ({ activeTab, onTabChange }) => {
   const { t } = useTranslation();

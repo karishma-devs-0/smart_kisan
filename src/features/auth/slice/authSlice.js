@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { authService } from '../../../services/api';
+import { authAPI } from '../../../services/backendApi';
 import { persistSession, clearSession } from '../../../services/secureAuth';
 import cache from '../../../services/cache';
 
@@ -116,6 +117,53 @@ const handleLoginPending = (state) => {
   state.error = null;
 };
 
+
+// ─── Email one-time codes ────────────────────────────────────────────────────
+
+/**
+ * Asks for a code. Deliberately does not report whether the address is
+ * registered — the server answers the same either way, and leaking it here
+ * would undo that.
+ */
+export const requestLoginCode = createAsyncThunk(
+  'auth/requestLoginCode',
+  async ({ email, purpose = 'login' }, { rejectWithValue }) => {
+    try {
+      return await authAPI.requestCode(email, purpose);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
+/** Signs in with a code instead of a password. */
+export const loginWithCode = createAsyncThunk(
+  'auth/loginWithCode',
+  async ({ email, code }, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.verifyCode(email, code);
+      await persistSession(response.user, response.token);
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
+/** Sets a new password against a reset code, and signs in with the result. */
+export const resetPassword = createAsyncThunk(
+  'auth/resetPassword',
+  async ({ email, code, password }, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.resetPassword(email, code, password);
+      await persistSession(response.user, response.token);
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
 const handleLoginFulfilled = (state, action) => {
   state.loading = false;
   state.isAuthenticated = true;
@@ -157,7 +205,21 @@ const authSlice = createSlice({
     builder
       .addCase(loginWithEmail.pending, handleLoginPending)
       .addCase(loginWithEmail.fulfilled, handleLoginFulfilled)
-      .addCase(loginWithEmail.rejected, handleLoginRejected);
+      .addCase(loginWithEmail.rejected, handleLoginRejected)
+
+      // Requesting a code is not a sign-in: it must not flip isAuthenticated,
+      // only drive the loading and error state the form reads.
+      .addCase(requestLoginCode.pending, handleLoginPending)
+      .addCase(requestLoginCode.fulfilled, (state) => { state.loading = false; })
+      .addCase(requestLoginCode.rejected, handleLoginRejected)
+
+      .addCase(loginWithCode.pending, handleLoginPending)
+      .addCase(loginWithCode.fulfilled, handleLoginFulfilled)
+      .addCase(loginWithCode.rejected, handleLoginRejected)
+
+      .addCase(resetPassword.pending, handleLoginPending)
+      .addCase(resetPassword.fulfilled, handleLoginFulfilled)
+      .addCase(resetPassword.rejected, handleLoginRejected);
 
     builder
       .addCase(loginWithPhone.pending, handleLoginPending)

@@ -49,6 +49,17 @@ export default {
 
   // Auth - Login
   login: {
+    code: 'Email code',
+    codeLead: 'We will email you a 6-digit code. No password needed.',
+    codeSentTo: 'If an account exists for {{email}}, a code is on its way.',
+    sendCode: 'Send code',
+    verifyCode: 'Sign in',
+    changeEmail: 'Change email',
+    resend: 'Resend code',
+    resendIn: 'Resend in {{n}}s',
+    codeLength: 'Enter the 6-digit code',
+    invalidEmail: 'Enter a valid email address',
+    forgotPassword: 'Forgot password?',
     email: 'Email',
     phone: 'Phone',
     username: 'Username',

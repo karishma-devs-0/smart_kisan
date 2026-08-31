@@ -144,6 +144,42 @@ export const authAPI = {
       body: JSON.stringify({ idToken }),
       headers: { Authorization: '' },
     }),
+
+  // ── Email one-time codes ──────────────────────────────────────────────────
+  // The server answers requestCode identically whether or not the address is
+  // registered, so the app must not infer anything from a success here.
+
+  /** @param {'login'|'verify'|'reset'} purpose */
+  requestCode: (email, purpose = 'login') =>
+    apiRequest('/auth/otp/request', {
+      method: 'POST',
+      body: JSON.stringify({ email, purpose }),
+      headers: { Authorization: '' },
+    }),
+
+  /** Sign in with a code instead of a password. */
+  verifyCode: (email, code) =>
+    apiRequest('/auth/otp/verify', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+      headers: { Authorization: '' },
+    }),
+
+  /** Confirm an address at sign-up. */
+  verifyEmail: (email, code) =>
+    apiRequest('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+      headers: { Authorization: '' },
+    }),
+
+  /** Set a new password against a reset code; returns a session. */
+  resetPassword: (email, code, password) =>
+    apiRequest('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, password }),
+      headers: { Authorization: '' },
+    }),
 };
 
 // ─── Pump APIs ────────────────────────────────────────────────────────────────
