@@ -23,7 +23,6 @@
  * The UI shows confidence and flags anything under 60%, so a weak call is
  * visible rather than implied to be certain.
  */
-import { loadTensorflowModel } from 'react-native-fast-tflite';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { decode as jpegDecode } from 'jpeg-js';
 
@@ -64,6 +63,50 @@ const MODELS = {
 
 const loaded = {};
 
+/**
+ * react-native-fast-tflite is a native module, so it exists only in a build
+ * that compiled it — the release APK, or a development build. Expo Go ships a
+ * fixed set of native modules and cannot load custom ones.
+ *
+ * It is required lazily rather than imported at the top of the file because a
+ * top-level import resolves as soon as anything reaches this module, and the
+ * weed screen is registered in a navigator that loads at startup. In Expo Go
+ * that took down the entire app before it rendered, with a runtime-not-ready
+ * error, rather than affecting only this one feature.
+ *
+ * Now the failure is confined to a scan attempt, and everything else in the app
+ * remains usable in Expo Go.
+ */
+let tflite = null;
+
+function getTflite() {
+  if (tflite) return tflite;
+  try {
+    // eslint-disable-next-line global-require
+    tflite = require('react-native-fast-tflite');
+  } catch (error) {
+    throw new Error(
+      'On-device detection is not available in Expo Go. Install the app build to use it.'
+    );
+  }
+  if (!tflite?.loadTensorflowModel) {
+    throw new Error(
+      'On-device detection is not available in Expo Go. Install the app build to use it.'
+    );
+  }
+  return tflite;
+}
+
+/** Whether inference can run here at all, without throwing. */
+export function isInferenceAvailable() {
+  try {
+    getTflite();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Dataset folder names are snake_case; farmers should not be shown
 // "field_bindweed". Anything unmapped falls back to a de-underscored,
 // capitalised form rather than the raw label.
@@ -90,7 +133,7 @@ export async function getModel(task) {
   if (loaded[task]) return loaded[task];
   const spec = MODELS[task];
   if (!spec) throw new Error(`Unknown inference task: ${task}`);
-  loaded[task] = await loadTensorflowModel(spec.asset);
+  loaded[task] = await getTflite().loadTensorflowModel(spec.asset);
   return loaded[task];
 }
 

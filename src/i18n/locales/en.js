@@ -992,6 +992,7 @@ export default {
 
   // Weed Detection (Camera Poles Field Monitor)
   weedDetection: {
+    needsBuild: 'Detection runs on the device and is not available in Expo Go. Install the app build to use it — everything else works here.',
     title: 'AI Field Monitor',
     // Modes
     gogMode: 'Green-on-Green',

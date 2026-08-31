@@ -34,7 +34,7 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
-import { classify, preloadModels } from '../../../services/weedInference';
+import { classify, preloadModels, isInferenceAvailable } from '../../../services/weedInference';
 
 const MODES = [
   {
@@ -73,6 +73,8 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
   const [busy, setBusy] = useState(false);
   const [modelReady, setModelReady] = useState(false);
   const [history, setHistory] = useState([]);
+  // False in Expo Go, which cannot load custom native modules.
+  const [available] = useState(() => isInferenceAvailable());
 
   useEffect(() => {
     // Loading a model costs a disk read; doing it on screen open means the
@@ -251,12 +253,24 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
           )}
         </View>
 
+        {!available && (
+          <View style={styles.unavailable}>
+            <MaterialCommunityIcons name="cellphone-off" size={20} color="#E65100" />
+            <Text style={styles.unavailableText}>
+              {t(
+                'weedDetection.needsBuild',
+                'Detection runs on the device and is not available in Expo Go. Install the app build to use it — everything else works here.'
+              )}
+            </Text>
+          </View>
+        )}
+
         {/* Actions */}
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={[styles.actionBtn, styles.actionPrimary]}
             onPress={() => runScan(true)}
-            disabled={busy}
+            disabled={busy || !available}
           >
             <MaterialCommunityIcons name="camera" size={20} color={COLORS.white} />
             <Text style={styles.actionPrimaryText}>{t('weedDetection.scan', 'Scan field')}</Text>
@@ -264,7 +278,7 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
           <TouchableOpacity
             style={[styles.actionBtn, styles.actionSecondary]}
             onPress={() => runScan(false)}
-            disabled={busy}
+            disabled={busy || !available}
           >
             <MaterialCommunityIcons name="image-outline" size={20} color={COLORS.primary} />
             <Text style={styles.actionSecondaryText}>{t('weedDetection.gallery', 'Gallery')}</Text>
@@ -425,6 +439,18 @@ const styles = StyleSheet.create({
   historyLabel: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.semiBold, color: COLORS.textPrimary },
   historyMeta: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary },
 
+  unavailable: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: '#FFB74D',
+    backgroundColor: '#FFF3E0',
+  },
+  unavailableText: { flex: 1, fontSize: FONT_SIZES.xs, color: '#E65100', lineHeight: 16 },
   disclosure: {
     flexDirection: 'row',
     gap: SPACING.sm,
