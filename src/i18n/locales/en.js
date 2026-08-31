@@ -876,6 +876,12 @@ export default {
 
   // Onboarding
   onboarding: {
+    pinTitle: 'Where is your farm?',
+    pinSubtitle: 'Tap the map on your land. Zoom in for accuracy — this is the location the farm map and weather use.',
+    pinHint: 'Tap anywhere on the map to drop a pin',
+    pinSet: 'Farm location set',
+    pinUseDistrict: 'Use {{name}} centre instead',
+    myFarm: 'My farm',
     farmer: 'Farmer',
     welcomeTitle: 'Welcome, {{name}}!',
     welcomeSubtitle: "Let's set up your farm in a few quick steps so SmartKisan can work best for you.",

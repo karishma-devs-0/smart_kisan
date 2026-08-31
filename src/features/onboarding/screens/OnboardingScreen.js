@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -25,9 +26,10 @@ import { POPULAR_LOCATIONS, AVAILABLE_LANGUAGES } from '../../settings/mock/sett
 import { completeOnboarding } from '../slice/onboardingSlice';
 import { setLocation, setLanguage } from '../../settings/slice/settingsSlice';
 import i18n from '../../../i18n';
+import { generateMapHTML } from '../../../utils/leafletMap';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 // Offered as one-tap starting points on the crop step. The farmer can still
 // type anything; these just save typing for the most common Indian crops.
@@ -86,6 +88,11 @@ const OnboardingScreen = () => {
   const [fieldDraft, setFieldDraft] = useState({ name: '', area: '', soilType: '' });
   const [crops, setCrops] = useState([]);
   const [cropDraft, setCropDraft] = useState({ name: '', fieldName: '' });
+  // The district picked on the previous step only gives a town centre. The farm
+  // map widget centres on whatever we store, so without a precise point it shows
+  // a spot in the middle of a city the farmer has never worked. This holds the
+  // pin they actually drop on their land.
+  const [farmPin, setFarmPin] = useState(null);
   const [submitError, setSubmitError] = useState(null);
 
   const addField = () => {
@@ -152,10 +159,12 @@ const OnboardingScreen = () => {
       case 2:
         return selectedLocation !== null;
       case 3:
-        return fields.length > 0; // a farm needs at least one field
+        return farmPin !== null; // must mark where the farm actually is
       case 4:
-        return true; // crops are optional — land can be fallow
+        return fields.length > 0; // a farm needs at least one field
       case 5:
+        return true; // crops are optional — land can be fallow
+      case 6:
         return true; // Language always has a default
       default:
         return false;
@@ -169,9 +178,12 @@ const OnboardingScreen = () => {
     i18n.changeLanguage(selectedLanguage);
     dispatch(setLanguage(selectedLanguage));
 
-    // Apply location
-    if (selectedLocation) {
-      dispatch(setLocation(selectedLocation));
+    // The pin is the precise point; the district is only a fallback. Whatever
+    // is stored here is what the farm map centres on and what the weather is
+    // fetched for, so the pin has to win.
+    const farmLocation = farmPin || selectedLocation;
+    if (farmLocation) {
+      dispatch(setLocation(farmLocation));
     }
 
     // Provision the farm server-side. This is awaited — it used to be
@@ -185,7 +197,7 @@ const OnboardingScreen = () => {
           farmName: farmName.trim(),
           farmType,
           farmSize,
-          location: selectedLocation,
+          location: farmLocation,
           language: selectedLanguage,
           fields,
           crops,
@@ -382,6 +394,88 @@ const OnboardingScreen = () => {
     </View>
   );
 
+  const renderFarmPin = () => {
+    // Centre on the district chosen a step earlier so the farmer starts looking
+    // at their own area rather than the middle of the country.
+    const centre = farmPin || selectedLocation;
+
+    return (
+      <View style={styles.stepContainer}>
+        <Text style={styles.stepTitle}>
+          {t('onboarding.pinTitle', 'Where is your farm?')}
+        </Text>
+        <Text style={styles.stepSubtitle}>
+          {t(
+            'onboarding.pinSubtitle',
+            'Tap the map on your land. Zoom in for accuracy — this is the location the farm map and weather use.',
+          )}
+        </Text>
+
+        <View style={styles.pinMapWrap}>
+          <WebView
+            source={{
+              html: generateMapHTML({
+                interactive: true,
+                zoom: farmPin ? 16 : 12,
+                tapToPlace: true,
+                defaultCenter: centre,
+              }),
+            }}
+            style={styles.pinMap}
+            originWhitelist={['*']}
+            onMessage={(event) => {
+              try {
+                const msg = JSON.parse(event.nativeEvent.data);
+                if (msg.type === 'tapLocation') {
+                  setFarmPin({
+                    name: selectedLocation?.name || t('onboarding.myFarm', 'My farm'),
+                    lat: msg.lat,
+                    lng: msg.lng,
+                  });
+                }
+              } catch {
+                // A malformed message from the map is not worth failing over.
+              }
+            }}
+          />
+        </View>
+
+        {farmPin ? (
+          <View style={styles.pinConfirm}>
+            <MaterialCommunityIcons name="map-marker-check" size={20} color={COLORS.primary} />
+            <Text style={styles.pinConfirmText}>
+              {t('onboarding.pinSet', 'Farm location set')} — {farmPin.lat.toFixed(5)},{' '}
+              {farmPin.lng.toFixed(5)}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.pinHint}>
+            <MaterialCommunityIcons name="gesture-tap" size={20} color={COLORS.textSecondary} />
+            <Text style={styles.pinHintText}>
+              {t('onboarding.pinHint', 'Tap anywhere on the map to drop a pin')}
+            </Text>
+          </View>
+        )}
+
+        {/* Falling back to the district centre is offered explicitly rather than
+            done silently, so a farmer who cannot find their land still gets
+            through setup and knows the location is approximate. */}
+        {selectedLocation && !farmPin && (
+          <TouchableOpacity
+            style={styles.pinSkip}
+            onPress={() => setFarmPin({ ...selectedLocation, approximate: true })}
+          >
+            <Text style={styles.pinSkipText}>
+              {t('onboarding.pinUseDistrict', 'Use {{name}} centre instead', {
+                name: selectedLocation.name,
+              })}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
   const renderFields = () => (
     <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Text style={styles.stepTitle}>{t('onboarding.fieldsTitle', 'Your fields')}</Text>
@@ -556,6 +650,7 @@ const OnboardingScreen = () => {
     renderWelcome,
     renderFarmProfile,
     renderLocation,
+    renderFarmPin,
     renderFields,
     renderCrops,
     renderLanguage,
@@ -784,6 +879,40 @@ const styles = StyleSheet.create({
   },
 
   // Field / crop list rows
+  pinMapWrap: {
+    height: 300,
+    borderRadius: BORDER_RADIUS.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.md,
+  },
+  pinMap: { flex: 1 },
+  pinConfirm: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: '#E8F5E9',
+  },
+  pinConfirmText: { flex: 1, fontSize: FONT_SIZES.sm, color: COLORS.textPrimary },
+  pinHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.background,
+  },
+  pinHintText: { flex: 1, fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
+  pinSkip: { marginTop: SPACING.md, alignItems: 'center' },
+  pinSkipText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.primary,
+    textDecorationLine: 'underline',
+  },
+
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',
