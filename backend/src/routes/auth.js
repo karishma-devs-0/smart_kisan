@@ -8,6 +8,7 @@ const db = require('../config/db');
 const pool = require('../config/database');
 const authMiddleware = require('../middleware/auth');
 const otpService = require('../services/otpService');
+const { normalisePhone, isSmsConfigured } = require('../services/smsService');
 
 const GOOGLE_CLIENT_ID =
   process.env.GOOGLE_WEB_CLIENT_ID ||
@@ -273,30 +274,64 @@ const signToken = (user) =>
  */
 router.post('/otp/request', async (req, res) => {
   try {
-    const email = String(req.body.email || '').trim().toLowerCase();
     const purpose = ['login', 'verify', 'reset'].includes(req.body.purpose)
       ? req.body.purpose
       : 'login';
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-      return res.status(400).json({ error: 'Enter a valid email address' });
+    const rawPhone = req.body.phone;
+    const rawEmail = req.body.email;
+
+    // Phone and email are alternatives, not both. The rest of the handler is
+    // identical for either, which is the point of resolving the target once.
+    let target;
+    let lookupColumn;
+    let lookupValue;
+
+    if (rawPhone) {
+      const local = normalisePhone(rawPhone);
+      if (!local) {
+        return res.status(400).json({ error: 'Enter a valid 10-digit mobile number' });
+      }
+      if (!isSmsConfigured()) {
+        // Said plainly rather than pretending to send. A farmer waiting for a
+        // message that cannot arrive is worse than being told to use email.
+        return res.status(503).json({
+          error: 'SMS sign-in is not available yet. Please use your email address.',
+        });
+      }
+      target = { phone: local };
+      lookupColumn = 'phone_number';
+      lookupValue = local;
+    } else {
+      const email = String(rawEmail || '').trim().toLowerCase();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+        return res.status(400).json({ error: 'Enter a valid email address' });
+      }
+      target = { email };
+      lookupColumn = 'email';
+      lookupValue = email;
     }
 
-    const { rows } = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+    const { rows } = await db.query(
+      `SELECT id FROM users WHERE ${lookupColumn} = $1`,
+      [lookupValue]
+    );
     const exists = rows.length > 0;
 
     // Sign-in and reset need an existing account; verification is for one being
     // created. Where the account is required and missing, we still reply as if
-    // the code was sent.
+    // the code was sent — anything else turns this into a way to test which
+    // addresses or numbers have registered.
     if ((purpose === 'login' || purpose === 'reset') && !exists) {
       return res.json({
         sent: true,
         expiresInMinutes: otpService.TTL_MINUTES,
+        channel: rawPhone ? 'sms' : 'email',
       });
     }
 
-    const { expiresInMinutes } = await otpService.issue(email, purpose);
-    res.json({ sent: true, expiresInMinutes });
+    const result = await otpService.issue(target, purpose);
+    res.json({ sent: true, ...result });
   } catch (error) {
     console.error('POST /auth/otp/request error:', error);
     res.status(500).json({ error: 'Could not send the code. Please try again.' });
@@ -308,18 +343,29 @@ router.post('/otp/request', async (req, res) => {
  */
 router.post('/otp/verify', async (req, res) => {
   try {
-    const email = String(req.body.email || '').trim().toLowerCase();
-    const result = await otpService.verify(email, req.body.code, 'login');
+    const rawPhone = req.body.phone;
+    const target = rawPhone
+      ? { phone: rawPhone }
+      : { email: String(req.body.email || '').trim().toLowerCase() };
+
+    const result = await otpService.verify(target, req.body.code, 'login');
     if (!result.ok) return res.status(401).json({ error: result.reason });
 
-    const { rows } = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    const column = rawPhone ? 'phone_number' : 'email';
+    const { rows } = await db.query(
+      `SELECT * FROM users WHERE ${column} = $1`,
+      [result.recipient]
+    );
     if (!rows.length) return res.status(401).json({ error: 'Invalid credentials' });
 
     const user = rows[0];
 
-    // Signing in via a code proves the address works, so the account is
-    // confirmed as a side effect.
-    await db.query('UPDATE users SET email_verified = true WHERE id = $1', [user.id]);
+    // Signing in via a code proves control of that address or number, so the
+    // corresponding field is confirmed as a side effect.
+    await db.query(
+      `UPDATE users SET ${rawPhone ? 'phone_verified' : 'email_verified'} = true WHERE id = $1`,
+      [user.id]
+    );
 
     res.json({
       token: signToken(user),
