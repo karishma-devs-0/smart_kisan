@@ -883,6 +883,10 @@ export default {
     save: 'Save Changes',
     changePhoto: 'Change Photo',
     saved: 'Profile updated successfully',
+    errors: {
+      nameTooShort: 'Name must be at least 2 characters',
+      farmNameTooShort: 'Farm name must be at least 2 characters',
+    },
   },
 
   // Onboarding
