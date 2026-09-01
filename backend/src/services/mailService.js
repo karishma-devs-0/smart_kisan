@@ -1,11 +1,16 @@
 /**
  * Outbound email.
  *
- * Two providers, chosen by which credentials are present:
+ * Three providers, chosen by which credentials are present, in this order:
  *
- *   SMTP    any host, including Gmail. Verifies a single sending address, so it
- *           needs no domain of its own. This is the path when you do not own a
- *           domain yet.
+ *   Brevo   HTTPS API. Verifies a single sending address rather than a domain,
+ *           so it works without owning one, and being an ordinary HTTPS request
+ *           it is unaffected by the outbound SMTP blocking that hosting
+ *           platforms apply. This is the path that works in production.
+ *
+ *   SMTP    any host, including Gmail. Also needs no domain, but a hosted
+ *           server usually cannot open an outbound SMTP connection at all — the
+ *           attempt hangs rather than failing. Useful locally.
  *
  *   Resend  REST API, no SDK needed since Node has fetch built in. Requires a
  *           verified domain: its shared onboarding@resend.dev sender only
@@ -25,6 +30,7 @@
 const nodemailer = require('nodemailer');
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
+const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
 
 const FROM =
   process.env.MAIL_FROM || 'SmartKisan <onboarding@resend.dev>';
@@ -45,6 +51,16 @@ function getSmtpTransport() {
     port: Number(process.env.SMTP_PORT) || 587,
     // 465 is implicit TLS; 587 upgrades with STARTTLS.
     secure: Number(process.env.SMTP_PORT) === 465,
+
+    // Hosting platforms commonly block outbound SMTP to stop spam being sent
+    // from their address space. When they do, the connection neither succeeds
+    // nor is refused — it simply never completes, and without these the request
+    // hangs until the caller gives up. Observed in production: the endpoint held
+    // for over two minutes while the app showed a spinner and eventually
+    // reported a cancelled request.
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
     // Google displays app passwords in spaced groups of four for
     // readability, but the spaces are presentational — leaving them in
     // produces an authentication failure that reads like a wrong password.
@@ -53,7 +69,59 @@ function getSmtpTransport() {
   return smtpTransport;
 }
 
+/**
+ * Splits "Name <address@host>" into the shape Brevo's API expects.
+ */
+function parseSender(value) {
+  const match = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(value || '');
+  if (match) return { name: match[1] || 'SmartKisan', email: match[2] };
+  return { name: 'SmartKisan', email: value };
+}
+
+/**
+ * Brevo over HTTPS.
+ *
+ * Preferred over SMTP on a hosted server: platforms routinely block outbound
+ * SMTP to prevent spam, and the connection then hangs rather than failing, so
+ * the request stalls until the caller times out. An HTTPS call on 443 is not
+ * subject to that.
+ *
+ * Brevo also verifies a single sending address rather than a whole domain,
+ * which matters here because there is no domain to verify yet.
+ */
+async function sendViaBrevo({ to, subject, html, text }) {
+  const sender = parseSender(process.env.MAIL_FROM || process.env.SMTP_USER);
+
+  const res = await fetch(BREVO_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'api-key': process.env.BREVO_API_KEY,
+      'Content-Type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify({
+      sender,
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+      textContent: text,
+    }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`Email send failed (${res.status}): ${detail.slice(0, 200)}`);
+  }
+  return { delivered: true, via: 'brevo' };
+}
+
 async function send({ to, subject, html, text }) {
+  // HTTPS providers first: they work from a hosted server, where SMTP often
+  // does not.
+  if (process.env.BREVO_API_KEY) {
+    return sendViaBrevo({ to, subject, html, text });
+  }
+
   const transport = getSmtpTransport();
   if (transport) {
     await transport.sendMail({
@@ -70,7 +138,9 @@ async function send({ to, subject, html, text }) {
 
   if (!apiKey) {
     if (isProduction()) {
-      throw new Error('No mail provider configured (set SMTP_* or RESEND_API_KEY)');
+      throw new Error(
+        'No mail provider configured (set BREVO_API_KEY, SMTP_*, or RESEND_API_KEY)'
+      );
     }
     console.log('\n─── email (not sent: no RESEND_API_KEY) ───');
     console.log(`  to:      ${to}`);

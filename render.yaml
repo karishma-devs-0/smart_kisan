@@ -45,8 +45,15 @@ services:
       - key: MQTT_PASSWORD
         sync: false
       # Email delivery for sign-in codes, address verification and password
-      # reset. Without these the OTP endpoints return 500 in production, since
-      # the mail service refuses to silently not send an authentication code.
+      # reset.
+      #
+      # Brevo is the one that works here. Hosting platforms block outbound SMTP
+      # to prevent spam, and the connection then hangs rather than failing, so
+      # the request stalls until the caller times out. Brevo is an ordinary
+      # HTTPS call and is unaffected. The SMTP settings below are kept for
+      # local development.
+      - key: BREVO_API_KEY
+        sync: false
       - key: SMTP_HOST
         value: smtp.gmail.com
       - key: SMTP_PORT
