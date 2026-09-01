@@ -180,6 +180,15 @@ export const authAPI = {
       body: JSON.stringify({ email, code, password }),
       headers: { Authorization: '' },
     }),
+
+  /**
+   * Updates the signed-in user's own name and phone number.
+   *
+   * Farm name and location are not here — they belong to the profile and go
+   * through profileAPI.update. The profile screen edits both and calls both.
+   */
+  updateAccount: (updates) =>
+    apiRequest('/auth/me', { method: 'PUT', body: JSON.stringify(updates) }),
 };
 
 // ─── Pump APIs ────────────────────────────────────────────────────────────────

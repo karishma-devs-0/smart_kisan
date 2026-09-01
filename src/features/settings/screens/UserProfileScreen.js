@@ -28,21 +28,39 @@ const UserProfileScreen = ({ navigation }) => {
   const user = useSelector((s) => s.auth.user);
   const loading = useSelector((s) => s.auth.loading);
 
+  // The farm name and location are collected during onboarding and stored on
+  // the farm profile, not the user. This screen used to read them off
+  // `auth.user`, which only carries id, name and email — so both fields were
+  // always undefined and the form opened blank however much had been entered
+  // at setup. That is the "not showing the data" in the report.
+  const farmProfile = useSelector((s) => s.onboarding.profile);
+
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
-  const [farmName, setFarmName] = useState(user?.farmName || '');
-  const [location, setLocation] = useState(user?.location || '');
+  const [farmName, setFarmName] = useState(farmProfile?.farmName || '');
+  const [location, setLocation] = useState(farmProfile?.locationName || '');
   const [avatar, setAvatar] = useState(user?.avatar || null);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (user) {
       setName(user.name || '');
       setPhone(user.phone || '');
-      setFarmName(user.farmName || '');
-      setLocation(user.location || '');
       setAvatar(user.avatar || null);
     }
   }, [user]);
+
+  // Kept separate from the user effect: the profile arrives from its own fetch
+  // and usually lands after the user does, so a combined effect would clear
+  // whichever half had not resolved yet.
+  useEffect(() => {
+    if (farmProfile) {
+      setFarmName(farmProfile.farmName || '');
+      // location is an object elsewhere in the profile; the editable field is
+      // the place name.
+      setLocation(farmProfile.locationName || farmProfile.location?.name || '');
+    }
+  }, [farmProfile]);
 
   const getInitials = () => {
     if (!name) return '??';
@@ -73,11 +91,39 @@ const UserProfileScreen = ({ navigation }) => {
     }
   };
 
-  const handleSave = async () => {
+  // Same rule the sign-up form applies: ten digits starting 6-9, after
+  // stripping the +91/0 prefix and any spaces or dashes people type. Worth
+  // enforcing here too, because this is the number a future SMS sign-in and
+  // any alert would go to.
+  const isIndianMobile = (raw) => {
+    const digits = raw.replace(/[\s-]/g, '').replace(/^(\+91|91|0)/, '');
+    return /^[6-9]\d{9}$/.test(digits);
+  };
+
+  const validate = () => {
+    const next = {};
+
     if (!name.trim()) {
-      Alert.alert(t('common.error'), t('register.errors.nameRequired'));
-      return;
+      next.name = t('register.errors.nameRequired');
+    } else if (name.trim().length < 2) {
+      next.name = t('profile.errors.nameTooShort', 'Name must be at least 2 characters');
     }
+
+    // Optional, but not allowed to be wrong if given.
+    if (phone.trim() && !isIndianMobile(phone)) {
+      next.phone = t('register.errors.phoneInvalid', 'Enter a valid 10-digit mobile number');
+    }
+
+    if (farmName.trim() && farmName.trim().length < 2) {
+      next.farmName = t('profile.errors.farmNameTooShort', 'Farm name must be at least 2 characters');
+    }
+
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validate()) return;
 
     try {
       await dispatch(
@@ -85,7 +131,8 @@ const UserProfileScreen = ({ navigation }) => {
           name: name.trim(),
           phone: phone.trim(),
           farmName: farmName.trim(),
-          location: location.trim(),
+          // The server stores the place name on the profile as location_name.
+          locationName: location.trim(),
           avatar,
         }),
       ).unwrap();
@@ -135,11 +182,15 @@ const UserProfileScreen = ({ navigation }) => {
               <TextInput
                 style={styles.input}
                 value={name}
-                onChangeText={setName}
+                onChangeText={(v) => {
+                  setName(v);
+                  if (errors.name) setErrors((e) => ({ ...e, name: undefined }));
+                }}
                 placeholder={t('profile.name', 'Full Name')}
                 placeholderTextColor={COLORS.textTertiary}
               />
             </View>
+            {!!errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
           </View>
 
           {/* Email (read-only) */}
@@ -164,12 +215,17 @@ const UserProfileScreen = ({ navigation }) => {
               <TextInput
                 style={styles.input}
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={(v) => {
+                  setPhone(v);
+                  if (errors.phone) setErrors((e) => ({ ...e, phone: undefined }));
+                }}
                 placeholder={t('profile.phone', 'Phone Number')}
                 placeholderTextColor={COLORS.textTertiary}
                 keyboardType="phone-pad"
+                maxLength={14}
               />
             </View>
+            {!!errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
           </View>
 
           {/* Farm Name */}
@@ -180,11 +236,15 @@ const UserProfileScreen = ({ navigation }) => {
               <TextInput
                 style={styles.input}
                 value={farmName}
-                onChangeText={setFarmName}
+                onChangeText={(v) => {
+                  setFarmName(v);
+                  if (errors.farmName) setErrors((e) => ({ ...e, farmName: undefined }));
+                }}
                 placeholder={t('profile.farmName', 'Farm Name')}
                 placeholderTextColor={COLORS.textTertiary}
               />
             </View>
+            {!!errors.farmName && <Text style={styles.errorText}>{errors.farmName}</Text>}
           </View>
 
           {/* Farm Location */}
@@ -224,6 +284,12 @@ const UserProfileScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  errorText: {
+    color: COLORS.danger,
+    fontSize: FONT_SIZES.xs,
+    marginTop: SPACING.xs,
+    marginLeft: SPACING.xs,
+  },
   avatarSection: {
     alignItems: 'center',
     marginBottom: SPACING.xxl,

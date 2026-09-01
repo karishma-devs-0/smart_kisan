@@ -180,6 +180,49 @@ async function main() {
   record('crop list matches', crops.data?.count === 3,
     (crops.data?.crops || []).map((c) => c.name).join(', '));
 
+  // ── 5b. Profile screen save ──────────────────────────────────────────────
+  // The profile screen shows one form over two records: name and phone on the
+  // user, farm name and location on the profile. Both halves are checked here
+  // because the screen previously persisted neither — it applied edits to
+  // local state only, so they were gone on the next launch.
+  console.log('\n5b. Profile edits');
+
+  const acct = await call('PUT', '/auth/me', {
+    token,
+    body: { name: 'Renamed Farmer', phone: '9812345670' },
+  });
+  record('account update accepted', acct.status === 200, `HTTP ${acct.status}`);
+  record('name and phone come back updated',
+    acct.data?.user?.name === 'Renamed Farmer' && acct.data?.user?.phone === '9812345670',
+    `${acct.data?.user?.name} / ${acct.data?.user?.phone}`);
+
+  const badPhone = await call('PUT', '/auth/me', {
+    token,
+    body: { name: 'Renamed Farmer', phone: '12345' },
+  });
+  record('malformed phone is rejected', badPhone.status === 400, `HTTP ${badPhone.status}`);
+
+  const blankName = await call('PUT', '/auth/me', { token, body: { name: '   ' } });
+  record('blank name is rejected', blankName.status === 400, `HTTP ${blankName.status}`);
+
+  const farmEdit = await call('PUT', '/profile', {
+    token,
+    body: { farmName: 'Renamed Farm', locationName: 'Ludhiana, Punjab' },
+  });
+  record('farm name and location update accepted', farmEdit.status === 200,
+    `HTTP ${farmEdit.status}`);
+
+  // The screen sends only the two fields it edits, so everything else on the
+  // profile has to survive the write untouched.
+  const afterEdit = await call('GET', '/profile', { token });
+  const ap = afterEdit.data?.profile;
+  record('edits persisted and read back',
+    ap?.farm_name === 'Renamed Farm' && ap?.location_name === 'Ludhiana, Punjab',
+    `${ap?.farm_name} / ${ap?.location_name}`);
+  record('untouched profile columns survive the edit',
+    ap?.size_band === 'medium' && Number(ap?.farm_size) === 6 && ap?.farm_type === 'crop',
+    `band=${ap?.size_band} size=${ap?.farm_size} type=${ap?.farm_type}`);
+
   // ── 6. Editing farm records ──────────────────────────────────────────────
   console.log('\n6. Farm record edits');
   const newField = await call('POST', '/fields', {

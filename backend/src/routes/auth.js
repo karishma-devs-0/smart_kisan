@@ -434,4 +434,72 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// ============================================================
+// UPDATE OWN ACCOUNT
+// ============================================================
+// Name and phone live on the user record; farm name and location live on the
+// profile and are updated through PUT /api/profile. The profile screen edits
+// both, so it calls both.
+//
+// Previously the app had nowhere to send these at all — the update was applied
+// to local state only and discarded on restart, which is how it was reported.
+
+router.put('/me', authMiddleware, async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim();
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    if (name.length > 255) {
+      return res.status(400).json({ error: 'Name is too long' });
+    }
+
+    // Phone is optional, but if given it has to be a real number — this is the
+    // field a future SMS sign-in would key on.
+    let phone = null;
+    if (req.body.phone) {
+      phone = normalisePhone(req.body.phone);
+      if (!phone) {
+        return res.status(400).json({ error: 'Enter a valid 10-digit mobile number' });
+      }
+
+      // The number identifies an account, so it cannot be shared. Checked here
+      // rather than relying on the unique index, so the caller gets a sentence
+      // instead of a constraint violation.
+      const taken = await db.query(
+        'SELECT id FROM users WHERE phone_number = $1 AND id <> $2',
+        [phone, req.user.id]
+      );
+      if (taken.rows.length) {
+        return res.status(409).json({ error: 'That mobile number is already in use' });
+      }
+    }
+
+    const { rows } = await db.query(
+      `UPDATE users
+       SET first_name = $1,
+           phone_number = COALESCE($2, phone_number),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3
+       RETURNING id, email, first_name, phone_number`,
+      [name, phone, req.user.id]
+    );
+
+    if (!rows.length) return res.status(404).json({ error: 'Account not found' });
+
+    const user = rows[0];
+    res.json({
+      user: {
+        id: user.id,
+        name: user.first_name,
+        email: user.email,
+        phone: user.phone_number,
+      },
+    });
+  } catch (error) {
+    console.error('PUT /auth/me error:', error);
+    res.status(500).json({ error: 'Could not update your details' });
+  }
+});
+
 module.exports = router;

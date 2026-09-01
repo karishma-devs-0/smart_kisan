@@ -249,6 +249,65 @@ export const authService = {
     }
   },
 
+  /**
+   * Saves the profile screen's edits.
+   *
+   * The screen presents one form, but the fields behind it live in two places:
+   * name and phone on the user record, farm name and location on the farm
+   * profile. So this is two calls.
+   *
+   * They are not wrapped in a transaction — there is no cross-request one to
+   * use — so the account update goes first and the farm update second. If the
+   * second fails the first still stands, which is the harmless ordering: a
+   * saved name with an unsaved farm name is recoverable by pressing save
+   * again, and the error surfaces either way.
+   *
+   * Until this existed the thunk returned its own argument unchanged, so the
+   * form appeared to save and reverted on the next launch.
+   */
+  updateProfile: async ({ name, phone, farmName, locationName }, userId) => {
+    const { user } = await authAPI.updateAccount({ name, phone });
+
+    let farm = null;
+    if (farmName || locationName) {
+      // COALESCE server-side, so undefined leaves the stored value alone
+      // rather than blanking it.
+      const res = await profileAPI.update({
+        farmName: farmName || undefined,
+        locationName: locationName || undefined,
+      });
+      const p = res.profile || {};
+      farm = {
+        farmName: p.farm_name,
+        locationName: p.location_name,
+        location:
+          p.latitude != null
+            ? { name: p.location_name, lat: p.latitude, lng: p.longitude }
+            : null,
+      };
+    }
+
+    // loadProfile keeps a copy of the profile in AsyncStorage and falls back to
+    // it whenever the fetch fails — which on a sleeping free-tier server is
+    // routine. Left untouched it would serve the pre-edit farm name back on the
+    // next cold start, so the saved values are merged in here.
+    if (farm) {
+      try {
+        const raw = await AsyncStorage.getItem(onboardingKey(userId));
+        if (raw) {
+          await AsyncStorage.setItem(
+            onboardingKey(userId),
+            JSON.stringify({ ...JSON.parse(raw), ...farm })
+          );
+        }
+      } catch (e) {
+        if (__DEV__) console.warn('Profile cache update failed:', e.message);
+      }
+    }
+
+    return { user, farm };
+  },
+
   logout: async () => {
     await mockDelay(300);
     return { success: true };

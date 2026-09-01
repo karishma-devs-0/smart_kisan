@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { onboardingService } from '../../../services/api';
-import { logout } from '../../auth/slice/authSlice';
+import { logout, updateProfile } from '../../auth/slice/authSlice';
 
 // ─── Async Thunks ────────────────────────────────────────────────────────────
 
@@ -63,6 +63,17 @@ const onboardingSlice = createSlice({
       .addCase(completeOnboarding.rejected, (state) => {
         state.loading = false;
       });
+
+    // The profile screen edits the farm name and location, which live here
+    // rather than on the user. Without this the save succeeds server-side but
+    // the dashboard and farm map widget keep showing the old values until the
+    // app is restarted.
+    builder.addCase(updateProfile.fulfilled, (state, action) => {
+      const farm = action.payload?.farm;
+      if (farm && state.profile) {
+        state.profile = { ...state.profile, ...farm };
+      }
+    });
 
     // Reset on logout
     builder.addCase(logout.fulfilled, () => initialState);

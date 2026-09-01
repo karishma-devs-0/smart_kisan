@@ -73,11 +73,19 @@ export const loginWithGoogle = createAsyncThunk(
 
 export const updateProfile = createAsyncThunk(
   'auth/updateProfile',
-  async (profileData, { rejectWithValue }) => {
+  async (profileData, { getState, rejectWithValue }) => {
     try {
-      // Profile updates are local-only for now. When the backend grows a
-      // PUT /api/users/me endpoint, call it here.
-      return profileData;
+      const userId = getState().auth?.user?.id;
+      const { user, farm } = await authService.updateProfile(profileData, userId);
+
+      // The session cache is what restoreSession reads on the next launch, so
+      // it has to carry the new name too — otherwise the edit survives on the
+      // server but the app shows the old one until something refetches.
+      const token = getState().auth?.token;
+      const merged = { ...getState().auth.user, ...user, avatar: profileData.avatar };
+      if (token) await persistSession(merged, token);
+
+      return { user: merged, farm };
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -248,7 +256,7 @@ const authSlice = createSlice({
       })
       .addCase(updateProfile.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = { ...state.user, ...action.payload };
+        state.user = { ...state.user, ...action.payload.user };
       })
       .addCase(updateProfile.rejected, (state, action) => {
         state.loading = false;
