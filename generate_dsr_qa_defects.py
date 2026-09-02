@@ -209,40 +209,47 @@ ROWS = [
     [
         WED,
         "Verification - Automated API Check",
-        "Extended the end-to-end check to cover the profile update and the "
-        "full pump chain: create a pump, run it, confirm the run was recorded "
-        "and confirm the derived totals are arithmetically correct.",
+        "Extended the end-to-end check to cover the profile update, the full "
+        "pump chain (create a pump, run it, confirm the run was recorded and "
+        "the derived totals are arithmetically correct) and the new task "
+        "endpoints.",
         "backend/scripts/e2eCheck.js, backend/scripts/checkPasswordReset.js",
         "Completed",
         "",
-        "55 of 55 checks passing. The pump defects above were found by writing "
+        "67 of 67 checks passing. The pump defects above were found by writing "
         "this, not by reading the code.",
     ],
 
     # ── In progress ──────────────────────────────────────────────────────────
     [
         WED,
-        "Crop Suitability - Real Inputs",
-        "The recommendation engine is real and works, but is being fed sample "
-        "soil and climate figures rather than the farm's own. Wiring it to the "
-        "recorded soil readings and the farm's location.",
-        "cropRecommendEngine.js, api.js",
-        "In Progress",
+        "Crop Suitability - Sample Soil",
+        "The screen called the recommendation engine with no arguments, which "
+        "fell back to a fixed sample soil profile and sample climate. Every "
+        "farmer saw recommendations computed from someone else's soil, under "
+        "the heading 'Your Soil Profile'. It now uses the farm's own recorded "
+        "reading, and shows nothing when there is none.",
+        "api.js, cropRecommendSlice.js",
+        "Fixed",
         "",
-        "Addresses TC-015. The climate half also needs the weather API key, "
-        "which is not yet configured.",
+        "Addresses TC-015. Advising a crop from invented nitrogen is worse "
+        "than advising nothing, so an absent reading is stated rather than "
+        "filled in. Entering values by hand still works as before.",
     ],
     [
         WED,
-        "Farm Management - No Data Source",
-        "The farm management screen shows sample tasks because there is no "
-        "table or endpoint behind it. Adding the storage and the endpoints so "
-        "the screen reflects the farm's own tasks.",
-        "New: farm_tasks table, backend/src/routes/farmTasks.js",
-        "In Progress",
+        "Farm Management - No Storage",
+        "The farm management screen had nothing behind it: a fixed sample "
+        "list, an Add button that opened an alert saying nothing, and a "
+        "completion state that lived only in memory. Added the table and "
+        "endpoints, a form to add a task, and made tapping a task complete it.",
+        "farm_tasks table, farmTasks.js, AddTaskModal.js, farmSlice.js",
+        "Fixed",
         "",
-        "Addresses TC-020. This is new work rather than a defect fix, as the "
-        "feature was never connected to anything.",
+        "Addresses TC-020. New work rather than a defect fix, as the feature "
+        "had never been connected to anything. Growth trends need a season of "
+        "recorded crop measurements that nothing collects yet, so that chart "
+        "is empty rather than showing a fabricated curve.",
     ],
 ]
 
