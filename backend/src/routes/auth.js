@@ -217,7 +217,7 @@ router.delete('/delete-account', authMiddleware, async (req, res) => {
 
     await client.query('BEGIN');
 
-    const byOwner = ['fields', 'crops', 'devices', 'pumps', 'pump_groups'];
+    const byOwner = ['fields', 'crops', 'devices', 'pumps', 'pump_groups', 'farm_tasks'];
     const byUser = ['user_profile', 'soil_current', 'soil_history', 'pump_history'];
 
     for (const table of byOwner) {

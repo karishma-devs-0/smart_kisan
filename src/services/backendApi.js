@@ -432,6 +432,22 @@ export const profileAPI = {
     apiRequest('/profile', { method: 'PUT', body: JSON.stringify(updates) }),
 };
 
+// ─── Farm Task APIs ───────────────────────────────────────────────────────────
+
+export const farmTaskAPI = {
+  /** @param {'active'|'completed'|'cancelled'} [status] */
+  fetchAll: (status) =>
+    apiRequest(`/farm-tasks${status ? `?status=${status}` : ''}`),
+
+  create: (task) =>
+    apiRequest('/farm-tasks', { method: 'POST', body: JSON.stringify(task) }),
+
+  update: (id, updates) =>
+    apiRequest(`/farm-tasks/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
+
+  remove: (id) => apiRequest(`/farm-tasks/${id}`, { method: 'DELETE' }),
+};
+
 // ─── Health Check ─────────────────────────────────────────────────────────────
 
 export const healthCheck = () =>

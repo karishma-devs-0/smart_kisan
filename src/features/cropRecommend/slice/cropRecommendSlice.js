@@ -5,9 +5,16 @@ import { cropRecommendService } from '../../../services/api';
 
 export const fetchRecommendations = createAsyncThunk(
   'cropRecommend/fetchRecommendations',
-  async ({ soilParams, climateParams } = {}, { rejectWithValue }) => {
+  async ({ soilParams, climateParams } = {}, { getState, rejectWithValue }) => {
     try {
-      return await cropRecommendService.fetchRecommendations(soilParams, climateParams);
+      // The farm's location, so weather can be read for the right place
+      // instead of a default one.
+      const location = getState().settings?.location;
+      return await cropRecommendService.fetchRecommendations(
+        soilParams,
+        climateParams,
+        location,
+      );
     } catch (error) {
       return rejectWithValue(error.message);
     }

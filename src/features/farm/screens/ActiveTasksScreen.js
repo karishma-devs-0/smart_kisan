@@ -16,7 +16,8 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { useTranslation } from 'react-i18next';
-import { fetchFarmData } from '../slice/farmSlice';
+import { fetchFarmData, createTask, saveTask } from '../slice/farmSlice';
+import AddTaskModal from '../components/AddTaskModal';
 
 const FILTER_KEYS = [
   { id: 'all', key: 'tasks.all' },
@@ -79,14 +80,21 @@ const FilterPill = ({ filter, isActive, onPress, t }) => (
   </TouchableOpacity>
 );
 
-const TaskCard = React.memo(({ task }) => {
+const TaskCard = React.memo(({ task, onToggle }) => {
   const priorityColor = PRIORITY_COLORS[task.priority] || COLORS.textTertiary;
   const statusColor = STATUS_COLORS[task.status] || COLORS.textTertiary;
   const categoryIcon = CATEGORY_ICONS[task.category] || 'clipboard-text';
   const categoryColor = CATEGORY_COLORS[task.category] || COLORS.textTertiary;
 
+  // Marking work done is the whole point of a task list, and there was no way
+  // to do it: the card was inert and the only status change in the app was a
+  // local one that did not survive a restart.
   return (
-    <View style={styles.taskCard}>
+    <TouchableOpacity
+      style={styles.taskCard}
+      onPress={() => onToggle?.(task)}
+      activeOpacity={0.7}
+    >
       {/* Left priority strip */}
       <View style={[styles.priorityStrip, { backgroundColor: priorityColor }]} />
 
@@ -139,7 +147,7 @@ const TaskCard = React.memo(({ task }) => {
           <Text style={styles.taskAssignee}>{task.assignee}</Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 });
 
@@ -147,7 +155,10 @@ const ActiveTasksScreen = ({ navigation }) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
-  const { tasks, loading } = useSelector((state) => state.farm);
+  const { tasks, loading, saving } = useSelector((state) => state.farm);
+  // Offered as chips in the add form, so a task can be tied to a real field
+  // rather than a typed-in name that may not match any of them.
+  const fields = useSelector((state) => state.fields.fields);
   const [activeFilter, setActiveFilter] = useState('all');
 
   useEffect(() => {
@@ -160,13 +171,33 @@ const ActiveTasksScreen = ({ navigation }) => {
     ? tasks
     : tasks.filter((t) => t.status === activeFilter);
 
-  const handleAddTask = useCallback(() => {
-    Alert.alert(
-      t('tasks.addTask'),
-      t('tasks.addTaskMsg'),
-      [{ text: 'OK' }],
-    );
-  }, []);
+  const [showAdd, setShowAdd] = useState(false);
+
+  const handleAddTask = useCallback(() => setShowAdd(true), []);
+
+  const handleCreate = useCallback(
+    async (task) => {
+      try {
+        await dispatch(createTask(task)).unwrap();
+        setShowAdd(false);
+      } catch (err) {
+        Alert.alert(t('common.error'), err || 'Could not add the task.');
+      }
+    },
+    [dispatch, t],
+  );
+
+  // Tapping a task moves it between outstanding and done. The server stamps
+  // the completion time, so the two can never disagree.
+  const handleToggle = useCallback(
+    (task) => {
+      const next = task.status === 'completed' ? 'active' : 'completed';
+      dispatch(saveTask({ id: task.id, status: next }))
+        .unwrap()
+        .catch((err) => Alert.alert(t('common.error'), err || 'Could not update the task.'));
+    },
+    [dispatch, t],
+  );
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -220,7 +251,7 @@ const ActiveTasksScreen = ({ navigation }) => {
       <FlatList
         data={filteredTasks}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <TaskCard task={item} />}
+        renderItem={({ item }) => <TaskCard task={item} onToggle={handleToggle} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={renderEmptyState}
@@ -234,6 +265,14 @@ const ActiveTasksScreen = ({ navigation }) => {
       >
         <MaterialCommunityIcons name="plus" size={28} color={COLORS.white} />
       </TouchableOpacity>
+
+      <AddTaskModal
+        visible={showAdd}
+        onClose={() => setShowAdd(false)}
+        onSubmit={handleCreate}
+        saving={saving}
+        fields={fields}
+      />
     </View>
   );
 };

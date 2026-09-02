@@ -11,6 +11,7 @@ import {
   soilAPI,
   profileAPI,
   pumpAPI,
+  farmTaskAPI,
 } from './backendApi';
 import * as weatherAPI from './weather';
 
@@ -50,14 +51,12 @@ import {
   MOCK_IRRIGATION_SCHEDULE,
   MOCK_EXPERT_NETWORK,
 } from '../features/analytics/mock/analyticsMockData';
-import { MOCK_FARM_TASKS, MOCK_FARM_CATEGORIES, MOCK_GROWTH_TRENDS } from '../features/farm/mock/farmMockData';
+import { MOCK_FARM_CATEGORIES } from '../features/farm/mock/farmMockData';
 import { MOCK_FIELDS, MOCK_FIELD_GROWTH_DATA } from '../features/fields/mock/fieldsMockData';
 import { MOCK_LISTINGS, MOCK_MANDI_PRICES, MOCK_MY_LISTINGS } from '../features/marketplace/mock/marketplaceMockData';
 import { MOCK_SCAN_HISTORY, MOCK_DISEASES } from '../features/diseaseDetection/mock/diseaseDetectionMockData';
 import {
   MOCK_RECOMMENDATIONS,
-  MOCK_SOIL_PARAMS,
-  MOCK_CLIMATE_PARAMS,
 } from '../features/cropRecommend/mock/cropRecommendMockData';
 import { calculateRecommendations } from './cropRecommendEngine';
 import { generateIrrigationSchedule, calculateETSummary } from './irrigationEngine';
@@ -887,38 +886,75 @@ export const analyticsService = {
 
 // ─── Farm Service ───────────────────────────────────────────────────────────
 
+const mapTask = (r) => ({
+  id: r.id,
+  title: r.title,
+  description: r.description,
+  category: r.category,
+  status: r.status,
+  priority: r.priority,
+  dueDate: r.due_date,
+  fieldId: r.field_id,
+  fieldName: r.field_name,
+  assignee: r.assignee,
+  completedAt: r.completed_at,
+});
+
 export const farmService = {
+  /**
+   * The farm's own tasks.
+   *
+   * This used to return a fixed list of sample tasks — sowing wheat in Field A,
+   * harvesting cotton — identical for every farmer, with no storage behind
+   * them. Marking one done changed local state and was forgotten on the next
+   * launch.
+   *
+   * An empty list is a legitimate answer for a farm that has not added any
+   * tasks, and is shown as such rather than being padded with examples.
+   */
   fetchFarmData: async () => {
-    if (FIREBASE_ENABLED) {
-      const [tasks, categories] = await Promise.all([
-        offlineAwareRemember('farm:tasks', () => getFirestore().getAll('farm_tasks'), [...MOCK_FARM_TASKS], 300),
-        offlineAwareRemember('farm:categories', async () => [...MOCK_FARM_CATEGORIES], [...MOCK_FARM_CATEGORIES], 3600),
-      ]);
-      return {
-        tasks,
-        categories,
-        growthTrends: [...MOCK_GROWTH_TRENDS],
-      };
+    let tasks = [];
+    try {
+      const { tasks: rows } = await farmTaskAPI.fetchAll();
+      tasks = (rows || []).map(mapTask);
+    } catch (error) {
+      if (__DEV__) console.warn('fetchFarmData failed:', error.message);
     }
-    await mockDelay(600);
+
     return {
-      tasks: [...MOCK_FARM_TASKS],
+      tasks,
+      // Categories are fixed reference data — the kinds of work a farm does —
+      // not per-farm records, so they are constants rather than a table.
       categories: [...MOCK_FARM_CATEGORIES],
-      growthTrends: [...MOCK_GROWTH_TRENDS],
+      // Growth trends need a season of recorded crop measurements, which
+      // nothing collects yet. Empty rather than a fabricated curve: a chart
+      // that invents a yield trend is worse than no chart.
+      growthTrends: [],
     };
   },
 
+  createTask: async (task) => {
+    if (shouldUseOffline()) {
+      throw new Error('Offline — cannot add a task right now.');
+    }
+    const { task: created } = await farmTaskAPI.create(task);
+    return mapTask(created);
+  },
+
   updateTask: async (id, updates) => {
-    if (FIREBASE_ENABLED && shouldUseOffline()) {
+    if (shouldUseOffline()) {
       throw new Error('Offline — cannot update task. Changes will sync when you reconnect.');
     }
-    if (FIREBASE_ENABLED) {
-      const result = await getFirestore().update('farm_tasks', id, updates);
-      await cache.del('farm:tasks');
-      return result;
+    const { task } = await farmTaskAPI.update(id, updates);
+    return mapTask(task);
+  },
+
+  deleteTask: async (id) => {
+    if (shouldUseOffline()) {
+      throw new Error('Offline — cannot delete a task right now.');
     }
-    await mockDelay(500);
-    return { id, ...updates };
+    await farmTaskAPI.remove(id);
+    return { id };
   },
 };
 
@@ -1244,11 +1280,81 @@ export const marketplaceService = {
 // ─── Crop Recommend Service ─────────────────────────────────────────────────
 
 export const cropRecommendService = {
-  fetchRecommendations: async (soilParams, climateParams) => {
-    const soil = soilParams || { ...MOCK_SOIL_PARAMS };
-    const climate = climateParams || { ...MOCK_CLIMATE_PARAMS };
+  /**
+   * Crop suitability for this farm.
+   *
+   * The engine itself is real, but with no arguments this fell back to a fixed
+   * sample soil profile and sample climate. The screen opens that way, so
+   * every farmer was shown recommendations computed from someone else's soil,
+   * presented under the heading "Your Soil Profile" - which is what testers
+   * reported as dummy data.
+   *
+   * Recommendations are only as good as the readings behind them; advising a
+   * crop off invented nitrogen is worse than advising nothing. So when the
+   * farm has no soil reading, this returns none and lets the screen say so.
+   * The farmer can still enter values by hand, which is what the input screen
+   * is for - that path passes soilParams and is unchanged.
+   */
+  fetchRecommendations: async (soilParams, climateParams, location) => {
+    let soil = soilParams;
+    let climate = climateParams;
 
-    // Use real recommendation engine
+    if (!soil) {
+      // No hand-entered values, so use the farm's own recorded reading.
+      try {
+        const { soil: reading } = await soilAPI.fetchCurrent();
+        const mapped = mapSoil(reading);
+        // N, P, K and pH are what the engine scores on. Without them there is
+        // nothing to base a recommendation on.
+        if (mapped && mapped.nitrogen != null && mapped.phosphorus != null
+            && mapped.potassium != null && mapped.ph != null) {
+          soil = {
+            nitrogen: mapped.nitrogen,
+            phosphorus: mapped.phosphorus,
+            potassium: mapped.potassium,
+            ph: mapped.ph,
+            organicCarbon: mapped.organicCarbon ?? null,
+            // Not recorded anywhere: no sensor reports soil texture and there
+            // is no column for it. Left null rather than guessed; the engine
+            // scores it as unknown, and the farmer can supply it by hand.
+            texture: null,
+          };
+        }
+      } catch (error) {
+        if (__DEV__) console.warn('Crop suitability: soil read failed:', error.message);
+      }
+    }
+
+    if (!soil) {
+      return {
+        recommendations: [],
+        soilParams: null,
+        climateParams: null,
+        needsSoilReading: true,
+      };
+    }
+
+    if (!climate) {
+      // Rainfall and altitude are not available from the weather source, so
+      // they stay null rather than being filled in with a plausible-looking
+      // number - the engine treats them as unknown.
+      climate = { avgTemp: null, humidity: null, rainfall: null, altitude: null };
+
+      // Only ask for weather when it can actually be observed for this farm.
+      // fetchCurrentWeather returns sample data when there is no API key or no
+      // location, and feeding that in here would put invented temperature and
+      // humidity behind a crop recommendation - the same fault being fixed.
+      if (weatherAPI.isWeatherAPIEnabled() && location?.lat) {
+        try {
+          const current = await weatherService.fetchCurrentWeather(location);
+          climate.avgTemp = current?.temp ?? null;
+          climate.humidity = current?.humidity ?? null;
+        } catch (error) {
+          if (__DEV__) console.warn('Crop suitability: weather read failed:', error.message);
+        }
+      }
+    }
+
     const recommendations = calculateRecommendations(soil, climate);
 
     return { recommendations, soilParams: soil, climateParams: climate };

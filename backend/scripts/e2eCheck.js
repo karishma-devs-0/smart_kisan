@@ -329,6 +329,83 @@ async function main() {
     await call('DELETE', `/pumps/${pumpId}`, { token });
   }
 
+  // ── 8c. Farm tasks ──────────────────────────────────────────────────
+  // The farm management screen had no storage at all behind it: a fixed
+  // sample list, an Add button that opened an alert, and a completion state
+  // that lived only in memory.
+  console.log('\n8c. Farm tasks');
+
+  const emptyTasks = await call('GET', '/farm-tasks', { token });
+  record('a new farm starts with no tasks', emptyTasks.data?.count === 0,
+    `${emptyTasks.data?.count} tasks`);
+
+  const newTask = await call('POST', '/farm-tasks', {
+    token,
+    body: {
+      title: 'Spray North Plot',
+      description: 'Before the rain',
+      category: 'pest-control',
+      priority: 'high',
+      fieldName: 'North Plot',
+    },
+  });
+  record('create a task', newTask.status === 201, `HTTP ${newTask.status}`);
+  const taskId = newTask.data?.task?.id;
+
+  const noTitle = await call('POST', '/farm-tasks', { token, body: { category: 'other' } });
+  record('a task with no title is refused', noTitle.status === 400, noTitle.data?.error);
+
+  const badDate = await call('POST', '/farm-tasks', {
+    token,
+    body: { title: 'Bad date', dueDate: 'next tuesday' },
+  });
+  record('an unparseable due date is refused', badDate.status === 400, badDate.data?.error);
+
+  // An unknown category must not be stored verbatim, or the screen has no
+  // icon for it and renders blank.
+  const oddCategory = await call('POST', '/farm-tasks', {
+    token,
+    body: { title: 'Odd', category: 'not-a-real-category' },
+  });
+  record('an unknown category falls back rather than being stored',
+    oddCategory.data?.task?.category === 'other', oddCategory.data?.task?.category);
+  if (oddCategory.data?.task?.id) {
+    await call('DELETE', `/farm-tasks/${oddCategory.data.task.id}`, { token });
+  }
+
+  if (taskId) {
+    // Marking done sends status alone; nothing else may be lost.
+    const done = await call('PUT', `/farm-tasks/${taskId}`, {
+      token,
+      body: { status: 'completed' },
+    });
+    const dt = done.data?.task;
+    record('marking a task done persists', dt?.status === 'completed', dt?.status);
+    record('completing stamps the time', !!dt?.completed_at, dt?.completed_at);
+    record('a partial update keeps the other fields',
+      dt?.title === 'Spray North Plot' && dt?.priority === 'high'
+        && dt?.field_name === 'North Plot',
+      `${dt?.title} / ${dt?.priority} / ${dt?.field_name}`);
+
+    const reopened = await call('PUT', `/farm-tasks/${taskId}`, {
+      token,
+      body: { status: 'active' },
+    });
+    record('reopening clears the completion time',
+      reopened.data?.task?.completed_at === null,
+      String(reopened.data?.task?.completed_at));
+
+    const filtered = await call('GET', '/farm-tasks?status=completed', { token });
+    record('filtering by status works', filtered.data?.count === 0,
+      `${filtered.data?.count} completed`);
+
+    const gone = await call('DELETE', `/farm-tasks/${taskId}`, { token });
+    record('delete a task', gone.status === 200, `HTTP ${gone.status}`);
+
+    const after = await call('GET', '/farm-tasks', { token });
+    record('the deleted task is gone', after.data?.count === 0, `${after.data?.count} left`);
+  }
+
   // ── 9. Isolation from a second account ───────────────────────────────────
   console.log('\n9. Isolation');
   const otherEmail = `e2e_other_${rand()}@example.com`;
