@@ -340,6 +340,25 @@ export const pumpService = {
     return [...MOCK_PUMP_GROUPS];
   },
 
+  /**
+   * Today's run hours, water and energy.
+   *
+   * Returns null when it cannot be worked out, so the dashboard can show a
+   * dash rather than a confident zero — the previous code had no way to tell
+   * "nothing ran" from "we do not know", because it invented the figures from
+   * the active pump count either way.
+   */
+  fetchTodaySummary: async () => {
+    if (shouldUseOffline()) return null;
+    try {
+      const { summary } = await pumpAPI.summaryToday();
+      return summary || null;
+    } catch (error) {
+      if (__DEV__) console.warn('Pump summary failed:', error.message);
+      return null;
+    }
+  },
+
   savePump: async (pump) => {
     // Previously returned the pump with a Date.now() id and never contacted the
     // server, so a newly added pump appeared in the list and was gone on the

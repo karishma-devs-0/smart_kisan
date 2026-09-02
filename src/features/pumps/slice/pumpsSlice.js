@@ -15,6 +15,17 @@ export const fetchPumps = createAsyncThunk(
   },
 );
 
+export const fetchTodaySummary = createAsyncThunk(
+  'pumps/fetchTodaySummary',
+  async (_, { rejectWithValue }) => {
+    try {
+      return await pumpService.fetchTodaySummary();
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
 export const fetchGroups = createAsyncThunk(
   'pumps/fetchGroups',
   async (_, { rejectWithValue }) => {
@@ -243,6 +254,7 @@ const initialState = {
   activeTimers: {},
   schedules: {},      // { [pumpId]: [...schedules] }
   history: {},         // { [pumpId]: [...history] }
+  todaySummary: null,  // { runHours, litres, kwh, runCount, hasData } or null
   selectedPumpId: null,
   loading: false,
   controlling: false,  // separate loading state for control actions
@@ -332,6 +344,10 @@ const pumpsSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+    builder.addCase(fetchTodaySummary.fulfilled, (state, action) => {
+      state.todaySummary = action.payload;
+    });
+
     // fetchPumps
     builder
       .addCase(fetchPumps.pending, (state) => {

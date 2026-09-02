@@ -200,6 +200,13 @@ export const pumpAPI = {
   /** Get single pump by ID */
   fetchById: (id) => apiRequest(`/pumps/${id}`),
 
+  /**
+   * Today's run totals for the dashboard, derived from recorded pump runs.
+   * Replaces the numbers the Home screen used to make up from the active pump
+   * count.
+   */
+  summaryToday: () => apiRequest('/pumps/summary/today'),
+
   /** Create a new pump */
   create: (pumpData) =>
     apiRequest('/pumps', {

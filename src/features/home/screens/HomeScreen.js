@@ -17,7 +17,7 @@ import ScreenLayout from '../../../components/common/ScreenLayout';
 import FarmMapWidget from '../../../components/farm/FarmMapWidget';
 import { fetchFields } from '../../fields/slice/fieldsSlice';
 import { fetchDevices } from '../../devices/slice/devicesSlice';
-import { fetchPumps } from '../../pumps/slice/pumpsSlice';
+import { fetchPumps, fetchTodaySummary } from '../../pumps/slice/pumpsSlice';
 import { fetchSoilData } from '../../soil/slice/soilSlice';
 import { fetchCurrentWeather } from '../../weather/slice/weatherSlice';
 
@@ -61,6 +61,7 @@ const HomeScreen = ({ navigation }) => {
   const soilCurrent = useSelector((state) => state.soil.current);
   const weatherCurrent = useSelector((state) => state.weather.current);
   const pumpHistory = useSelector((state) => state.pumps.history);
+  const todaySummary = useSelector((state) => state.pumps.todaySummary);
   const [refreshing, setRefreshing] = React.useState(false);
 
   // Derived values from Redux state
@@ -73,6 +74,7 @@ const HomeScreen = ({ navigation }) => {
     dispatch(fetchFields());
     dispatch(fetchDevices());
     dispatch(fetchPumps());
+    dispatch(fetchTodaySummary());
     dispatch(fetchSoilData());
     dispatch(fetchCurrentWeather());
   };
@@ -167,18 +169,32 @@ const HomeScreen = ({ navigation }) => {
           <Text style={styles.summaryTitle}>{t('home.todaySummary')}</Text>
         </View>
         <View style={styles.summaryRow}>
+          {/* These were activePumps * 1.5 hrs, activePumps * 500 L and
+              activePumps * 3 kWh — invented from the pump count, which is
+              why testers saw the same figures at every login. They now come
+              from recorded pump runs: litres from each pump's flow rate, kWh
+              from its horsepower, both against the time it actually ran.
+
+              A dash rather than a zero when nothing has run today, so the
+              card never asserts a total it does not have. */}
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{totalPumps > 0 ? `${(activePumps * 1.5).toFixed(1)} hrs` : '\u2014'}</Text>
+            <Text style={styles.summaryValue}>
+              {todaySummary?.hasData ? `${todaySummary.runHours} hrs` : '\u2014'}
+            </Text>
             <Text style={styles.summaryLabel}>{t('home.runHours')}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{totalPumps > 0 ? `${(activePumps * 500).toLocaleString()} L` : '\u2014'}</Text>
+            <Text style={styles.summaryValue}>
+              {todaySummary?.hasData ? `${todaySummary.litres.toLocaleString()} L` : '\u2014'}
+            </Text>
             <Text style={styles.summaryLabel}>{t('home.waterUsed')}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{totalPumps > 0 ? `${(activePumps * 3)} kWh` : '\u2014'}</Text>
+            <Text style={styles.summaryValue}>
+              {todaySummary?.hasData ? `${todaySummary.kwh} kWh` : '\u2014'}
+            </Text>
             <Text style={styles.summaryLabel}>{t('home.powerUsed')}</Text>
           </View>
         </View>

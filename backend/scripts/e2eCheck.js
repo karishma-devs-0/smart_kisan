@@ -273,6 +273,62 @@ async function main() {
   const pumps = await call('GET', '/pumps', { token });
   record('pumps list', pumps.status === 200, `${pumps.data?.count ?? 0} pumps`);
 
+  // ── 8b. Pump run recording and the dashboard summary ─────────────────────
+  // The dashboard's "Today" card used to show activePumps * 500 litres and
+  // similar invented arithmetic. It now reads real run history, so this checks
+  // the whole chain: a run is recorded at all (pump_history was empty because
+  // every insert named a column that does not exist), and the totals derived
+  // from it are right.
+  console.log('\n8b. Pump runs');
+
+  const newPump = await call('POST', '/pumps', {
+    token,
+    body: { name: 'E2E Pump', type: 'Submersible', flowRate: 60, powerRating: '2' },
+  });
+  record('create a pump', newPump.status === 201, `HTTP ${newPump.status}`);
+  const pumpId = newPump.data?.pump?.id;
+
+  if (pumpId) {
+    const on = await call('POST', `/pumps/${pumpId}/control`, {
+      token,
+      body: { action: 'on' },
+    });
+    // This answered 500 before: the pump switched, then the history insert
+    // threw inside the same try and the caller was told it had failed.
+    record('turning a pump on succeeds', on.status === 200, `HTTP ${on.status}`);
+
+    // Let it run, so the recorded duration is not zero.
+    await new Promise((r) => setTimeout(r, 2500));
+
+    const off = await call('POST', `/pumps/${pumpId}/control`, {
+      token,
+      body: { action: 'off' },
+    });
+    record('turning a pump off succeeds', off.status === 200, `HTTP ${off.status}`);
+
+    const summary = await call('GET', '/pumps/summary/today', { token });
+    const sm = summary.data?.summary;
+    record('run summary loads', summary.status === 200, `HTTP ${summary.status}`);
+    record('the run was actually recorded', sm?.runCount > 0 && sm?.runSeconds > 0,
+      `runs=${sm?.runCount} seconds=${sm?.runSeconds}`);
+
+    // 60 L/min over the seconds it ran, and 2 HP over the same period.
+    const expectedLitres = Math.round((sm?.runSeconds / 60) * 60);
+    record('litres derived from flow rate and run time',
+      Math.abs(sm?.litres - expectedLitres) <= 1,
+      `${sm?.litres} L, expected ~${expectedLitres}`);
+
+    const expectedKwh = Number(((sm?.runSeconds / 3600) * 2 * 0.7457).toFixed(2));
+    record('energy derived from horsepower and run time',
+      Math.abs(sm?.kwh - expectedKwh) <= 0.01,
+      `${sm?.kwh} kWh, expected ~${expectedKwh}`);
+
+    record('every run had a usable rating', sm?.unratedRuns === 0,
+      `${sm?.unratedRuns} unrated`);
+
+    await call('DELETE', `/pumps/${pumpId}`, { token });
+  }
+
   // ── 9. Isolation from a second account ───────────────────────────────────
   console.log('\n9. Isolation');
   const otherEmail = `e2e_other_${rand()}@example.com`;

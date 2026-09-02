@@ -8,7 +8,6 @@
  */
 
 const mqtt = require('mqtt');
-const { v4: uuidv4 } = require('uuid');
 const db = require('../config/db');
 const { getIO } = require('../socket/socketService');
 
@@ -108,19 +107,22 @@ async function handlePumpCommand(userId, pumpId, data) {
   let duration = null;
 
   if (action === 'on') {
+    // The columns are last_turned_on / last_turned_off. This set last_on_at
+    // and last_run, neither of which exists, so every MQTT pump-on failed at
+    // this query and nothing further in the handler ran.
     await db.query(
       `UPDATE pumps
          SET status = 'on',
-             last_on_at = $1,
-             last_run = $1,
+             last_turned_on = $1,
+             last_action = 'on',
              updated_at = $1
        WHERE id = $2`,
       [nowISO, pumpId],
     );
   } else {
     // OFF — compute how long the pump ran (if it was on).
-    if (pump.status === 'on' && pump.last_on_at) {
-      const lastOn = new Date(pump.last_on_at);
+    if (pump.status === 'on' && pump.last_turned_on) {
+      const lastOn = new Date(pump.last_turned_on);
       if (!isNaN(lastOn.getTime())) {
         duration = Math.max(0, Math.floor((now - lastOn) / 1000));
       }
@@ -128,9 +130,12 @@ async function handlePumpCommand(userId, pumpId, data) {
     await db.query(
       `UPDATE pumps
          SET status = 'off',
+             last_turned_off = $1,
+             last_action = 'off',
+             total_run_time_sec = total_run_time_sec + $2,
              updated_at = $1
-       WHERE id = $2`,
-      [nowISO, pumpId],
+       WHERE id = $3`,
+      [nowISO, duration || 0, pumpId],
     );
     // Clear any active server-side timer.
     if (activeTimers.has(pumpId)) {
@@ -139,12 +144,24 @@ async function handlePumpCommand(userId, pumpId, data) {
     }
   }
 
-  // Log to pump_history. (Schema: id, pump_id, user_id, status, duration, flow_rate, timestamp)
-  await db.query(
-    `INSERT INTO pump_history (id, pump_id, user_id, status, duration, flow_rate, timestamp)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [uuidv4(), pumpId, userId, action, duration, pump.flow_rate, nowISO],
-  );
+  // Log to pump_history.
+  //
+  // The comment above this used to describe a schema the table does not have:
+  // there is no `status` or `flow_rate` column, and `id` is a SERIAL rather
+  // than something to pass a uuid into. The insert therefore threw every time.
+  //
+  // Non-fatal for the same reason as the HTTP route: the pump has already been
+  // switched by this point, and losing a log line must not stop the status
+  // update being published back to the device.
+  try {
+    await db.query(
+      `INSERT INTO pump_history (pump_id, pump_name, user_id, action, triggered_by, duration, timestamp)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [pumpId, pump.name, userId, action, 'mqtt', duration, nowISO],
+    );
+  } catch (historyError) {
+    console.error('pump_history write failed:', historyError.message);
+  }
 
   // Publish status back to the device topic so the app's subscriber updates.
   publishPumpStatus(userId, pumpId, {
