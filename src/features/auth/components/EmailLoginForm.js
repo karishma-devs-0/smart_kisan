@@ -7,7 +7,7 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS } from '../../../constants/layout';
 
-const EmailLoginForm = ({ onLogin, loading }) => {
+const EmailLoginForm = ({ onLogin, onForgotPassword, loading }) => {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,11 +52,8 @@ const EmailLoginForm = ({ onLogin, loading }) => {
       </View>
 
       <View style={styles.row}>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => onForgotPassword?.(email)}>
           <Text style={styles.linkText}>{t('login.forgotPassword')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Text style={styles.linkText}>{t('login.localMode')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -97,7 +94,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     marginBottom: SPACING.xxl,
   },
   linkText: {

@@ -8,7 +8,8 @@
     "dev": "node --watch src/server.js",
     "db:init": "node src/scripts/initDb.js",
     "db:ai": "node src/scripts/addAiPumpSchema.js",
-    "e2e": "node scripts/e2eCheck.js"
+    "e2e": "node scripts/e2eCheck.js",
+    "check:reset": "node scripts/checkPasswordReset.js"
   },
   "keywords": [
     "smartkisan",

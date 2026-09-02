@@ -873,6 +873,17 @@ export default {
   },
 
   // Profile
+  forgotPassword: {
+    title: 'Reset your password',
+    emailLead:
+      'Enter your email address and we will send you a 6-digit code to reset your password.',
+    newPassword: 'New password',
+    confirmPassword: 'Confirm new password',
+    submit: 'Reset password',
+    tooShort: 'Password must be at least 6 characters',
+    backToLogin: 'Back to sign in',
+  },
+
   profile: {
     title: 'My Profile',
     name: 'Full Name',

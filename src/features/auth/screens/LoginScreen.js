@@ -76,6 +76,12 @@ const LoginScreen = ({ navigation }) => {
     dispatch(loginWithEmail({ email, password }));
   };
 
+  // Carry whatever was typed into the email box across, so the reset screen
+  // does not ask for it a second time.
+  const handleForgotPassword = (email) => {
+    navigation.navigate('ForgotPassword', { email: (email || '').trim() });
+  };
+
   /**
    * Returns true when the request was accepted, so the form knows whether to
    * advance to the code entry step. It deliberately does not reveal whether the
@@ -93,7 +99,13 @@ const LoginScreen = ({ navigation }) => {
   const renderForm = () => {
     switch (loginMethod) {
       case 'email':
-        return <EmailLoginForm onLogin={handleEmailLogin} loading={loading} />;
+        return (
+          <EmailLoginForm
+            onLogin={handleEmailLogin}
+            onForgotPassword={handleForgotPassword}
+            loading={loading}
+          />
+        );
       case 'code':
         return (
           <CodeLoginForm
@@ -103,7 +115,13 @@ const LoginScreen = ({ navigation }) => {
           />
         );
       default:
-        return <EmailLoginForm onLogin={handleEmailLogin} loading={loading} />;
+        return (
+          <EmailLoginForm
+            onLogin={handleEmailLogin}
+            onForgotPassword={handleForgotPassword}
+            loading={loading}
+          />
+        );
     }
   };
 
