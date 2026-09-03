@@ -288,6 +288,19 @@ def main():
     # septoria, and the weakest classes after the first fine-tune were the
     # scarce ones. Weighting by inverse frequency asks the model to care about
     # a rare class as much as a common one.
+    # MEASURED: this did not do what it was added for, and is off by default.
+    #
+    # It was meant to lift the scarce classes. Those are exactly the ones that
+    # did not move — mosaic virus stayed at 10% recall and leaf mold at 17% —
+    # while overall accuracy fell from 58.1% to 55.9%, with nine classes worse
+    # against six better. The clinical error rates improved slightly (healthy
+    # called diseased 8% to 6%), but on 90 healthy images that is two
+    # photographs and not worth reading much into.
+    #
+    # The likely reason it cannot help: those classes are not merely rare, they
+    # are hard. Weighting tells the model to care more about examples it is
+    # already being shown; it cannot supply the variety they are missing. More
+    # images of mosaic virus and leaf mold would.
     class_weight = None
     if args.class_weights:
         counts = {}
