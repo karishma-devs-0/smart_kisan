@@ -255,7 +255,29 @@ COFLY_TO_CLASS = {
 #
 # Capped, they do what they are here for: broaden what a broadleaf weed can look
 # like, without any one capture style deciding the class.
+#
+# MEASURED RESULT — the cap was not enough, and DeepWeeds should stay out.
+#
+# Training sorghum + DeepWeeds + CoFly took validation accuracy to 98.3% and
+# the sorghum test split to 97.7%, both slightly better than sorghum alone.
+# On internet_test, the only set that shares no camera or field with the
+# training data, it fell from 86.7% to 53.3%. Grass recall went from 75% to
+# 25%: five grass weeds were called broadleaf.
+#
+# The cause is what the cap was meant to prevent, only stronger than expected.
+# DeepWeeds contributes broadleaf and nothing else, so every image it adds is
+# evidence for one class, carrying a background found nowhere else in the set.
+# Broadleaf was already at 100% recall before it was added — it strengthened
+# the class that needed no help, at the cost of the one that did.
+#
+# The lesson is about which number to trust. Validation rose while the model
+# got worse at its actual job, because validation is drawn from the same
+# collections as training. Judge by evaluate_weed_model.py's last set.
 SECONDARY_CAP_PER_CLASS = 500
+
+# Which extra collections load_combined draws on, over-ridden by --sources.
+# DeepWeeds is out by default for the reason above.
+DEFAULT_SOURCES = ('cofly',)
 
 
 def _capped(rows, cap, seed):
@@ -273,7 +295,7 @@ def _capped(rows, cap, seed):
     return out
 
 
-def load_combined():
+def load_combined(sources=DEFAULT_SOURCES):
     """Sorghum, widened with capped broadleaf and grass from other sources.
 
     Built for the complaint the sorghum-only model draws: it was trained on one
@@ -300,7 +322,8 @@ def load_combined():
     extra = []
 
     # ── DeepWeeds: broadleaf species diversity ──
-    if os.path.isdir(GOG_IMAGES) and os.path.exists(GOG_LABELS):
+    # Off unless asked for; see SECONDARY_CAP_PER_CLASS for what it did.
+    if 'deepweeds' in sources and os.path.isdir(GOG_IMAGES) and os.path.exists(GOG_LABELS):
         rows = []
         with open(GOG_LABELS, newline='', encoding='utf-8') as fh:
             for row in csv.DictReader(fh):
@@ -313,12 +336,14 @@ def load_combined():
         capped = _capped(rows, SECONDARY_CAP_PER_CLASS, SEED)
         parts['deepweeds'] = len(capped)
         extra += capped
-    else:
+    elif 'deepweeds' in sources:
         print('  note: DeepWeeds not present, skipping')
 
     # ── CoFly: the only in-crop grass weed available ──
+    # Grass is the weak class on real photographs, so this is the source worth
+    # having: johnson grass inside a crop canopy.
     cofly_root = os.path.join(HERE, 'data', 'cofly_patches')
-    if os.path.isdir(cofly_root):
+    if 'cofly' in sources and os.path.isdir(cofly_root):
         rows = []
         for folder in sorted(os.listdir(cofly_root)):
             mapped = COFLY_TO_CLASS.get(folder)
@@ -331,7 +356,7 @@ def load_combined():
         capped = _capped(rows, SECONDARY_CAP_PER_CLASS, SEED)
         parts['cofly'] = len(capped)
         extra += capped
-    else:
+    elif 'cofly' in sources:
         print('  note: CoFly patches not present, skipping')
 
     e_train, e_valid = stratified_split(extra, VALID_FRACTION, SEED)
@@ -551,6 +576,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--task', choices=['gog', 'yog', 'cofly', 'sorghum', 'combined'],
                     required=True)
+    ap.add_argument('--sources', default=','.join(DEFAULT_SOURCES),
+                    help='comma-separated extra sources for --task combined: '
+                         'cofly, deepweeds. Sorghum is always included.')
     ap.add_argument('--epochs1', type=int, default=10)
     ap.add_argument('--epochs2', type=int, default=15)
     ap.add_argument('--limit', type=int, default=0, help='cap images (smoke test)')
@@ -573,8 +601,10 @@ def main():
 
     tf.random.set_seed(SEED)
 
+    sources = tuple(x.strip() for x in args.sources.split(',') if x.strip())
     loaders = {'gog': load_gog, 'yog': load_yog, 'cofly': load_cofly,
-               'sorghum': load_sorghum, 'combined': load_combined}
+               'sorghum': load_sorghum,
+               'combined': lambda: load_combined(sources)}
     (train_pairs, valid_pairs), class_names = loaders[args.task]()
 
     if args.limit:

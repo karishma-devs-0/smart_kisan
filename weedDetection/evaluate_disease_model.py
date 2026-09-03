@@ -121,8 +121,20 @@ def post_image(path, timeout=90):
         headers={'Content-Type': f'multipart/form-data; boundary={boundary}'},
         method='POST',
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode())
+
+    # A long run trips over transient DNS failures on this connection - the
+    # first pass lost 129 of 236 images to getaddrinfo, which would have been
+    # read as the model failing rather than the network. Retried with a short
+    # backoff so the measurement reflects the model.
+    last = None
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode())
+        except Exception as e:
+            last = e
+            time.sleep(1.5 * (attempt + 1))
+    raise last
 
 
 def collect(limit_per_class=None):
