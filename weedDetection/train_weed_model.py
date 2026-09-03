@@ -209,6 +209,150 @@ def load_sorghum():
     return (train, valid), class_names
 
 
+# DeepWeeds species, mapped onto the three classes the app uses.
+#
+# All eight named species are broadleaf; DeepWeeds contains no grass class,
+# which is why it cannot be used on its own for a grass-vs-broadleaf model.
+#
+# Five of the eight are serious weeds in India too, not only Australia:
+# parthenium (congress grass) and lantana are among the worst invasives on
+# Indian farmland, and siam weed, chinee apple and snake weed are all present.
+# That is the argument for including them despite the imagery being Australian
+# rangeland - they add broadleaf species a farmer here may actually photograph.
+DEEPWEEDS_TO_CLASS = {
+    'Parthenium': 'broadleaf_weed',
+    'Lantana': 'broadleaf_weed',
+    'Siam weed': 'broadleaf_weed',
+    'Chinee apple': 'broadleaf_weed',
+    'Snake weed': 'broadleaf_weed',
+    'Parkinsonia': 'broadleaf_weed',
+    'Prickly acacia': 'broadleaf_weed',
+    'Rubber vine': 'broadleaf_weed',
+    # 'Negative' is rangeland background - soil, grass litter, sky. It is not
+    # crop and not a weed, and there is no class for it here, so it is dropped
+    # rather than forced into one.
+}
+
+# Weeds in the CoFly cotton patches, by growth habit.
+COFLY_TO_CLASS = {
+    'johnson_grass': 'grass_weed',
+    'field_bindweed': 'broadleaf_weed',
+    'purslane': 'broadleaf_weed',
+    # 'background' is bare soil and cotton canopy shot from 5 m. Excluded: it
+    # is not a clean crop close-up and would teach the crop class a drone's
+    # viewpoint that no handheld photo produces.
+}
+
+# How many images each secondary source may contribute per class.
+#
+# The point of this cap. Sorghum is the only source that matches how the app is
+# used - handheld, 20-40 cm, Indian field - and it has about a thousand images
+# per class. DeepWeeds alone has 8,163 broadleaf images shot in dry Australian
+# rangeland. Added uncapped, four out of five broadleaf examples would share a
+# background nothing else in the set has, and the quickest way for the model to
+# fit that is to learn the background rather than the plant. It would then score
+# well in validation and fail on a photograph taken in a sorghum field.
+#
+# Capped, they do what they are here for: broaden what a broadleaf weed can look
+# like, without any one capture style deciding the class.
+SECONDARY_CAP_PER_CLASS = 500
+
+
+def _capped(rows, cap, seed):
+    """Take at most `cap` rows per class, chosen deterministically."""
+    by_class = {}
+    for path, label in rows:
+        by_class.setdefault(label, []).append(path)
+
+    out = []
+    rng = random.Random(seed)
+    for label, paths in sorted(by_class.items()):
+        paths = sorted(paths)
+        rng.shuffle(paths)
+        out += [(p, label) for p in paths[:cap]]
+    return out
+
+
+def load_combined():
+    """Sorghum, widened with capped broadleaf and grass from other sources.
+
+    Built for the complaint the sorghum-only model draws: it was trained on one
+    crop, in one district, over one season, so anything outside that looks
+    unfamiliar. Every image here is still ground-level, but they now come from
+    three collections rather than one.
+
+    Sorghum is taken whole and keeps the authors' own split, which is by
+    photograph - so no frame appears in both halves. The other sources are
+    capped (see SECONDARY_CAP_PER_CLASS) and split stratified.
+
+    Note what this does not fix: `crop` still means sorghum, because sorghum is
+    the only source with labelled crop close-ups. A model trained here will
+    recognise weeds more widely than before but still judges "is this the crop"
+    against sorghum seedlings. Wheat, rice and cotton close-ups are the next
+    thing worth collecting.
+    """
+    parts = {'sorghum': 0, 'deepweeds': 0, 'cofly': 0}
+
+    # ── Sorghum: the core, used in full, split as published ──
+    (s_train, s_valid), _ = load_sorghum()
+    parts['sorghum'] = len(s_train) + len(s_valid)
+
+    extra = []
+
+    # ── DeepWeeds: broadleaf species diversity ──
+    if os.path.isdir(GOG_IMAGES) and os.path.exists(GOG_LABELS):
+        rows = []
+        with open(GOG_LABELS, newline='', encoding='utf-8') as fh:
+            for row in csv.DictReader(fh):
+                mapped = DEEPWEEDS_TO_CLASS.get(row['Species'])
+                if not mapped:
+                    continue
+                path = os.path.join(GOG_IMAGES, row['Filename'])
+                if os.path.exists(path):
+                    rows.append((path, mapped))
+        capped = _capped(rows, SECONDARY_CAP_PER_CLASS, SEED)
+        parts['deepweeds'] = len(capped)
+        extra += capped
+    else:
+        print('  note: DeepWeeds not present, skipping')
+
+    # ── CoFly: the only in-crop grass weed available ──
+    cofly_root = os.path.join(HERE, 'data', 'cofly_patches')
+    if os.path.isdir(cofly_root):
+        rows = []
+        for folder in sorted(os.listdir(cofly_root)):
+            mapped = COFLY_TO_CLASS.get(folder)
+            if not mapped:
+                continue
+            d = os.path.join(cofly_root, folder)
+            for name in sorted(os.listdir(d)):
+                if name.lower().endswith(('.jpg', '.jpeg', '.png')):
+                    rows.append((os.path.join(d, name), mapped))
+        capped = _capped(rows, SECONDARY_CAP_PER_CLASS, SEED)
+        parts['cofly'] = len(capped)
+        extra += capped
+    else:
+        print('  note: CoFly patches not present, skipping')
+
+    e_train, e_valid = stratified_split(extra, VALID_FRACTION, SEED)
+
+    train = s_train + e_train
+    valid = s_valid + e_valid
+
+    rng = random.Random(SEED)
+    rng.shuffle(train)
+    rng.shuffle(valid)
+
+    counts = {}
+    for _, label in train:
+        counts[label] = counts.get(label, 0) + 1
+    print('  sources: ' + ', '.join(f'{k}={v}' for k, v in parts.items() if v))
+    print('  train by class: ' + ', '.join(f'{k}={v}' for k, v in sorted(counts.items())))
+
+    class_names = sorted({l for _, l in train})
+    return (train, valid), class_names
+
+
 def load_yog():
     """PlantVillage, regrouped into healthy / chlorosis / other_stress.
 
@@ -405,7 +549,8 @@ def run_phase(model, phase, epochs, train_ds, valid_ds, class_weight,
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--task', choices=['gog', 'yog', 'cofly', 'sorghum'], required=True)
+    ap.add_argument('--task', choices=['gog', 'yog', 'cofly', 'sorghum', 'combined'],
+                    required=True)
     ap.add_argument('--epochs1', type=int, default=10)
     ap.add_argument('--epochs2', type=int, default=15)
     ap.add_argument('--limit', type=int, default=0, help='cap images (smoke test)')
@@ -429,7 +574,7 @@ def main():
     tf.random.set_seed(SEED)
 
     loaders = {'gog': load_gog, 'yog': load_yog, 'cofly': load_cofly,
-               'sorghum': load_sorghum}
+               'sorghum': load_sorghum, 'combined': load_combined}
     (train_pairs, valid_pairs), class_names = loaders[args.task]()
 
     if args.limit:
