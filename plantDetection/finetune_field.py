@@ -53,6 +53,15 @@ same collections as training, so it keeps improving while the model narrows
 onto them. Judge a change by evaluate_field_model.py against PlantDoc test,
 never by the validation figure.
 
+Test-time augmentation was measured too and is not used. Averaging the model
+over four flipped views of the same photograph leaves accuracy at 58.1% and
+moves both clinical error rates about two points in the right direction —
+healthy-called-diseased 8% to 6%, diseased-called-healthy 9% to 7% — for 3.4
+times the inference cost. Six views are worse than four (56.8%). The gain is
+real but small, and it would put several seconds onto every scan on a hosted
+free tier that is already slow to wake. Worth revisiting if inference ever
+gets cheap; not worth it now.
+
 Usage:
   python finetune_field.py                 # full run
   python finetune_field.py --epochs 8
@@ -243,6 +252,8 @@ def main():
     ap.add_argument('--field-repeat', type=int, default=3,
                     help='times each PlantDoc training image is repeated')
     ap.add_argument('--lr', type=float, default=1e-4)
+    ap.add_argument('--class-weights', action='store_true',
+                    help='weight rare classes up by inverse frequency')
     ap.add_argument('--unfreeze', type=int, default=40,
                     help='trainable layers at the top of the backbone')
     args = ap.parse_args()
@@ -269,6 +280,28 @@ def main():
 
     train_ds = build_dataset(train_pairs, class_order, True)
     valid_ds = build_dataset(valid_pairs, class_order, False)
+
+    # Class weights, optional.
+    #
+    # Repeating the field images balances field against lab, but not the
+    # classes against each other: PlantDoc has 44 mosaic-virus images and 140
+    # septoria, and the weakest classes after the first fine-tune were the
+    # scarce ones. Weighting by inverse frequency asks the model to care about
+    # a rare class as much as a common one.
+    class_weight = None
+    if args.class_weights:
+        counts = {}
+        index = {name: i for i, name in enumerate(class_order)}
+        for _, cls in train_pairs:
+            counts[index[cls]] = counts.get(index[cls], 0) + 1
+        total = sum(counts.values())
+        k = len(counts)
+        # Capped: an unbounded weight on a class with a handful of examples
+        # makes the loss lurch on the few batches that contain it.
+        class_weight = {i: min(4.0, total / (k * c)) for i, c in counts.items()}
+        lo = min(class_weight.values())
+        hi = max(class_weight.values())
+        print(f'  class weights: {lo:.2f} to {hi:.2f} across {k} classes')
 
     print(f'\nloading {BASE_MODEL}')
     model = keras.models.load_model(BASE_MODEL)
@@ -323,7 +356,8 @@ def main():
     model.compile(optimizer=keras.optimizers.Adam(args.lr),
                   loss='categorical_crossentropy', metrics=['accuracy'])
     model.fit(train_ds, epochs=max(2, args.epochs // 3),
-              validation_data=valid_ds, callbacks=callbacks)
+              validation_data=valid_ds, callbacks=callbacks,
+              class_weight=class_weight)
 
     print('\nstage 2: head plus the top of the backbone')
     for layer in backbone.layers[-args.unfreeze:]:
@@ -334,7 +368,7 @@ def main():
     model.compile(optimizer=keras.optimizers.Adam(args.lr / 10),
                   loss='categorical_crossentropy', metrics=['accuracy'])
     model.fit(train_ds, epochs=args.epochs, validation_data=valid_ds,
-              callbacks=callbacks)
+              callbacks=callbacks, class_weight=class_weight)
 
     model.save(os.path.join(OUT_DIR, 'field_model.keras'))
 
