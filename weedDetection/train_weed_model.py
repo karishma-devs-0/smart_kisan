@@ -256,28 +256,48 @@ COFLY_TO_CLASS = {
 # Capped, they do what they are here for: broaden what a broadleaf weed can look
 # like, without any one capture style deciding the class.
 #
-# MEASURED RESULT — the cap was not enough, and DeepWeeds should stay out.
+# MEASURED RESULT - both extra sources made the model worse. Neither is used.
 #
-# Training sorghum + DeepWeeds + CoFly took validation accuracy to 98.3% and
-# the sorghum test split to 97.7%, both slightly better than sorghum alone.
-# On internet_test, the only set that shares no camera or field with the
-# training data, it fell from 86.7% to 53.3%. Grass recall went from 75% to
-# 25%: five grass weeds were called broadleaf.
+# Scored with evaluate_weed_model.py. The middle column is the held-out split
+# of the training collection; the last is photographs sharing no camera or
+# field with any of it.
 #
-# The cause is what the cap was meant to prevent, only stronger than expected.
-# DeepWeeds contributes broadleaf and nothing else, so every image it adds is
-# evidence for one class, carrying a background found nowhere else in the set.
-# Broadleaf was already at 100% recall before it was added — it strengthened
-# the class that needed no help, at the cost of the one that did.
+#     training set                sorghum-test    internet_test
+#     sorghum only (shipped)          97.4%           86.7%
+#     + CoFly grass                   97.0%           73.3%
+#     + CoFly + DeepWeeds             97.7%           53.3%
 #
-# The lesson is about which number to trust. Validation rose while the model
-# got worse at its actual job, because validation is drawn from the same
-# collections as training. Judge by evaluate_weed_model.py's last set.
+# Every addition moved the two columns in opposite directions. The best
+# sorghum-test score belongs to the worst real-world model.
+#
+# Why each hurt:
+#
+#   DeepWeeds contributes broadleaf and nothing else, so every image it adds
+#   is evidence for one class while carrying a dry rangeland background found
+#   nowhere else in the set. Broadleaf was already at 100% recall. It
+#   strengthened the class needing no help and grass recall fell from 75% to
+#   25% - five grass weeds called broadleaf.
+#
+#   CoFly is drone imagery shot straight down from 5 m. No handheld photograph
+#   resembles that viewpoint, so it teaches a way of seeing the app will never
+#   be given, diluting the handheld signal that actually matters.
+#
+# What this says about the data, not the training: more images do not help if
+# they were captured differently from how the app is used. Sorghum works
+# because it is handheld at 20-40 cm in an Indian field, which is what a farmer
+# produces. The gap worth filling is more of that - and particularly non-
+# sorghum crops, since `crop` currently means sorghum and nothing else. Wheat,
+# rice and cotton close-ups would help; another rangeland or drone collection
+# would not.
+#
+# Judge any future change by the last column. Validation accuracy rose while
+# the model got worse at its job, because validation is drawn from the same
+# collections as training.
 SECONDARY_CAP_PER_CLASS = 500
 
-# Which extra collections load_combined draws on, over-ridden by --sources.
-# DeepWeeds is out by default for the reason above.
-DEFAULT_SOURCES = ('cofly',)
+# No extra sources by default: both available ones were measured as harmful.
+# Kept selectable so the experiment can be repeated against new data.
+DEFAULT_SOURCES = ()
 
 
 def _capped(rows, cap, seed):
@@ -307,11 +327,16 @@ def load_combined(sources=DEFAULT_SOURCES):
     photograph - so no frame appears in both halves. The other sources are
     capped (see SECONDARY_CAP_PER_CLASS) and split stratified.
 
-    Note what this does not fix: `crop` still means sorghum, because sorghum is
-    the only source with labelled crop close-ups. A model trained here will
-    recognise weeds more widely than before but still judges "is this the crop"
-    against sorghum seedlings. Wheat, rice and cotton close-ups are the next
-    thing worth collecting.
+    Measured outcome: with no extra sources this is sorghum alone, which is the
+    best model available. Both collections that could be added were tried and
+    both made real-world accuracy worse - see SECONDARY_CAP_PER_CLASS for the
+    numbers and the reasons. The task is kept so the experiment can be re-run
+    when genuinely comparable data exists.
+
+    `crop` also still means sorghum, because sorghum is the only source with
+    labelled crop close-ups. The model judges "is this the crop" against
+    sorghum seedlings, so wheat, rice and cotton close-ups are the single most
+    useful thing left to collect.
     """
     parts = {'sorghum': 0, 'deepweeds': 0, 'cofly': 0}
 
