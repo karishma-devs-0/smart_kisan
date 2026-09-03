@@ -262,13 +262,21 @@ COFLY_TO_CLASS = {
 # of the training collection; the last is photographs sharing no camera or
 # field with any of it.
 #
-#     training set                sorghum-test    internet_test
-#     sorghum only (shipped)          97.4%           86.7%
-#     + CoFly grass                   97.0%           73.3%
-#     + CoFly + DeepWeeds             97.7%           53.3%
+#     training set              sorghum-test  internet_test  deepweeds-ood
+#                                    (431)          (15)           (600)
+#     sorghum only (shipped)         97.4%          86.7%          52.5%
+#     + CoFly grass                  97.0%          73.3%          29.3%
+#     + CoFly + DeepWeeds            97.7%          53.3%             --
 #
-# Every addition moved the two columns in opposite directions. The best
+# Every addition moved the columns in opposite directions, and the best
 # sorghum-test score belongs to the worst real-world model.
+#
+# The deepweeds-ood column was added because internet_test holds 15 images, so
+# the gap between 86.7% and 73.3% there is two photographs — too thin to carry
+# a conclusion. On 600 images the same ordering holds and the margin widens:
+# adding CoFly pushed the model towards answering "grass", and 398 of 600
+# broadleaf images were misread that way against 216 before. The last cell is
+# empty because a model trained on DeepWeeds cannot be scored against it.
 #
 # Why each hurt:
 #

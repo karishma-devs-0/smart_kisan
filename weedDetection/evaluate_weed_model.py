@@ -44,6 +44,9 @@ IMG_SIZE = 224
 
 DEFAULT_MODEL = os.path.join(HERE, 'model', 'sorghum', 'best.keras')
 
+GOG_IMAGES = os.path.join(HERE, 'data', 'images')
+GOG_LABELS = os.path.join(HERE, 'data', 'labels.csv')
+
 # The three classes the app uses, in the order the model emits them.
 CLASSES = ['broadleaf_weed', 'crop', 'grass_weed']
 
@@ -98,10 +101,80 @@ def _labelled_folder(folder, strip_prefix=None, split_on=None):
     return pairs
 
 
+# CoFly and DeepWeeds as test sets rather than training data.
+#
+# The shipped model is trained on sorghum alone, so both of these are entirely
+# unseen by it, and between them they are two orders of magnitude larger than
+# internet_test. That matters: internet_test holds 15 images, so the difference
+# between 86.7% and 73.3% there is two photographs. It is the closest set to
+# real use and worth reporting, but it cannot carry a conclusion by itself.
+#
+# CAVEAT. These are only out-of-distribution for a model that did not train on
+# them. Scoring a --sources cofly model against cofly-ood measures memorisation,
+# not generalisation. The script warns rather than guessing which is the case.
+
+COFLY_TO_CLASS = {
+    'johnson_grass': 'grass_weed',
+    'field_bindweed': 'broadleaf_weed',
+    'purslane': 'broadleaf_weed',
+    # 'background' is bare soil and canopy from 5 m, belonging to no class here.
+}
+
+# All eight named DeepWeeds species are broadleaf. It therefore tests one class
+# only, and a model that answered "broadleaf" to everything would score 100% on
+# it — read it alongside the others, never alone.
+DEEPWEEDS_SPECIES = {
+    'Chinee apple', 'Lantana', 'Parkinsonia', 'Parthenium',
+    'Prickly acacia', 'Rubber vine', 'Siam weed', 'Snake weed',
+}
+
+
+def cofly_ood(cap_per_class=400):
+    """In-crop patches from UAV frames — a different camera and viewpoint."""
+    root = os.path.join(HERE, 'data', 'cofly_patches')
+    if not os.path.isdir(root):
+        return []
+    import random as _random
+    rng = _random.Random(1337)
+    pairs = []
+    for folder in sorted(os.listdir(root)):
+        cls = COFLY_TO_CLASS.get(folder)
+        if not cls:
+            continue
+        d = os.path.join(root, folder)
+        names = sorted(n for n in os.listdir(d)
+                       if n.lower().endswith(('.jpg', '.jpeg', '.png')))
+        rng.shuffle(names)
+        for n in names[:cap_per_class]:
+            pairs.append((os.path.join(d, n), cls))
+    return pairs
+
+
+def deepweeds_ood(cap=600):
+    """Australian rangeland species, all broadleaf. Tests one class only."""
+    if not (os.path.isdir(GOG_IMAGES) and os.path.exists(GOG_LABELS)):
+        return []
+    import csv as _csv
+    import random as _random
+    rows = []
+    with open(GOG_LABELS, newline='', encoding='utf-8') as fh:
+        for row in _csv.DictReader(fh):
+            if row['Species'] not in DEEPWEEDS_SPECIES:
+                continue
+            path = os.path.join(GOG_IMAGES, row['Filename'])
+            if os.path.exists(path):
+                rows.append((path, 'broadleaf_weed'))
+    rng = _random.Random(1337)
+    rng.shuffle(rows)
+    return rows[:cap]
+
+
 SETS = {
     'sorghum-test': sorghum_test,
     'test_pack': lambda: _labelled_folder('test_pack', strip_prefix='EXPECT_'),
     'internet_test': lambda: _labelled_folder('internet_test', split_on='__'),
+    'cofly-ood': cofly_ood,
+    'deepweeds-ood': deepweeds_ood,
 }
 
 
@@ -205,17 +278,21 @@ def main():
             continue
         probs = predict_all(model, [p for p, _ in pairs])
         # internet_test is small enough to be worth reading image by image.
+        # Listing every image is useful for a handful, unreadable for hundreds.
         results[name] = report(name, pairs, probs, CLASSES,
-                               show_each=args.each or name != 'sorghum-test')
+                               show_each=args.each or len(pairs) <= 20)
 
     if len(results) > 1:
         print('\nsummary')
         for name, acc in results.items():
             if acc is not None:
                 print(f'  {name:16s} {acc:5.1f}%')
-        print('\nThe last of these is the one to judge the model by: it is the '
-              'only set\nthat does not share a camera or a field with the '
-              'training data.')
+        print('\ninternet_test is closest to real use but holds only 15 images,'
+              '\nso a few photographs move it a long way. cofly-ood and'
+              '\ndeepweeds-ood are far larger and also unseen by a sorghum-only'
+              '\nmodel, but each is narrower: CoFly is drone imagery, and every'
+              '\nDeepWeeds image is broadleaf, so a model answering "broadleaf"'
+              '\nto everything would score 100% there. Read them together.')
 
 
 if __name__ == '__main__':
