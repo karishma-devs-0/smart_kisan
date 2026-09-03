@@ -101,3 +101,8 @@ weedDetection/model/
 # Python bytecode cache
 __pycache__/
 *.pyc
+
+# Fine-tuned disease model: the Keras checkpoints are ~27 MB each and are
+# reproducible from finetune_field.py. The .tflite is what gets served, is
+# small, and is kept.
+plantDetection/model/**/*.keras

@@ -1124,8 +1124,27 @@ export const onboardingService = {
 /**
  * Below this the classifier's answer is not usable. See the check in
  * scanImage for why naming a disease under it is actively harmful.
+ *
+ * Chosen by measurement, not by feel. Scoring the model against PlantDoc's 236
+ * field photographs at a range of floors (plantDetection/evaluate_field_model.py):
+ *
+ *   floor   scans answered   of those correct   wrong answers shown
+ *     0%         100%              57%            43% of all scans
+ *    50%          70%              69%            22%
+ *    60%          56%              75%            14%
+ *    70%          47%              84%             8%
+ *    80%          41%              86%             6%
+ *
+ * 70 is where the curve turns. Going from 60 to 70 nearly halves the wrong
+ * diagnoses a farmer is shown, for nine points of coverage. Past 70 the
+ * accuracy gain flattens while coverage keeps falling, so the extra silence
+ * buys little.
+ *
+ * The asymmetry is the point: an unanswered scan costs someone another
+ * photograph, and a wrong one costs them a fungicide and a sprayed plant that
+ * did not need it.
  */
-const MIN_SCAN_CONFIDENCE = 60;
+const MIN_SCAN_CONFIDENCE = 70;
 
 /** Distinguishes "the model answered, but not usefully" from "it did not answer". */
 class LowConfidenceError extends Error {}
