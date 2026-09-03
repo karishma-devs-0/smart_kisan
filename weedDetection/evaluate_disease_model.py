@@ -57,41 +57,48 @@ SPACE_URL = os.environ.get(
 # naming a disease and a treatment. See scanImage in src/services/api.js.
 MIN_CONFIDENCE = 60
 
-# PlantDoc folder -> the crop and disease the model should return.
+# PlantDoc folder -> the exact PlantVillage class the model should return.
 #
-# `None` disease means a healthy leaf. Classes PlantDoc has that the model was
-# never trained on are mapped to None/None and skipped, rather than counted as
-# failures - the model cannot be marked down for a class that does not exist in
-# its output space.
-PLANTDOC_TO_TRUTH = {
-    'Apple Scab Leaf':            ('Apple', 'Apple scab'),
-    'Apple leaf':                 ('Apple', None),
-    'Apple rust leaf':            ('Apple', 'Cedar apple rust'),
-    'Bell_pepper leaf':           ('Pepper', None),
-    'Bell_pepper leaf spot':      ('Pepper', 'Bacterial spot'),
-    'Blueberry leaf':             ('Blueberry', None),
-    'Cherry leaf':                ('Cherry', None),
-    'Corn Gray leaf spot':        ('Corn', 'Cercospora leaf spot Gray leaf spot'),
-    'Corn leaf blight':           ('Corn', 'Northern Leaf Blight'),
-    'Corn rust leaf':             ('Corn', 'Common rust'),
-    'Peach leaf':                 ('Peach', None),
-    'Potato leaf early blight':   ('Potato', 'Early blight'),
-    'Potato leaf late blight':    ('Potato', 'Late blight'),
-    'Raspberry leaf':             ('Raspberry', None),
-    'Soyabean leaf':              ('Soybean', None),
-    'Squash Powdery mildew leaf': ('Squash', 'Powdery mildew'),
-    'Strawberry leaf':            ('Strawberry', None),
-    'Tomato Early blight leaf':   ('Tomato', 'Early blight'),
-    'Tomato Septoria leaf spot':  ('Tomato', 'Septoria leaf spot'),
-    'Tomato leaf bacterial spot': ('Tomato', 'Bacterial spot'),
-    'Tomato leaf late blight':    ('Tomato', 'Late blight'),
-    'Tomato leaf mosaic virus':   ('Tomato', 'Tomato mosaic virus'),
-    'Tomato leaf yellow virus':   ('Tomato', 'Tomato Yellow Leaf Curl Virus'),
-    'Tomato leaf':                ('Tomato', None),
-    'Tomato mold leaf':           ('Tomato', 'Leaf Mold'),
-    'grape leaf black rot':       ('Grape', 'Black rot'),
-    'grape leaf':                 ('Grape', None),
+# Compared against the response's `class_name` rather than its prettified
+# `disease` field. The pretty names are not stable against the dataset labels:
+# the model answers "Gray Leaf Spot" where PlantVillage calls the class
+# "Cercospora_leaf_spot Gray_leaf_spot", so a first pass scored every one of
+# those as wrong when they were right. class_name is the label the model was
+# trained on and matches PlantVillage exactly, so there is nothing to guess.
+PLANTDOC_TO_CLASS = {
+    'Apple Scab Leaf':            'Apple___Apple_scab',
+    'Apple leaf':                 'Apple___healthy',
+    'Apple rust leaf':            'Apple___Cedar_apple_rust',
+    'Bell_pepper leaf':           'Pepper,_bell___healthy',
+    'Bell_pepper leaf spot':      'Pepper,_bell___Bacterial_spot',
+    'Blueberry leaf':             'Blueberry___healthy',
+    'Cherry leaf':                'Cherry_(including_sour)___healthy',
+    'Corn Gray leaf spot':        'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot',
+    'Corn leaf blight':           'Corn_(maize)___Northern_Leaf_Blight',
+    'Corn rust leaf':             'Corn_(maize)___Common_rust_',
+    'Peach leaf':                 'Peach___healthy',
+    'Potato leaf early blight':   'Potato___Early_blight',
+    'Potato leaf late blight':    'Potato___Late_blight',
+    'Raspberry leaf':             'Raspberry___healthy',
+    'Soyabean leaf':              'Soybean___healthy',
+    'Squash Powdery mildew leaf': 'Squash___Powdery_mildew',
+    'Strawberry leaf':            'Strawberry___healthy',
+    'Tomato Early blight leaf':   'Tomato___Early_blight',
+    'Tomato Septoria leaf spot':  'Tomato___Septoria_leaf_spot',
+    'Tomato leaf bacterial spot': 'Tomato___Bacterial_spot',
+    'Tomato leaf late blight':    'Tomato___Late_blight',
+    'Tomato leaf mosaic virus':   'Tomato___Tomato_mosaic_virus',
+    'Tomato leaf yellow virus':   'Tomato___Tomato_Yellow_Leaf_Curl_Virus',
+    'Tomato leaf':                'Tomato___healthy',
+    'Tomato mold leaf':           'Tomato___Leaf_Mold',
+    'grape leaf black rot':       'Grape___Black_rot',
+    'grape leaf':                 'Grape___healthy',
 }
+
+
+def crop_of(class_name):
+    """The crop half of a PlantVillage label."""
+    return class_name.split('___')[0] if class_name else ''
 
 
 def normalise(text):
@@ -143,8 +150,8 @@ def collect(limit_per_class=None):
 
     items = []
     for folder in sorted(os.listdir(PLANTDOC_TEST)):
-        truth = PLANTDOC_TO_TRUTH.get(folder)
-        if not truth:
+        expected = PLANTDOC_TO_CLASS.get(folder)
+        if not expected:
             print(f'  note: no mapping for "{folder}", skipped')
             continue
         d = os.path.join(PLANTDOC_TEST, folder)
@@ -155,7 +162,7 @@ def collect(limit_per_class=None):
         if limit_per_class:
             names = names[:limit_per_class]
         for n in names:
-            items.append((os.path.join(d, n), truth[0], truth[1], folder))
+            items.append((os.path.join(d, n), expected, folder))
     return items
 
 
@@ -192,7 +199,7 @@ def main():
     failures = 0
     rows = []
 
-    for i, (path, crop, disease, folder) in enumerate(items, 1):
+    for i, (path, expected, folder) in enumerate(items, 1):
         try:
             r = post_image(path)
         except Exception as e:
@@ -201,12 +208,11 @@ def main():
                   f'{os.path.basename(path)}: {e}')
             continue
 
-        got_crop = r.get('crop')
-        got_disease = None if r.get('is_healthy') else r.get('disease')
+        got_class = r.get('class_name') or ''
         conf = float(r.get('confidence') or 0)
 
-        crop_ok = normalise(got_crop) == normalise(crop)
-        disease_ok = normalise(got_disease) == normalise(disease)
+        crop_ok = normalise(crop_of(got_class)) == normalise(crop_of(expected))
+        disease_ok = normalise(got_class) == normalise(expected)
         crop_hits += crop_ok
         disease_hits += disease_ok
 
@@ -215,10 +221,10 @@ def main():
             if not disease_ok:
                 below_floor_wrong += 1
         elif not disease_ok:
-            confidently_wrong.append((folder, got_crop, got_disease, conf))
+            confidently_wrong.append((folder, got_class, conf))
 
-        rows.append((folder, os.path.basename(path), crop, disease,
-                     got_crop, got_disease, conf, crop_ok, disease_ok))
+        rows.append((folder, os.path.basename(path), expected, got_class,
+                     conf, crop_ok, disease_ok))
 
         if i % 25 == 0:
             print(f'  {i}/{len(items)}...')
@@ -253,7 +259,7 @@ def main():
     print('\n  by class (disease correct):')
     by_folder = {}
     for r in rows:
-        by_folder.setdefault(r[0], []).append(r[8])
+        by_folder.setdefault(r[0], []).append(r[6])
     for folder in sorted(by_folder):
         hits = by_folder[folder]
         print(f'    {folder:30s} {100 * sum(hits) / len(hits):5.1f}%  '
@@ -261,15 +267,15 @@ def main():
 
     if confidently_wrong:
         print('\n  most confident mistakes:')
-        for folder, gc, gd, conf in sorted(confidently_wrong,
-                                           key=lambda x: -x[3])[:10]:
-            print(f'    {folder:30s} -> {gc} / {gd}  at {conf:.1f}%')
+        for folder, got, conf in sorted(confidently_wrong,
+                                        key=lambda x: -x[2])[:12]:
+            print(f'    {folder:30s} -> {got}  at {conf:.1f}%')
 
     if args.each:
         print('\n  every image:')
-        for (folder, name, crop, dis, gc, gd, conf, ck, dk) in rows:
+        for (folder, name, expected, got, conf, ck, dk) in rows:
             print(f'    {"ok  " if dk else "MISS"} {name:34s} '
-                  f'true={crop}/{dis}  pred={gc}/{gd}  {conf:.1f}%')
+                  f'true={expected}  pred={got}  {conf:.1f}%')
 
 
 if __name__ == '__main__':
