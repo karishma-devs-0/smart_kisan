@@ -41,6 +41,18 @@ its test split is never touched during training. Selecting a checkpoint on the
 test set would be choosing the model that best fits the thing being used to
 judge it, and the resulting number would mean nothing.
 
+SETTINGS
+--------
+The defaults are the ones that measured best. A second run with more capacity
+and more than twice the epochs (--unfreeze 90 --epochs 26) reached a higher
+validation accuracy, 78.5% against 77.3%, and was worse on the held-out field
+photographs: 55.1% against 58.1%, with missed infections rising from 8% to 10%.
+
+That is the same trap the weed model fell into. Validation is drawn from the
+same collections as training, so it keeps improving while the model narrows
+onto them. Judge a change by evaluate_field_model.py against PlantDoc test,
+never by the validation figure.
+
 Usage:
   python finetune_field.py                 # full run
   python finetune_field.py --epochs 8

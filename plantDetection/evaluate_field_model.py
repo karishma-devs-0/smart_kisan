@@ -98,16 +98,35 @@ def main():
     print(f'model: {args.model}')
     print(f'images: {len(items)} from PlantDoc {args.split}\n')
 
-    model = keras.models.load_model(args.model)
-    if model.output_shape[-1] != len(class_order):
-        sys.exit(f'Model emits {model.output_shape[-1]} classes, '
-                 f'expected {len(class_order)}')
-
-    probs = []
-    for i in range(0, len(items), 16):
-        batch = tf.stack([load_image(p) for p, _, _ in items[i:i + 16]])
-        probs.append(model.predict(batch, verbose=0))
-    probs = np.concatenate(probs)
+    # .tflite as well as .keras, because the hosted service loads the .tflite
+    # and the export quantises. A candidate has to be judged as the thing that
+    # will actually run, not as the checkpoint it came from.
+    if args.model.endswith('.tflite'):
+        interp = tf.lite.Interpreter(model_path=args.model)
+        interp.allocate_tensors()
+        inp = interp.get_input_details()[0]
+        out = interp.get_output_details()[0]
+        if out['shape'][-1] != len(class_order):
+            sys.exit(f"Model emits {out['shape'][-1]} classes, "
+                     f'expected {len(class_order)}')
+        rows = []
+        for path, _, _ in items:
+            interp.set_tensor(inp['index'],
+                              np.expand_dims(load_image(path).numpy(), 0)
+                              .astype(inp['dtype']))
+            interp.invoke()
+            rows.append(interp.get_tensor(out['index'])[0])
+        probs = np.stack(rows)
+    else:
+        model = keras.models.load_model(args.model)
+        if model.output_shape[-1] != len(class_order):
+            sys.exit(f'Model emits {model.output_shape[-1]} classes, '
+                     f'expected {len(class_order)}')
+        probs = []
+        for i in range(0, len(items), 16):
+            batch = tf.stack([load_image(p) for p, _, _ in items[i:i + 16]])
+            probs.append(model.predict(batch, verbose=0))
+        probs = np.concatenate(probs)
 
     pred = [class_order[i] for i in probs.argmax(axis=1)]
     conf = probs.max(axis=1) * 100
