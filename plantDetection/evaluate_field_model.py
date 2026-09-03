@@ -135,6 +135,32 @@ def main():
     print(f'    confidently wrong: {confident_wrong} '
           f'({100 * confident_wrong / n:.0f}% of all answers)')
 
+    # Healthy versus diseased, separately from which disease.
+    #
+    # This is the decision the farmer actually acts on. Getting the species of
+    # blight wrong wastes the right instinct; calling a healthy plant diseased
+    # sells them a fungicide they did not need, and calling a diseased plant
+    # healthy leaves an infection to spread. Overall accuracy hides both.
+    def is_healthy(name):
+        return name.endswith('___healthy')
+
+    sick_as_healthy = sum(1 for p, (_, t, _) in zip(pred, items)
+                          if not is_healthy(t) and is_healthy(p))
+    healthy_as_sick = sum(1 for p, (_, t, _) in zip(pred, items)
+                          if is_healthy(t) and not is_healthy(p))
+    n_sick = sum(1 for _, t, _ in items if not is_healthy(t))
+    n_healthy = sum(1 for _, t, _ in items if is_healthy(t))
+
+    print('\n  healthy vs diseased, ignoring which disease:')
+    if n_healthy:
+        print(f'    healthy called diseased:  {healthy_as_sick}/{n_healthy}  '
+              f'({100 * healthy_as_sick / n_healthy:.0f}%)  '
+              f'- a fungicide they did not need')
+    if n_sick:
+        print(f'    diseased called healthy:  {sick_as_healthy}/{n_sick}  '
+              f'({100 * sick_as_healthy / n_sick:.0f}%)  '
+              f'- an infection left to spread')
+
     by_folder = {}
     for p, (_, t, folder) in zip(pred, items):
         by_folder.setdefault(folder, []).append(p == t)
