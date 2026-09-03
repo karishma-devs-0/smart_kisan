@@ -313,7 +313,7 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
           <Text style={styles.disclosureText}>
             {t(
               'weedDetection.modelNote',
-              'Runs offline on this device. Weed identification is trained on UAV imagery of a cotton field (CoFly) on top of a DeepWeeds backbone; canopy stress is trained on PlantVillage. Neither is validated on Indian field conditions yet, so treat low-confidence results as a prompt to inspect, not a diagnosis.'
+              'Runs offline on this device. Weed identification is trained on handheld photographs from an Indian field and gets 97% right on held-out images from that collection, but less on crops and conditions it has not seen — grass weeds are the weakest. Canopy stress is trained on single leaves photographed in a lab and is not yet checked against real fields. Treat a low-confidence result as a reason to look closer, not a diagnosis.'
             )}
           </Text>
         </View>

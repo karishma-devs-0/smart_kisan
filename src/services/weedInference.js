@@ -14,7 +14,22 @@
  * GOG scores 97.4% on the held-out test split of SorghumWeedDataset — images
  * the model saw during neither training nor validation. That set is Indian and
  * shot handheld at 20-40 cm, so it is a fair proxy for app use, but it is one
- * farm in Tamil Nadu: expect lower on a different crop or region.
+ * farm in Tamil Nadu, and measuring it elsewhere shows how much that matters
+ * (weedDetection/evaluate_weed_model.py):
+ *
+ *     held-out split of the same collection   97.4%   (431 images)
+ *     assorted photographs from the web       86.7%   (15)
+ *     CoFly UAV patches, unseen               66.2%   (684)
+ *     DeepWeeds rangeland, unseen             52.5%   (600)
+ *
+ * The last two are harsher than app use — one is drone imagery, the other
+ * Australian scrubland — but the direction is real: this model is reliable on
+ * what it knows and ordinary elsewhere.
+ *
+ * Grass is the weak class. On the unseen CoFly patches only 12.8% of johnson
+ * grass was called grass; most of it read as broadleaf. That distinction is
+ * the one that decides which herbicide to buy, so it matters more than the
+ * headline number, and it is why the confidence flag below is not decoration.
  *
  * YOG still runs on PlantVillage, where its 99.2% is a property of the dataset
  * rather than a field result — single leaves, uniform backgrounds, controlled
