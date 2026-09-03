@@ -238,6 +238,39 @@ ROWS = [
     ],
     [
         WED,
+        "Weather - Sample Data and Fixed History",
+        "Weather fell back to a fixed sample forecast whenever the farm had no "
+        "location set, and the historical screen used sample data "
+        "unconditionally - it showed the same week of December 2024 to every "
+        "user, forever, because nothing had ever been written to fetch real "
+        "history. Implemented real historical weather and made every weather "
+        "call fetch a genuine observation.",
+        "weather.js, api.js, weatherSlice.js",
+        "Fixed",
+        "",
+        "No API key is needed: the app already uses Open-Meteo, which is free "
+        "and keyless, so there was never a reason to invent this. With no farm "
+        "location set it now fetches real weather for the default location, "
+        "which is what the on-screen banner already told the user was "
+        "happening.",
+    ],
+    [
+        WED,
+        "Disease Detection - Unreliable Diagnoses",
+        "The classifier has no 'not a plant leaf' category, so it always names "
+        "some disease. A photo of a weed came back as tomato early blight at "
+        "46% confidence together with a fungicide to spray, presented exactly "
+        "like a real diagnosis. Results below 60% confidence now ask for a "
+        "clearer photo instead of naming a disease and a treatment.",
+        "api.js (scanImage)",
+        "Fixed",
+        "",
+        "Found while investigating TC-016. A farmer acting on a coin-flip "
+        "diagnosis buys fungicide and sprays a plant that did not need it, so "
+        "an unreliable answer has a real cost.",
+    ],
+    [
+        WED,
         "Farm Management - No Storage",
         "The farm management screen had nothing behind it: a fixed sample "
         "list, an Add button that opened an alert saying nothing, and a "
@@ -255,15 +288,13 @@ ROWS = [
 
 OPEN_ITEMS = [
     ["TC-016", "Disease detection reported as showing a rejection",
-     "Awaiting the exact error text from the testing team. The most likely "
-     "cause is the model service waking from idle, which takes a few seconds "
-     "on the free tier."],
+     "The model service was tested directly and works: it returns a correct "
+     "prediction in about a second once warm, and eleven seconds from cold, "
+     "well inside the app's timeout. Still awaiting the exact error text from "
+     "the testing team to identify what they saw."],
     ["Phone sign-in", "Codes cannot be delivered to Indian numbers",
      "Requires DLT registration with TRAI before any provider will send. "
      "Business registration, not development."],
-    ["Weather", "Forecasts are sample data",
-     "Needs an OpenWeatherMap API key. A free key resolves it; the code is "
-     "already in place and falls back only because the key is absent."],
     ["Field monitor", "Weed detection needs a development build",
      "The model is a native module and cannot run in Expo Go, so it can only "
      "be confirmed on an installed build."],

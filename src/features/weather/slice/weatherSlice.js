@@ -48,9 +48,12 @@ export const fetchForecast = createAsyncThunk(
 
 export const fetchHistoricalWeather = createAsyncThunk(
   'weather/fetchHistoricalWeather',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      return await weatherService.fetchHistoricalWeather();
+      // Was called with no location, so the historical screen could only ever
+      // show the fixed sample week regardless of where the farm is.
+      const location = getState().settings.location;
+      return await weatherService.fetchHistoricalWeather(location);
     } catch (error) {
       return rejectWithValue(error.message);
     }

@@ -314,6 +314,60 @@ async function omHumidityToday(lat, lng) {
   return out;
 }
 
+/**
+ * The last seven days, plus yesterday broken out.
+ *
+ * Nothing implemented this before, so the historical screen was wired to a
+ * fixed week from December 2024 and showed it to everyone regardless of where
+ * their farm is or what the date is.
+ *
+ * Open-Meteo returns past days from the same forecast endpoint, so this needs
+ * no key and no separate archive call.
+ */
+async function omHistorical(lat, lng) {
+  const data = await fetchJSON(omUrl(lat, lng, {
+    daily: [
+      'weather_code', 'temperature_2m_max', 'temperature_2m_min',
+      'temperature_2m_mean', 'precipitation_sum', 'wind_speed_10m_max',
+      'relative_humidity_2m_mean',
+    ].join(','),
+    past_days: '7',
+    forecast_days: '1',
+  }));
+
+  const d = data.daily || {};
+  const dates = d.time || [];
+  const today = new Date().toISOString().slice(0, 10);
+
+  const days = [];
+  for (let i = 0; i < dates.length; i++) {
+    // past_days includes today, which is not history.
+    if (dates[i] >= today) continue;
+    const { condition, icon } = codeToCondition(d.weather_code?.[i], 1);
+    days.push({
+      date: dates[i],
+      high: Math.round(d.temperature_2m_max?.[i] ?? 0),
+      low: Math.round(d.temperature_2m_min?.[i] ?? 0),
+      avgTemp: Math.round(
+        d.temperature_2m_mean?.[i]
+        ?? ((d.temperature_2m_max?.[i] + d.temperature_2m_min?.[i]) / 2)
+        ?? 0
+      ),
+      humidity: Math.round(d.relative_humidity_2m_mean?.[i] ?? 0),
+      windSpeed: Math.round(d.wind_speed_10m_max?.[i] ?? 0),
+      precipitation: d.precipitation_sum?.[i] ?? 0,
+      condition,
+      icon,
+    });
+  }
+
+  return {
+    // Last entry is the most recent past day.
+    yesterday: days.length ? days[days.length - 1] : null,
+    week: days,
+  };
+}
+
 // ─── Public API (callers in api.js use these) ───────────────────────────────
 
 export const fetchCurrentWeather = (lat, lng) =>
@@ -327,3 +381,7 @@ export const fetchWindHistory = (lat, lng) =>
 
 export const fetchHumidityHistory = (lat, lng) =>
   withFallback('humidity', () => owmHumidityToday(lat, lng), () => omHumidityToday(lat, lng));
+
+// OpenWeatherMap's free tier has no history endpoint, so this is Open-Meteo
+// only rather than going through withFallback.
+export const fetchHistoricalWeather = (lat, lng) => omHistorical(lat, lng);

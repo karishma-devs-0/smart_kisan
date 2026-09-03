@@ -717,59 +717,80 @@ export const soilService = {
 
 // ─── Weather Service (cached — TTL 30 min for current, 1 hr for forecasts) ──
 
+// Nagpur — the geographic centre of India, and what the weather screen's
+// "showing for default location" banner refers to. Used only until the farmer
+// sets their own location during onboarding.
+const DEFAULT_LOCATION = { lat: 21.1458, lng: 79.0882 };
+
+/**
+ * Weather always comes from a real observation.
+ *
+ * Every call here used to fall back to a fixed sample forecast when the farm
+ * had no location set — and the historical screen used one unconditionally,
+ * so it showed the same week of December 2024 to everybody, forever.
+ *
+ * Open-Meteo needs no API key, so there is no reason to invent any of this.
+ * With no farm location we ask for the default one instead, which is what the
+ * banner on the weather screen already tells the user is happening. The mock
+ * data stays only as the offline fallback, which is what it is for.
+ */
+const weatherAt = (location) => ({
+  lat: location?.lat ?? DEFAULT_LOCATION.lat,
+  lng: location?.lng ?? DEFAULT_LOCATION.lng,
+  // Distinguishes the cache entries, so setting a location does not read back
+  // the default location's weather.
+  key: location?.lat ? `${location.lat}:${location.lng}` : 'default',
+});
+
 export const weatherService = {
   fetchCurrentWeather: async (location) => {
-    const key = location?.lat ? `weather:current:${location.lat}:${location.lng}` : 'weather:current';
-    if (weatherAPI.isWeatherAPIEnabled() && location?.lat) {
-      return offlineAwareRemember(key, () => weatherAPI.fetchCurrentWeather(location.lat, location.lng), { ...MOCK_CURRENT_WEATHER }, 1800);
-    }
-    return offlineAwareRemember(key, async () => {
-      await mockDelay(600);
-      return { ...MOCK_CURRENT_WEATHER };
-    }, { ...MOCK_CURRENT_WEATHER }, 1800);
+    const { lat, lng, key } = weatherAt(location);
+    return offlineAwareRemember(
+      `weather:current:${key}`,
+      () => weatherAPI.fetchCurrentWeather(lat, lng),
+      { ...MOCK_CURRENT_WEATHER },
+      1800,
+    );
   },
 
   fetchForecast: async (location) => {
-    const key = location?.lat ? `weather:forecast:${location.lat}:${location.lng}` : 'weather:forecast';
-    if (weatherAPI.isWeatherAPIEnabled() && location?.lat) {
-      return offlineAwareRemember(key, () => weatherAPI.fetchForecast(location.lat, location.lng), [...MOCK_FORECAST], 3600);
-    }
-    return offlineAwareRemember(key, async () => {
-      await mockDelay(600);
-      return [...MOCK_FORECAST];
-    }, [...MOCK_FORECAST], 3600);
+    const { lat, lng, key } = weatherAt(location);
+    return offlineAwareRemember(
+      `weather:forecast:${key}`,
+      () => weatherAPI.fetchForecast(lat, lng),
+      [...MOCK_FORECAST],
+      3600,
+    );
   },
 
-  fetchHistoricalWeather: async () => {
-    return offlineAwareRemember('weather:historical', async () => {
-      await mockDelay(700);
-      return {
-        yesterday: { ...MOCK_HISTORICAL_YESTERDAY },
-        week: [...MOCK_HISTORICAL_WEEK],
-      };
-    }, { yesterday: { ...MOCK_HISTORICAL_YESTERDAY }, week: [...MOCK_HISTORICAL_WEEK] }, 3600);
+  fetchHistoricalWeather: async (location) => {
+    const { lat, lng, key } = weatherAt(location);
+    return offlineAwareRemember(
+      `weather:historical:${key}`,
+      () => weatherAPI.fetchHistoricalWeather(lat, lng),
+      { yesterday: { ...MOCK_HISTORICAL_YESTERDAY }, week: [...MOCK_HISTORICAL_WEEK] },
+      3600,
+    );
   },
 
   fetchWindHistory: async (location) => {
-    const key = location?.lat ? `weather:wind:${location.lat}:${location.lng}` : 'weather:wind';
-    if (weatherAPI.isWeatherAPIEnabled() && location?.lat) {
-      return offlineAwareRemember(key, () => weatherAPI.fetchWindHistory(location.lat, location.lng), [...MOCK_WIND_HISTORY], 1800);
-    }
-    return offlineAwareRemember(key, async () => {
-      await mockDelay(500);
-      return [...MOCK_WIND_HISTORY];
-    }, [...MOCK_WIND_HISTORY], 1800);
+    const { lat, lng, key } = weatherAt(location);
+    return offlineAwareRemember(
+      `weather:wind:${key}`,
+      () => weatherAPI.fetchWindHistory(lat, lng),
+      [...MOCK_WIND_HISTORY],
+      1800,
+    );
   },
 
   fetchHumidityHistory: async (location) => {
-    const key = location?.lat ? `weather:humidity:${location.lat}:${location.lng}` : 'weather:humidity';
-    if (weatherAPI.isWeatherAPIEnabled() && location?.lat) {
-      return offlineAwareRemember(key, () => weatherAPI.fetchHumidityHistory(location.lat, location.lng), [...MOCK_HUMIDITY_HISTORY], 1800);
-    }
-    return offlineAwareRemember(key, async () => {
-      await mockDelay(500);
-      return [...MOCK_HUMIDITY_HISTORY];
-    }, [...MOCK_HUMIDITY_HISTORY], 1800);
+    const { lat, lng, key } = weatherAt(location);
+    return offlineAwareRemember(
+      `weather:humidity:${key}`,
+      () => weatherAPI.fetchHumidityHistory(lat, lng),
+      [...MOCK_HUMIDITY_HISTORY],
+      1800,
+    );
   },
 };
 
@@ -1100,6 +1121,15 @@ export const onboardingService = {
   },
 };
 
+/**
+ * Below this the classifier's answer is not usable. See the check in
+ * scanImage for why naming a disease under it is actively harmful.
+ */
+const MIN_SCAN_CONFIDENCE = 60;
+
+/** Distinguishes "the model answered, but not usefully" from "it did not answer". */
+class LowConfidenceError extends Error {}
+
 // ─── Disease Detection Service ──────────────────────────────────────────────
 
 export const diseaseDetectionService = {
@@ -1172,6 +1202,25 @@ export const diseaseDetectionService = {
         if (response.ok) {
           const result = await response.json();
 
+          // The classifier has no "this is not a plant leaf" class, so it
+          // always names something. A photo of a weed comes back as tomato
+          // early blight at 45% with a fungicide to spray, which reads exactly
+          // like a real diagnosis.
+          //
+          // Below this floor the answer is not usable. Naming a disease and a
+          // chemical off a coin-flip is the same mistake as recommending a
+          // crop from invented soil figures, except here the farmer buys
+          // fungicide and sprays a plant that did not need it.
+          //
+          // 60% matches the boundary the severity scale already uses for its
+          // lowest confident band.
+          if (!result.is_healthy && result.confidence < MIN_SCAN_CONFIDENCE) {
+            throw new LowConfidenceError(
+              'Could not identify this reliably. Take a clear photo of a single '
+              + 'leaf filling the frame, in good daylight, against a plain background.'
+            );
+          }
+
           const severity = result.is_healthy ? 'none'
             : result.confidence > 85 ? 'severe'
             : result.confidence > 60 ? 'moderate' : 'mild';
@@ -1200,6 +1249,10 @@ export const diseaseDetectionService = {
           };
         }
       } catch (err) {
+        // A low-confidence result is a real answer, not a failure to reach the
+        // model. Rethrown as-is so the user gets the advice about the photo
+        // rather than being told to check their connection.
+        if (err instanceof LowConfidenceError) throw err;
         lastError = err;
         if (__DEV__) console.warn('Disease scan failed:', err.message);
       }
