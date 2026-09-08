@@ -1,8 +1,8 @@
 """
 DSR for Thursday 3 September 2026.
 
-Covers the work after the 31 Aug - 2 Sep report: real weather, the model
-evaluation harnesses, and the disease model fine-tune.
+Covers the work after the 31 Aug - 2 Sep report: the evaluation harnesses
+for both models, and the disease model fine-tune.
 
 Same layout as the previous DSR generators. Every row corresponds to a real
 commit on main.
@@ -28,23 +28,6 @@ HEADERS = ["Date", "Task Category", "Detailed Task Description",
            "Deliverables / Artifacts", "Status", "Hours Spent", "Remarks & Notes"]
 
 ROWS = [
-    [
-        THU,
-        "Weather - Sample Data Removed",
-        "Weather fell back to a fixed sample forecast whenever the farm had no "
-        "location set, and the historical screen used sample data "
-        "unconditionally - it showed the same week of December 2024 to every "
-        "user regardless of date or place, because nothing had ever been "
-        "written to fetch real history. Implemented real historical weather "
-        "and made every weather call fetch a genuine observation.",
-        "weather.js, api.js, weatherSlice.js",
-        "Fixed",
-        "",
-        "No API key was needed. The app already reaches a free, keyless "
-        "weather service, so there was never a reason to invent this. An "
-        "earlier report said a paid key was required; that was incorrect and "
-        "no purchase is needed.",
-    ],
     [
         THU,
         "AI Models - Measurement",
