@@ -29,6 +29,41 @@ large Bangladeshi multi-crop set that would otherwise have been a good fit.
   Rice (Mendeley g7tcwvshff)   CC BY 4.0      adds the healthy class
   Wheat (Zenodo 7307816)       CC BY 4.0      999 field photographs
 
+MEASURED RESULT
+---------------
+On the held-out set, 658 images:
+
+    all together          85.1% exact disease, 98.2% crop
+    rice                  95.2%   (375 images)
+    wheat                 89.4%   (141)
+    capsicum              82.4%   (17)
+    maize                 65.4%   (26)
+    tomato                43.5%   (69)
+    potato                31.2%   (16)
+
+Read the spread, not the average. The headline is carried by rice and wheat,
+which have the most data and whose test split was made here rather than
+published. Tomato and potato are no better than before.
+
+Compared like for like - the same 142 PlantDoc images, which is the only fair
+comparison because the orchard images left the test set with their classes:
+
+    deployed MobileNetV2       38 classes   29.6% disease   55.6% crop
+    field-tuned MobileNetV2    38 classes   55.6%           84.5%
+    EfficientNetV2B0 @288      38 classes   50.7%           81.0%
+    this model                 32 classes   54.2%           91.5%
+
+So on the crops that were always there, naming the disease is unchanged. What
+improved sharply is knowing which plant it is, 84.5% to 91.5%, which is what
+dropping sixteen distractor classes buys.
+
+The actual win is not in this table: wheat and rice could not be diagnosed at
+all before, and are now around 90%. Those are the crops most of our users grow.
+
+Worth noting against an earlier claim: EfficientNetV2B0 was reported as beating
+MobileNetV2 by nearly four points. On the full 38-class set it did, but that
+gain sat in the apple and grape classes. On the crops kept here it is behind.
+
 A HEALTHY CLASS FOR EVERY CROP
 ------------------------------
 The first rice source has four disease classes and no healthy one. Training on
