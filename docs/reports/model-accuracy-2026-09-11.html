@@ -1,0 +1,794 @@
+<title>SmartKisan Model Accuracy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground:      #FBFAF7;
+    --surface:     #FFFFFF;
+    --surface-sub: #F3F2ED;
+    --ink:         #1A1E18;
+    --ink-2:       #3D4438;
+    --muted:       #69705F;
+    --rule:        #DCDBD2;
+    --rule-soft:   #EAE9E2;
+    --accent:      #2E7D32;
+    --accent-soft: #E4EFE4;
+    --series-b:    #1F6FB2;
+    --series-b-soft:#E2ECF6;
+    --critical:    #A32B1E;
+    --critical-soft:#F6E5E2;
+    --chart-grid:  #E6E5DD;
+
+    --measure: 68ch;
+    --step-0: 1rem;
+    --step-1: 1.1rem;
+    --step-2: 1.35rem;
+    --step-3: 1.75rem;
+    --step-4: 2.4rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #12150F;
+      --surface:     #1A1E17;
+      --surface-sub: #22271E;
+      --ink:         #E9ECE3;
+      --ink-2:       #C6CBBC;
+      --muted:       #9BA38F;
+      --rule:        #333A2C;
+      --rule-soft:   #272D21;
+      --accent:      #4FA855;
+      --accent-soft: #1E2C1D;
+      --series-b:    #4C93D8;
+      --series-b-soft:#16212B;
+      --critical:    #E8806D;
+      --critical-soft:#2C1B17;
+      --chart-grid:  #2B3125;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #12150F;
+    --surface:     #1A1E17;
+    --surface-sub: #22271E;
+    --ink:         #E9ECE3;
+    --ink-2:       #C6CBBC;
+    --muted:       #9BA38F;
+    --rule:        #333A2C;
+    --rule-soft:   #272D21;
+    --accent:      #4FA855;
+    --accent-soft: #1E2C1D;
+    --series-b:    #4C93D8;
+    --series-b-soft:#16212B;
+    --critical:    #E8806D;
+    --critical-soft:#2C1B17;
+    --chart-grid:  #2B3125;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Source Sans 3", ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: clamp(2rem, 5vw, 4.5rem) clamp(1.1rem, 4vw, 3rem) 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4rem;
+  }
+
+  /* ── Masthead ───────────────────────────────────────────── */
+  .masthead { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  h1 {
+    font-family: Bitter, Georgia, "Times New Roman", serif;
+    font-weight: 700;
+    font-size: clamp(2rem, 5.2vw, var(--step-4));
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    font-size: var(--step-1);
+    color: var(--ink-2);
+    max-width: var(--measure);
+    margin: 0;
+  }
+
+  .meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 2.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--rule);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .meta-strip b { color: var(--ink-2); font-weight: 500; }
+
+  /* ── Sections ───────────────────────────────────────────── */
+  section { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  h2 {
+    font-family: Bitter, Georgia, serif;
+    font-weight: 600;
+    font-size: var(--step-3);
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-family: Bitter, Georgia, serif;
+    font-weight: 600;
+    font-size: var(--step-2);
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  p { margin: 0; max-width: var(--measure); }
+  p + p { margin-top: 0.85rem; }
+
+  .lede { font-size: var(--step-1); color: var(--ink-2); }
+
+  strong { font-weight: 600; }
+
+  /* ── Callout: the framing note ──────────────────────────── */
+  .note {
+    background: var(--surface-sub);
+    border-left: 3px solid var(--accent);
+    padding: 1.35rem 1.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  .note p { max-width: 62ch; }
+
+  /* ── Tables ─────────────────────────────────────────────── */
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  caption {
+    text-align: left;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: 0.7rem;
+  }
+
+  th, td { padding: 0.66rem 0.9rem; text-align: left; }
+  th:first-child, td:first-child { padding-left: 0; }
+  th:not(:first-child), td:not(:first-child) { text-align: right; }
+
+  thead th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--rule);
+    vertical-align: bottom;
+  }
+  thead th small { display: block; font-weight: 400; opacity: 0.75; letter-spacing: 0; text-transform: none; }
+
+  tbody tr { border-bottom: 1px solid var(--rule-soft); }
+  tbody tr:last-child { border-bottom: none; }
+
+  td.num { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  td.gain { color: var(--accent); font-weight: 500; }
+  td.loss { color: var(--critical); font-weight: 500; }
+
+  tr.consequence { background: var(--surface-sub); }
+  tr.consequence td:first-child { font-weight: 600; }
+  tr.consequence td { padding-top: 0.85rem; padding-bottom: 0.85rem; }
+  tr.consequence td:first-child { padding-left: 0.9rem; }
+
+  .row-note { font-size: 0.84rem; color: var(--muted); display: block; font-weight: 400; }
+
+  /* ── Charts ─────────────────────────────────────────────── */
+  figure { margin: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+  .chart-shell { overflow-x: auto; }
+  svg { display: block; max-width: 100%; height: auto; }
+  figcaption { font-size: 0.88rem; color: var(--muted); max-width: var(--measure); }
+
+  .legend {
+    display: flex;
+    gap: 1.4rem;
+    flex-wrap: wrap;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.76rem;
+    color: var(--ink-2);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
+  .swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
+
+  /* ── Verdict strip ──────────────────────────────────────── */
+  .verdict {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+  .verdict > div {
+    background: var(--surface);
+    padding: 1.3rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .verdict .k {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .verdict .v {
+    font-family: Bitter, Georgia, serif;
+    font-size: 1.85rem;
+    font-weight: 700;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+  .verdict .v.up { color: var(--accent); }
+  .verdict .v.down { color: var(--critical); }
+  .verdict .s { font-size: 0.85rem; color: var(--muted); }
+
+  /* ── Status pills ───────────────────────────────────────── */
+  .pill {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 0.22rem 0.5rem;
+    border-radius: 3px;
+  }
+  .pill.live   { background: var(--accent-soft); color: var(--accent); }
+  .pill.ready  { background: var(--series-b-soft); color: var(--series-b); }
+  .pill.no     { background: var(--critical-soft); color: var(--critical); }
+
+  /* ── Rejected experiments ───────────────────────────────── */
+  .trials { display: flex; flex-direction: column; gap: 0; }
+  .trial {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.4rem 1.5rem;
+    align-items: baseline;
+    padding: 1.15rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .trial:last-child { border-bottom: none; }
+  .trial h4 {
+    margin: 0;
+    font-family: Bitter, Georgia, serif;
+    font-size: 1.02rem;
+    font-weight: 600;
+  }
+  .trial .score {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--critical);
+    white-space: nowrap;
+  }
+  .trial p { grid-column: 1 / -1; font-size: 0.93rem; color: var(--ink-2); max-width: 72ch; }
+
+  /* ── Footer ─────────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.5rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.86em;
+    background: var(--surface-sub);
+    padding: 0.1em 0.36em;
+    border-radius: 3px;
+  }
+
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--series-b); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="page">
+
+  <!-- ═══ Masthead ═══════════════════════════════════════ -->
+  <header class="masthead">
+    <div class="eyebrow">SmartKisan &middot; Model Accuracy Report &middot; 11 September 2026</div>
+    <h1>How accurate are the two AI features, really?</h1>
+    <p class="standfirst">
+      Both models were previously described by their training accuracy, which is
+      measured on photographs from the same collection they learned from. This
+      report measures them instead against photographs taken somewhere else, in
+      real conditions &mdash; which is the only kind the app ever receives.
+    </p>
+    <div class="meta-strip">
+      <span>Prepared for <b>Hbeonlabs Technologies</b></span>
+      <span>Disease test set <b>236 field photographs</b></span>
+      <span>Weed test sets <b>1,742 images</b></span>
+    </div>
+  </header>
+
+  <!-- ═══ Why the old numbers were misleading ════════════ -->
+  <section>
+    <h2>Why the earlier figures were not wrong, but were not useful</h2>
+    <div class="note">
+      <p>
+        The disease model was reported at <strong>99% accurate</strong>. That figure is
+        real, and it is measured on PlantVillage: a single leaf, detached from the
+        plant, laid on a plain background under even studio light.
+      </p>
+      <p>
+        A farmer photographs a leaf still attached to the plant, in sunlight, with soil
+        and other foliage behind it. Against that kind of photograph the same model
+        scores <strong>28%</strong>. Nothing changed about the model between those two
+        numbers &mdash; only the photographs.
+      </p>
+      <p>
+        Every figure below is measured against <strong>PlantDoc</strong> for disease and
+        four separate unseen collections for weeds. None of these images were used in
+        training, and none share a camera or a field with the training data.
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══ Disease detection ══════════════════════════════ -->
+  <section>
+    <h2>Plant disease detection</h2>
+    <p class="lede">
+      The model was retrained on field photographs while retaining what it already knew
+      about how diseases look. Both versions below are the <code>.tflite</code> files &mdash;
+      the format the hosted service actually loads and runs.
+    </p>
+
+    <div class="verdict">
+      <div>
+        <span class="k">Disease identified</span>
+        <span class="v up">28 &rarr; 58%</span>
+        <span class="s">Exact class, of 236 photographs</span>
+      </div>
+      <div>
+        <span class="k">Crop identified</span>
+        <span class="v up">49 &rarr; 79%</span>
+        <span class="s">Which plant it is</span>
+      </div>
+      <div>
+        <span class="k">Healthy called diseased</span>
+        <span class="v up">42 &rarr; 8%</span>
+        <span class="s">A fungicide nobody needed</span>
+      </div>
+      <div>
+        <span class="k">Confidently wrong</span>
+        <span class="v up">59 &rarr; 15%</span>
+        <span class="s">Wrong, and shown anyway</span>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <caption>PlantDoc test split &middot; 236 field photographs &middot; neither model trained on any of them</caption>
+        <thead>
+          <tr>
+            <th scope="col">Measure</th>
+            <th scope="col">Live model <small>in the app today</small></th>
+            <th scope="col">Retrained <small>ready to deploy</small></th>
+            <th scope="col">Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Correct disease named</td>
+            <td class="num">28.0%</td>
+            <td class="num">58.1%</td>
+            <td class="num gain">+30.1</td>
+          </tr>
+          <tr>
+            <td>Correct crop identified</td>
+            <td class="num">49.2%</td>
+            <td class="num">78.8%</td>
+            <td class="num gain">+29.6</td>
+          </tr>
+          <tr class="consequence">
+            <td>
+              Healthy plant called diseased
+              <span class="row-note">Farmer buys and sprays a fungicide that was never needed</span>
+            </td>
+            <td class="num">42%</td>
+            <td class="num">8%</td>
+            <td class="num gain">&minus;34</td>
+          </tr>
+          <tr class="consequence">
+            <td>
+              Diseased plant called healthy
+              <span class="row-note">Infection left untreated &mdash; the cost of the improvement above</span>
+            </td>
+            <td class="num">3%</td>
+            <td class="num">9%</td>
+            <td class="num loss">+6</td>
+          </tr>
+          <tr>
+            <td>Laboratory accuracy <span class="row-note">PlantVillage images, none used in retraining</span></td>
+            <td class="num">99.0%</td>
+            <td class="num">96.7%</td>
+            <td class="num loss">&minus;2.3</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      The two shaded rows matter more than the headline. The live model answers
+      &ldquo;diseased&rdquo; to almost anything &mdash; its 28% is not spread evenly, it has
+      its thumb on the scale. Two out of every five healthy plants photographed come
+      back with a fungicide recommendation attached.
+    </p>
+    <p>
+      The retrained model corrects that, and the honest cost is the fourth row: missed
+      infections rise from 3% to 9%. We judged that the better trade. A missed detection
+      leaves a farmer where they started; a false alarm takes money for a chemical and
+      puts it on a plant that was fine.
+    </p>
+  </section>
+
+  <!-- ═══ Confidence threshold ═══════════════════════════ -->
+  <section>
+    <h2>When the app should decline to answer</h2>
+    <p class="lede">
+      58% correct is not enough to state a diagnosis every time. The app withholds an
+      answer below a confidence threshold and asks for a clearer photograph instead. We
+      measured where that threshold belongs rather than guessing.
+    </p>
+
+    <figure>
+      <div class="chart-shell">
+        <svg viewBox="0 0 780 330" role="img" aria-labelledby="thr-title">
+          <title id="thr-title">As the confidence threshold rises, fewer scans are answered but far fewer wrong diagnoses are shown</title>
+
+          <!-- gridlines + y labels -->
+          <g font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--muted)">
+            <line x1="58" y1="250" x2="742" y2="250" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <text x="48" y="254" text-anchor="end">0%</text>
+            <line x1="58" y1="200" x2="742" y2="200" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <text x="48" y="204" text-anchor="end">25%</text>
+            <line x1="58" y1="150" x2="742" y2="150" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <text x="48" y="154" text-anchor="end">50%</text>
+            <line x1="58" y1="100" x2="742" y2="100" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <text x="48" y="104" text-anchor="end">75%</text>
+            <line x1="58" y1="50" x2="742" y2="50" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <text x="48" y="54" text-anchor="end">100%</text>
+          </g>
+
+          <!-- groups: 6 thresholds. answered %, wrong-shown % -->
+          <!-- x centres: 110, 218, 326, 434, 542, 650 ; bar w 34, gap 2 -->
+          <g>
+            <!-- 0% -->
+            <rect x="76"  y="50"  width="34" height="200" rx="4" fill="var(--series-b)"><title>No threshold: 100% of scans answered</title></rect>
+            <rect x="112" y="164" width="34" height="86"  rx="4" fill="var(--accent)"><title>No threshold: 42.8% of all scans are a wrong diagnosis shown</title></rect>
+            <!-- 50% -->
+            <rect x="184" y="109" width="34" height="141" rx="4" fill="var(--series-b)"><title>50% floor: 70.3% answered</title></rect>
+            <rect x="220" y="207" width="34" height="43"  rx="4" fill="var(--accent)"><title>50% floor: 21.6% wrong shown</title></rect>
+            <!-- 60% -->
+            <rect x="292" y="138" width="34" height="112" rx="4" fill="var(--series-b)"><title>60% floor: 55.9% answered</title></rect>
+            <rect x="328" y="222" width="34" height="28"  rx="4" fill="var(--accent)"><title>60% floor: 14.0% wrong shown</title></rect>
+            <!-- 70% -->
+            <rect x="400" y="157" width="34" height="93"  rx="4" fill="var(--series-b)"><title>70% floor: 46.6% answered</title></rect>
+            <rect x="436" y="235" width="34" height="15"  rx="4" fill="var(--accent)"><title>70% floor: 7.6% wrong shown</title></rect>
+            <!-- 80% -->
+            <rect x="508" y="168" width="34" height="82"  rx="4" fill="var(--series-b)"><title>80% floor: 41.1% answered</title></rect>
+            <rect x="544" y="238" width="34" height="12"  rx="4" fill="var(--accent)"><title>80% floor: 5.9% wrong shown</title></rect>
+            <!-- 90% -->
+            <rect x="616" y="181" width="34" height="69"  rx="4" fill="var(--series-b)"><title>90% floor: 34.7% answered</title></rect>
+            <rect x="652" y="240" width="34" height="10"  rx="4" fill="var(--accent)"><title>90% floor: 5.1% wrong shown</title></rect>
+          </g>
+
+          <!-- value labels on the two series -->
+          <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--ink-2)" text-anchor="middle">
+            <text x="93"  y="43">100</text>
+            <text x="201" y="102">70</text>
+            <text x="309" y="131">56</text>
+            <text x="417" y="150">47</text>
+            <text x="525" y="161">41</text>
+            <text x="633" y="174">35</text>
+          </g>
+          <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--ink-2)" text-anchor="middle">
+            <text x="129" y="157">43</text>
+            <text x="237" y="200">22</text>
+            <text x="345" y="215">14</text>
+            <text x="453" y="228">7.6</text>
+            <text x="561" y="231">5.9</text>
+            <text x="669" y="233">5.1</text>
+          </g>
+
+          <!-- chosen threshold marker -->
+          <g>
+            <rect x="394" y="34" width="82" height="19" rx="3" fill="var(--accent-soft)"></rect>
+            <text x="435" y="47" font-family="IBM Plex Mono, monospace" font-size="10.5"
+                  font-weight="600" fill="var(--accent)" text-anchor="middle">IN USE</text>
+            <line x1="435" y1="53" x2="435" y2="145" stroke="var(--accent)" stroke-width="1"
+                  stroke-dasharray="3 3"></line>
+          </g>
+
+          <!-- x axis -->
+          <g font-family="IBM Plex Mono, monospace" font-size="11.5" fill="var(--ink-2)" text-anchor="middle">
+            <text x="111" y="273">none</text>
+            <text x="219" y="273">50%</text>
+            <text x="327" y="273">60%</text>
+            <text x="435" y="273" font-weight="600">70%</text>
+            <text x="543" y="273">80%</text>
+            <text x="651" y="273">90%</text>
+          </g>
+          <text x="400" y="299" font-family="IBM Plex Mono, monospace" font-size="11"
+                fill="var(--muted)" text-anchor="middle">Confidence threshold below which the app declines to answer</text>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--series-b)"></i> Scans answered, % of all scans</span>
+        <span><i class="swatch" style="background:var(--accent)"></i> Wrong diagnoses shown, % of all scans</span>
+      </div>
+      <figcaption>
+        Measured on the same 236 photographs. Raising the threshold from 60% to 70%
+        nearly halves the wrong diagnoses a farmer sees, for nine points of coverage.
+        Past 70% the accuracy gain flattens while coverage keeps falling, so the extra
+        silence buys little. <strong>The app now uses 70%.</strong>
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- ═══ Weed detection ═════════════════════════════════ -->
+  <section>
+    <h2>Weed detection</h2>
+    <p class="lede">
+      This model runs on the phone rather than a server, and identifies whether a plant
+      is the crop, a grass weed or a broadleaf weed &mdash; the distinction that decides
+      which herbicide to buy. It is unchanged this cycle; what changed is that we can
+      now say how well it works.
+    </p>
+
+    <figure>
+      <div class="chart-shell">
+        <svg viewBox="0 0 780 330" role="img" aria-labelledby="weed-title">
+          <title id="weed-title">Weed model accuracy falls as test photographs move further from the training data</title>
+
+          <g font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--muted)">
+            <line x1="238" y1="30"  x2="238" y2="286" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <line x1="357" y1="30"  x2="357" y2="286" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <line x1="476" y1="30"  x2="476" y2="286" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <line x1="595" y1="30"  x2="595" y2="286" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <line x1="714" y1="30"  x2="714" y2="286" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <text x="238" y="303" text-anchor="middle">25%</text>
+            <text x="357" y="303" text-anchor="middle">50%</text>
+            <text x="476" y="303" text-anchor="middle">75%</text>
+            <text x="595" y="303" text-anchor="middle">100%</text>
+          </g>
+
+          <!-- bars: x0 = 238 is 25%, scale 4.76 px per % from x=119 (0%) -->
+          <g>
+            <rect x="119" y="42"  width="464" height="26" rx="4" fill="var(--accent)"><title>Held-out split of the training collection: 97.4% of 431 images</title></rect>
+            <rect x="119" y="92"  width="476" height="26" rx="4" fill="var(--accent)"><title>Hand-collected pack: 100% of 12 images</title></rect>
+            <rect x="119" y="142" width="413" height="26" rx="4" fill="var(--accent)"><title>Photographs from the web: 86.7% of 15 images</title></rect>
+            <rect x="119" y="192" width="315" height="26" rx="4" fill="var(--accent)"><title>Drone imagery, unseen: 66.2% of 684 images</title></rect>
+            <rect x="119" y="242" width="250" height="26" rx="4" fill="var(--accent)"><title>Australian rangeland, unseen: 52.5% of 600 images</title></rect>
+          </g>
+
+          <!-- row labels -->
+          <g font-family="Source Sans 3, sans-serif" font-size="12.5" fill="var(--ink)" text-anchor="end">
+            <text x="107" y="56">Same collection</text>
+            <text x="107" y="106">Hand-collected</text>
+            <text x="107" y="156">From the web</text>
+            <text x="107" y="206">Drone imagery</text>
+            <text x="107" y="256">Rangeland</text>
+          </g>
+          <g font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--muted)" text-anchor="end">
+            <text x="107" y="68">n = 431</text>
+            <text x="107" y="118">n = 12</text>
+            <text x="107" y="168">n = 15</text>
+            <text x="107" y="218">n = 684</text>
+            <text x="107" y="268">n = 600</text>
+          </g>
+
+          <!-- value labels, inside the bar ends -->
+          <g font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600"
+             fill="var(--surface)" text-anchor="end">
+            <text x="573" y="60">97.4%</text>
+            <text x="585" y="110">100%</text>
+            <text x="522" y="160">86.7%</text>
+            <text x="424" y="210">66.2%</text>
+            <text x="359" y="260">52.5%</text>
+          </g>
+
+          <text x="400" y="322" font-family="IBM Plex Mono, monospace" font-size="11"
+                fill="var(--muted)" text-anchor="middle">Ordered by how far the photographs sit from the training data</text>
+        </svg>
+      </div>
+      <figcaption>
+        The model is reliable on what it knows and ordinary elsewhere. The two largest
+        sets are harsher than app use &mdash; one is drone footage, the other Australian
+        scrubland &mdash; but the direction is real. The hand-collected pack holds only
+        12 images, so its 100% carries little weight.
+      </figcaption>
+    </figure>
+
+    <div class="note">
+      <h3>The weakness that matters most</h3>
+      <p>
+        On the 684 unseen drone images, <strong>only 13% of grass weeds were correctly
+        called grass</strong> &mdash; 203 of 234 read as broadleaf instead. Grass versus
+        broadleaf is exactly the distinction that decides which herbicide a farmer buys,
+        so this matters more than the headline accuracy. It is the priority for the next
+        round of work.
+      </p>
+      <p>
+        The app already flags any result below 60% confidence with a prompt to look
+        closer rather than act. The note shown to the farmer was also corrected this
+        cycle &mdash; it had been describing a model replaced in August.
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══ What was tried and rejected ════════════════════ -->
+  <section>
+    <h2>Four things we tried that did not work</h2>
+    <p class="lede">
+      Recorded because each cost real time, and because the results are the reason the
+      current settings are where they are. Every one of them looked better on the
+      training-style measurement and worse on real photographs.
+    </p>
+
+    <div class="trials">
+      <div class="trial">
+        <h4>Adding a second weed dataset (DeepWeeds)</h4>
+        <span class="score">87% &rarr; 53%</span>
+        <p>
+          Contributes broadleaf examples only, and broadleaf was already at 100% recall.
+          It strengthened the class that needed no help while its dry Australian
+          backgrounds gave the model something easier to learn than leaf shape. Grass
+          recall collapsed from 75% to 25%.
+        </p>
+      </div>
+      <div class="trial">
+        <h4>Adding drone imagery of a cotton field (CoFly)</h4>
+        <span class="score">87% &rarr; 73%</span>
+        <p>
+          Shot straight down from five metres. No handheld photograph resembles that
+          viewpoint, so it dilutes the signal that matters without adding a useful one.
+        </p>
+      </div>
+      <div class="trial">
+        <h4>A larger, longer disease training run</h4>
+        <span class="score">58% &rarr; 55%</span>
+        <p>
+          More of the network unfrozen, nearly twice the epochs. Scored
+          <em>higher</em> on validation &mdash; 78.5% against 77.3% &mdash; and worse on
+          held-out field photographs, with missed infections rising from 8% to 10%.
+        </p>
+      </div>
+      <div class="trial">
+        <h4>Weighting rare diseases more heavily</h4>
+        <span class="score">58% &rarr; 56%</span>
+        <p>
+          Intended to lift the weakest classes, which were also the scarcest. Those were
+          precisely the ones that did not move: mosaic virus stayed at 10% recall and
+          leaf mold at 17%. They are not merely rare, they are hard &mdash; weighting
+          cannot supply variety that is not in the data.
+        </p>
+      </div>
+    </div>
+
+    <p>
+      The common thread is worth stating plainly: <strong>more images do not help when
+      they were captured differently from how the app is used.</strong> Test-time
+      averaging was also measured &mdash; it moves both error rates about two points the
+      right way for 3.4&times; the inference cost, which is not worth several extra
+      seconds per scan on a free hosting tier.
+    </p>
+  </section>
+
+  <!-- ═══ Status and limits ══════════════════════════════ -->
+  <section>
+    <h2>Status and what these numbers do not say</h2>
+
+    <div class="table-wrap">
+      <table>
+        <caption>Deployment status</caption>
+        <thead>
+          <tr>
+            <th scope="col">Component</th>
+            <th scope="col">State</th>
+            <th scope="col">Blocked on</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Weed detection, on-device</td>
+            <td><span class="pill live">Live</span></td>
+            <td>&mdash;</td>
+          </tr>
+          <tr>
+            <td>Disease detection, retrained</td>
+            <td><span class="pill ready">Ready</span></td>
+            <td>A HuggingFace write token; upload script is written and tested</td>
+          </tr>
+          <tr>
+            <td>Confidence threshold at 70%</td>
+            <td><span class="pill live">Live</span></td>
+            <td>Included in the 11 September build</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      <strong>These are not Indian field conditions.</strong> PlantDoc is the closest
+      public collection of real field photographs available, but it is not photographs
+      of Indian farms taken on the phones our users carry. The true figure for our
+      farmers is unmeasured, and could be either side of these numbers.
+    </p>
+    <p>
+      <strong>The weed model judges &ldquo;is this my crop&rdquo; against sorghum
+      seedlings</strong>, because sorghum is the only collection with labelled crop
+      close-ups. A farmer photographing wheat is being compared to the wrong plant.
+    </p>
+    <p>
+      Both models are now limited by photographs, not by code. Roughly 50 real
+      photographs per category &mdash; wheat, rice and cotton for weeds; mosaic virus and
+      leaf mold for disease &mdash; would be worth more than any further tuning we can do.
+    </p>
+  </section>
+
+  <footer>
+    <div>
+      Every figure here is reproducible: <code>plantDetection/evaluate_field_model.py</code>
+      for disease, <code>weedDetection/evaluate_weed_model.py</code> for weeds, and
+      <code>weedDetection/evaluate_disease_model.py</code> to measure the live service
+      over HTTP rather than a local file.
+    </div>
+    <div>
+      SmartKisan &middot; Hbeonlabs Technologies Pvt. Ltd. &middot; Measurements taken 3&ndash;11 September 2026
+    </div>
+  </footer>
+
+</div>
