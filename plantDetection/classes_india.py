@@ -146,12 +146,62 @@ RICE_CLASSES = {
 # healthy class that source exists to provide.
 RICE2_CLASSES = dict(RICE_CLASSES, Healthy='Rice___healthy')
 
+# Potato, photographed on farms in Central Java with ordinary smartphones
+# (Mendeley ptz377bwb8, CC BY 4.0). This is the only field imagery available for
+# the early-blight-against-late-blight distinction, which is where potato fails:
+# eight of its eleven errors are those two classes mistaken for each other.
+#
+# CAVEAT ON THE FUNGI FOLDER. The paper describes it as early blight
+# (Alternaria solani) together with at least one other fungal disease
+# characterised by powdery patches - so mapping the whole folder to early blight
+# puts some wrong labels into the very class being repaired.
+#
+# It is used anyway, because the alternative is worse. Taking only Phytophthora
+# and Healthy would add late-blight examples and no early-blight ones, pushing
+# the model further towards the answer it already over-gives. The test set keeps
+# its clean PlantVillage and PlantDoc labels, so if potato improves the noise was
+# tolerable and if it does not, that shows too.
+#
+# The other four folders - bacteria, nematode, pest, virus - have no class here
+# and are skipped rather than forced into one.
+POTATO_FIELD_CLASSES = {
+    'Fungi':       'Potato___Early_blight',
+    'Phytopthora': 'Potato___Late_blight',   # the dataset's own spelling
+    'Phytophthora': 'Potato___Late_blight',
+    'Healthy':     'Potato___healthy',
+}
+
 WHEAT_CLASSES = {
     'BrownRust':  'Wheat___Brown_rust',
     'YellowRust': 'Wheat___Yellow_rust',
     'Septoria':   'Wheat___Septoria',
     'Mildew':     'Wheat___Powdery_mildew',
     'Healthy':    'Wheat___healthy',
+}
+
+
+# CCMT: farm photographs from Ghana, expert-validated (Kaggle
+# irakozekelly/crop-pest-and-disease-dataset, CC BY 4.0). Maize and tomato only;
+# its cashew and cassava crops are not grown by our users.
+#
+# Keyed on (crop, folder) rather than folder alone, because maize and tomato
+# both have folders called 'healthy' and 'leaf blight'. Matching on the folder
+# name by itself would pour maize images into the tomato classes.
+#
+# Deliberately omitted:
+#   tomato 'leaf blight'      does not say early or late blight, and that is
+#                             exactly the distinction being repaired - a guess
+#                             here would do more harm than the images do good
+#   tomato 'verticillium wilt'
+#   maize  'streak virus', 'fall armyworm', 'grasshopper', 'leaf beetle'
+#                             pests and a virus with no class in this model
+CCMT_CLASSES = {
+    ('maize', 'leaf blight'):        'Corn_(maize)___Northern_Leaf_Blight',
+    ('maize', 'leaf spot'):          'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot',
+    ('maize', 'healthy'):            'Corn_(maize)___healthy',
+    ('tomato', 'healthy'):           'Tomato___healthy',
+    ('tomato', 'septoria leaf spot'): 'Tomato___Septoria_leaf_spot',
+    ('tomato', 'leaf curl'):         'Tomato___Tomato_Yellow_Leaf_Curl_Virus',
 }
 
 
@@ -166,6 +216,8 @@ def class_order():
     names |= set(RICE_CLASSES.values())
     names |= set(RICE2_CLASSES.values())
     names |= set(WHEAT_CLASSES.values())
+    names |= set(POTATO_FIELD_CLASSES.values())
+    names |= set(CCMT_CLASSES.values())
     return sorted(names)
 
 

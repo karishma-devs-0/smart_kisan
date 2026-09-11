@@ -151,20 +151,46 @@ def main():
     pred = [order[i] for i in probs.argmax(axis=1)]
     conf = probs.max(axis=1) * 100
 
-    # Which source each image came from, so the two halves stay separate.
-    pd_idx, new_idx = [], []
-    for i, p in enumerate(items):
-        low = p['path'].lower().replace('\\', '/')
-        (new_idx if ('indian_crops' in low) else pd_idx).append(i)
+    # Which collection each image came from, so halves with different split
+    # quality are never averaged into one figure.
+    #
+    # Matched against each dataset root rather than one substring: the potato
+    # field set lives outside data/indian_crops, and the old two-way test would
+    # have counted it as PlantDoc - crediting a split made here to the
+    # published one, which is the stronger claim.
+    SOURCES = [
+        ('plantdoc', 'plantdoc'),
+        ('rice/wheat', 'indian_crops'),
+        ('potato field', 'potato leaf disease'),
+        ('maize/tomato field', 'ccmt'),
+    ]
+
+    groups = {name: [] for name, _ in SOURCES}
+    unknown = []
+    for i, it in enumerate(items):
+        low = it['path'].lower().replace(chr(92), '/')
+        for name, needle in SOURCES:
+            if needle in low:
+                groups[name].append(i)
+                break
+        else:
+            unknown.append(i)
+    if unknown:
+        print('  WARNING %d test images matched no known source; first is %s'
+              % (len(unknown), items[unknown[0]]['path']))
 
     print('\n' + '=' * 64)
     print(f'Held-out test set - {len(items)} images')
     print('=' * 64)
 
-    block('PlantDoc field photographs', pd_idx, truth, pred, conf,
-          '   <- compare this against the old 58.1%')
-    block('Rice and wheat', new_idx, truth, pred, conf,
+    block('PlantDoc field photographs', groups['plantdoc'], truth, pred, conf,
+          '   <- published split, the strongest evidence here')
+    block('Rice and wheat', groups['rice/wheat'], truth, pred, conf,
           '   <- split by file, read as optimistic')
+    block('Potato, Central Java farms', groups['potato field'], truth, pred,
+          conf, '   <- split by file; Early_blight labels are noisy')
+    block('Maize and tomato, Ghana farms', groups['maize/tomato field'],
+          truth, pred, conf, '   <- split by file')
     block('All together', list(range(len(items))), truth, pred, conf)
 
     # Per crop, because a farmer only ever cares about the one in front of them.

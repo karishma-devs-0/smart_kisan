@@ -75,6 +75,9 @@ PLANTDOC = os.path.join(ROOT, 'weedDetection', 'data', 'plantdoc', 'plantdoc_fil
 RICE1 = os.path.join(ROOT, 'data', 'indian_crops', 'Rice Leaf Disease Images')
 RICE2 = os.path.join(ROOT, 'data', 'indian_crops', 'rice2')
 WHEAT = os.path.join(ROOT, 'data', 'indian_crops', 'wheat')
+POTATO_FIELD = os.path.join(
+    ROOT, 'dataset', 'Potato Leaf Disease Dataset in Uncontrolled Environment')
+CCMT = os.path.join(ROOT, 'data', 'indian_crops', 'ccmt')
 OUT_DIR = os.path.join(HERE, 'model', 'india')
 
 SEED = 1337
@@ -84,7 +87,8 @@ VALID_FRACTION = 0.15
 
 sys.path.insert(0, HERE)
 from classes_india import (  # noqa: E402
-    KEEP_PLANTVILLAGE, RICE_CLASSES, RICE2_CLASSES, WHEAT_CLASSES, class_order,
+    KEEP_PLANTVILLAGE, RICE_CLASSES, RICE2_CLASSES, WHEAT_CLASSES,
+    POTATO_FIELD_CLASSES, CCMT_CLASSES, class_order,
 )
 from finetune_field import PLANTDOC_TO_CLASS  # noqa: E402
 
@@ -113,6 +117,36 @@ def scan_folder_tree(root, mapping, skip_augmented=True):
             continue
         folder = os.path.basename(dirpath)
         cls = mapping.get(folder)
+        if not cls:
+            continue
+        for name in sorted(filenames):
+            if name.lower().endswith(IMAGE_EXT):
+                pairs.append((os.path.join(dirpath, name), cls))
+    return pairs
+
+
+def scan_ccmt(root, mapping):
+    """CCMT, which needs the crop from the path as well as the folder name.
+
+    Maize and tomato both contain folders called 'healthy' and 'leaf blight',
+    so a plain basename lookup would merge two crops into one class. The crop
+    is taken from whichever path component names it.
+
+    Only the raw photographs are used; the archive's augmented tree is excluded
+    by the same rule as everywhere else in this project.
+    """
+    if not os.path.isdir(root):
+        return []
+    crops = {c for c, _ in mapping}
+    pairs = []
+    for dirpath, _dirnames, filenames in os.walk(root):
+        if is_augmented(dirpath):
+            continue
+        parts = [p.lower() for p in dirpath.replace(chr(92), '/').split('/')]
+        crop = next((c for c in crops if c in parts), None)
+        if not crop:
+            continue
+        cls = mapping.get((crop, os.path.basename(dirpath).lower()))
         if not cls:
             continue
         for name in sorted(filenames):
@@ -253,6 +287,11 @@ def main():
     rice1 = scan_folder_tree(RICE1, RICE_CLASSES)
     rice2 = scan_folder_tree(RICE2, RICE2_CLASSES)
     wheat = scan_folder_tree(WHEAT, WHEAT_CLASSES)
+    # Field imagery for the three crops that fail. These do not add classes;
+    # they add real photographs to classes that so far have only had laboratory
+    # ones, which is the whole hypothesis being tested.
+    potato_field = scan_folder_tree(POTATO_FIELD, POTATO_FIELD_CLASSES)
+    ccmt = scan_ccmt(CCMT, CCMT_CLASSES)
 
     # The rice sources are large and would otherwise dominate a 32-class model
     # whose other crops have a few hundred images each.
@@ -275,6 +314,8 @@ def main():
     print(f'  PlantDoc (field):    {len(pd_train)} train / {len(pd_test)} test')
     print(f'  Rice (field):        {len(rice)}  [{len(rice1)} + {len(rice2)} before cap]')
     print(f'  Wheat (field):       {len(wheat)}')
+    print(f'  Potato (field):      {len(potato_field)}')
+    print(f'  Maize+tomato (field):{len(ccmt)}')
 
     if not rice or not wheat:
         sys.exit('Rice or wheat data missing - download has not finished.')
@@ -283,16 +324,18 @@ def main():
     # PlantDoc keeps its published split. Everything else is split here.
     rice_tr, rice_va, rice_te = three_way_split(rice, TEST_FRACTION, VALID_FRACTION, SEED)
     wheat_tr, wheat_va, wheat_te = three_way_split(wheat, TEST_FRACTION, VALID_FRACTION, SEED)
+    pf_tr, pf_va, pf_te = three_way_split(potato_field, TEST_FRACTION, VALID_FRACTION, SEED)
+    cc_tr, cc_va, cc_te = three_way_split(ccmt, TEST_FRACTION, VALID_FRACTION, SEED)
     pv_tr, pv_va, _ = three_way_split(pv, 0.0, VALID_FRACTION, SEED)
     pd_tr, pd_va, _ = three_way_split(pd_train, 0.0, VALID_FRACTION, SEED)
 
     # Field photographs are repeated so they are not drowned by the lab set,
     # which is the mistake that kept the earlier model scoring well in
     # validation and badly in a field.
-    field_train = pd_tr + rice_tr + wheat_tr
+    field_train = pd_tr + rice_tr + wheat_tr + pf_tr + cc_tr
     train_pairs = field_train * args.field_repeat + pv_tr
-    valid_pairs = pd_va + rice_va + wheat_va + pv_va
-    test_pairs = pd_test + rice_te + wheat_te
+    valid_pairs = pd_va + rice_va + wheat_va + pf_va + cc_va + pv_va
+    test_pairs = pd_test + rice_te + wheat_te + pf_te + cc_te
 
     share = 100 * len(field_train) * args.field_repeat / len(train_pairs)
     print(f'\n  train {len(train_pairs)}  (field {share:.0f}%)'
