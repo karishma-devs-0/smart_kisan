@@ -98,6 +98,31 @@ ARCHES = {
     'B2': keras.applications.EfficientNetV2B2,
 }
 
+# Files that no decoder can open.
+#
+# The CCMT download contains 96 truncated or malformed JPEGs out of 23,054. One
+# is enough to abort a training run several minutes in, with an error naming the
+# JPEG decoder rather than the file, so they are excluded up front rather than
+# found one at a time. Regenerate the list with
+# scratchpad/find_bad_images.py after adding any new collection.
+BAD_LIST = os.path.join(ROOT, 'data', 'indian_crops', '_bad_images.txt')
+
+
+def load_unreadable():
+    if not os.path.exists(BAD_LIST):
+        return set()
+    with open(BAD_LIST, encoding='utf-8') as fh:
+        return {line.strip().lower().replace(chr(92), '/')
+                for line in fh if line.strip()}
+
+
+UNREADABLE = load_unreadable()
+
+
+def is_readable(path):
+    return path.lower().replace(chr(92), '/') not in UNREADABLE
+
+
 # Directory names that mean "these images were generated, not photographed".
 AUGMENTED_HINTS = ('augment', 'aug_', '_aug', 'generated', 'synthetic')
 
@@ -121,7 +146,9 @@ def scan_folder_tree(root, mapping, skip_augmented=True):
             continue
         for name in sorted(filenames):
             if name.lower().endswith(IMAGE_EXT):
-                pairs.append((os.path.join(dirpath, name), cls))
+                full = os.path.join(dirpath, name)
+                if is_readable(full):
+                    pairs.append((full, cls))
     return pairs
 
 
@@ -151,7 +178,9 @@ def scan_ccmt(root, mapping):
             continue
         for name in sorted(filenames):
             if name.lower().endswith(IMAGE_EXT):
-                pairs.append((os.path.join(dirpath, name), cls))
+                full = os.path.join(dirpath, name)
+                if is_readable(full):
+                    pairs.append((full, cls))
     return pairs
 
 
