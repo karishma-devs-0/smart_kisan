@@ -31,19 +31,16 @@ large Bangladeshi multi-crop set that would otherwise have been a good fit.
 
 MEASURED RESULT
 ---------------
-On the held-out set, 658 images:
+On the held-out set, 658 images: 85.9% exact disease, 98.0% crop.
 
-    all together          85.1% exact disease, 98.2% crop
-    rice                  95.2%   (375 images)
-    wheat                 89.4%   (141)
-    capsicum              82.4%   (17)
-    maize                 65.4%   (26)
-    tomato                43.5%   (69)
-    potato                31.2%   (16)
+    rice      94.9%      tomato   43.5%
+    wheat     90.8%      maize    65.4%
+    capsicum  82.4%      potato   50.0%
+    squash   100.0%      soybean  75.0%
 
 Read the spread, not the average. The headline is carried by rice and wheat,
 which have the most data and whose test split was made here rather than
-published. Tomato and potato are no better than before.
+published.
 
 Compared like for like - the same 142 PlantDoc images, which is the only fair
 comparison because the orchard images left the test set with their classes:
@@ -51,18 +48,38 @@ comparison because the orchard images left the test set with their classes:
     deployed MobileNetV2       38 classes   29.6% disease   55.6% crop
     field-tuned MobileNetV2    38 classes   55.6%           84.5%
     EfficientNetV2B0 @288      38 classes   50.7%           81.0%
-    this model                 32 classes   54.2%           91.5%
+    this model                 32 classes   57.0%           91.5%
 
-So on the crops that were always there, naming the disease is unchanged. What
+Naming the disease on the crops that were always there is barely changed. What
 improved sharply is knowing which plant it is, 84.5% to 91.5%, which is what
-dropping sixteen distractor classes buys.
+dropping sixteen distractor classes buys. The real gain is absent from that
+table: wheat and rice could not be diagnosed at all before and now run at 90%+.
 
-The actual win is not in this table: wheat and rice could not be diagnosed at
-all before, and are now around 90%. Those are the crops most of our users grow.
+REBALANCING DID NOT FIX THE WEAK CROPS
+--------------------------------------
+Tomato, maize and potato fail by confusing diseases WITHIN the right crop - the
+model knows it is looking at a tomato. Of 39 tomato errors, 33 were tomato
+diseases mistaken for other tomato diseases; maize was 9 out of 9, almost all
+Northern Leaf Blight against Gray Leaf Spot; potato was early blight against
+late blight 8 times out of 11.
 
-Worth noting against an earlier claim: EfficientNetV2B0 was reported as beating
-MobileNetV2 by nearly four points. On the full 38-class set it did, but that
-gain sat in the apple and grape classes. On the crops kept here it is behind.
+The obvious suspect was starvation: rice was capped at 500 images per class and
+tomato at 120, while PlantVillage holds 1,000-2,100 unused images for exactly
+the failing tomato and potato classes. A run with tomato raised to 400 and rice
+cut to 250 did not help - tomato fell to 37.7%, potato held at 31.2%, maize
+gained a little. That run is kept in model/india_rebalanced.
+
+It is weak evidence: the run finished only 9 of 18 epochs and shared the CPU
+with another training for part of it. But it points the same way as everything
+else in this project. The PlantVillage images are laboratory photographs, and
+the test is field photographs; more laboratory data does not teach a model to
+tell two blights apart on a phone camera in a field.
+
+What would help is field photographs of these specific crops. Two suitable
+CC BY 4.0 collections exist - Ghana farm images of maize and tomato
+(data.mendeley.com/datasets/bwh3zbpkpv) and Indonesian field potato
+(data.mendeley.com/datasets/ptz377bwb8) - and neither can be fetched without a
+browser session or Kaggle credentials.
 
 A HEALTHY CLASS FOR EVERY CROP
 ------------------------------

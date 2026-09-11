@@ -38,6 +38,10 @@ from tensorflow import keras  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(HERE, 'model', 'india')
 
+# --dir lets a previous run be scored against its own split. The labels file
+# and the test set travel with the model that produced them; pairing a model
+# with someone else's split silently measures the wrong thing.
+
 MIN_CONFIDENCE = 70  # the floor the app applies
 
 
@@ -119,12 +123,16 @@ def block(title, idx, truth, pred, conf, note=''):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--model', default=os.path.join(OUT_DIR, 'india_model.tflite'))
+    ap.add_argument('--dir', default=OUT_DIR,
+                    help='directory holding class_labels_india.json and test_set.json')
+    ap.add_argument('--model', default=None)
     ap.add_argument('--each', action='store_true')
     args = ap.parse_args()
 
-    labels_path = os.path.join(OUT_DIR, 'class_labels_india.json')
-    test_path = os.path.join(OUT_DIR, 'test_set.json')
+    if args.model is None:
+        args.model = os.path.join(args.dir, 'india_model.tflite')
+    labels_path = os.path.join(args.dir, 'class_labels_india.json')
+    test_path = os.path.join(args.dir, 'test_set.json')
     for p in (args.model, labels_path, test_path):
         if not os.path.exists(p):
             sys.exit(f'Missing {p} - run finetune_india.py first')
