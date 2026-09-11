@@ -25,6 +25,20 @@ cluttered photograph. Two things follow:
     cost of this run, and it is where lesion detail lives. Leaf spots survive
     downsampling badly.
 
+MEASURED RESULT
+---------------
+Scored on PlantDoc's held-out field photographs, against the MobileNetV2 the
+same pipeline produced:
+
+    disease identified   58.1% -> 61.9%
+    crop identified      78.8% -> 82.2%
+
+Nearly four points for no extra wall clock. Worth noting separately:
+confidently-wrong answers rose from 15% to 21%, not because the model is more
+often wrong but because it is more confident, so more of its answers clear the
+70% threshold. That threshold is a property of the model and has to be
+re-measured for each one rather than inherited.
+
 This model does NOT continue from the deployed weights - the architecture
 differs, so it starts from ImageNet and learns the task fresh. That is why the
 PlantVillage sample is larger here than in finetune_field.py: it has more to
