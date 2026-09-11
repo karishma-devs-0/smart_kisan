@@ -33,8 +33,12 @@ DEFAULT_MODEL = os.path.join(HERE, 'huggingface', 'plant_disease_model.keras')
 LABELS = os.path.join(HERE, 'huggingface', 'class_labels.json')
 PLANTDOC = os.path.join(ROOT, 'weedDetection', 'data', 'plantdoc', 'plantdoc_files')
 
+# Read from the model rather than assumed. A candidate trained at a larger
+# input would otherwise be scored on wrongly-sized images and look broken,
+# which is the same class of silent mismatch that has already cost this
+# project two misleading measurements.
 IMG_SIZE = 224
-MIN_CONFIDENCE = 60  # the floor the app applies
+MIN_CONFIDENCE = 70  # the floor the app applies
 
 sys.path.insert(0, HERE)
 from finetune_field import PLANTDOC_TO_CLASS  # noqa: E402
@@ -64,10 +68,10 @@ def collect(split):
     return items
 
 
-def load_image(path):
+def load_image(path, size=None):
     img = tf.io.decode_image(tf.io.read_file(path), channels=3,
                              expand_animations=False)
-    img = tf.image.resize(img, (IMG_SIZE, IMG_SIZE))
+    img = tf.image.resize(img, (size or IMG_SIZE, size or IMG_SIZE))
     # This model scales to [0, 1], NOT MobileNetV2's usual [-1, 1]. train_model.py
     # divides by 255 and the hosted service does the same, so anything scoring it
     # has to match or the numbers are meaningless - scoring the deployed weights
@@ -106,13 +110,15 @@ def main():
         interp.allocate_tensors()
         inp = interp.get_input_details()[0]
         out = interp.get_output_details()[0]
+        size = int(inp['shape'][1])
+        print(f'  input size: {size}px (read from the model)\n')
         if out['shape'][-1] != len(class_order):
             sys.exit(f"Model emits {out['shape'][-1]} classes, "
                      f'expected {len(class_order)}')
         rows = []
         for path, _, _ in items:
             interp.set_tensor(inp['index'],
-                              np.expand_dims(load_image(path).numpy(), 0)
+                              np.expand_dims(load_image(path, size).numpy(), 0)
                               .astype(inp['dtype']))
             interp.invoke()
             rows.append(interp.get_tensor(out['index'])[0])
@@ -122,9 +128,11 @@ def main():
         if model.output_shape[-1] != len(class_order):
             sys.exit(f'Model emits {model.output_shape[-1]} classes, '
                      f'expected {len(class_order)}')
+        size = int(model.input_shape[1])
+        print(f'  input size: {size}px (read from the model)\n')
         probs = []
         for i in range(0, len(items), 16):
-            batch = tf.stack([load_image(p) for p, _, _ in items[i:i + 16]])
+            batch = tf.stack([load_image(p, size) for p, _, _ in items[i:i + 16]])
             probs.append(model.predict(batch, verbose=0))
         probs = np.concatenate(probs)
 
