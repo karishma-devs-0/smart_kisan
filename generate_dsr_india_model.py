@@ -15,6 +15,11 @@ on main. Two sections are new and deliberate:
 
 Hours are filled in here, unlike earlier DSRs, because the question was about
 time rather than output: six hours a day across four days.
+
+Written in the first person singular. It is submitted under one name, so
+"we" would be the wrong voice. Where the plural was carrying real meaning
+it is named instead: "our farmers" means Indian farmers, "our users" means
+SmartKisan users, and "a product we sell" means one the company sells.
 """
 
 import os
