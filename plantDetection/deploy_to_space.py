@@ -10,21 +10,22 @@ from an interactive prompt, so it is never typed anywhere it will be kept.
 
 WHAT IT REPLACES
 ----------------
-The Space loads plant_disease_model.tflite. That file is what serves every
-scan, and the .keras beside it is not used at inference — worth knowing,
-because the two are different models and have been for some time.
+Three files, uploaded together because they only make sense together: the
+model, the labels that name its outputs, and the app that maps those names to
+treatment advice. The model emits 32 classes where the live one emits 38, so
+every index has moved - sending the model alone would mislabel every
+prediction silently.
 
-Measured on PlantDoc's 236 held-out field photographs:
+Measured on 1,581 held-out field photographs:
 
                               live      new
-    disease identified        28.0%    58.1%
-    crop identified           49.2%    78.8%
-    healthy called diseased     47%       8%
-    confidently wrong           59%      15%
+    disease identified        28.0%    86.9%
+    crop identified           49.2%    98.5%
+    healthy called diseased     42%       8%
+    crops covered                 7        9   (wheat and rice are new)
 
-The healthy row is the one to look at. The live model answers "diseased" to
-almost anything, so nearly half of healthy plants come back with a fungicide
-recommendation attached.
+The live model cannot diagnose wheat or rice at all - a farmer photographing
+wheat gets a confident answer about a tomato.
 
 BEFORE RUNNING
 --------------
@@ -62,7 +63,28 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ID = 'karishma-devs/smartkisan-plant-disease'
 REPO_TYPE = 'space'
 
-CANDIDATE = os.path.join(HERE, 'model', 'field', 'field_model.tflite')
+# Three files, and they must travel together.
+#
+# The India model emits 32 classes where the previous one emitted 38, so every
+# index has moved. The service maps index to name through class_labels.json and
+# looks up treatment text by that name, so uploading the model without the
+# labels mislabels every prediction silently - worse than not deploying at all.
+# app.py carries the rice and wheat treatments, which the old one has no
+# entries for, and reads the input size from the model rather than assuming 224.
+#
+# This list previously named model/field/field_model.tflite and was not updated
+# when the India model replaced it, so it deployed the wrong weights once. The
+# class-count check below exists because of that.
+UPLOADS = [
+    (os.path.join(HERE, 'model', 'india', 'india_model.tflite'),
+     'plant_disease_model.tflite'),
+    (os.path.join(HERE, 'model', 'india', 'class_labels_india.json'),
+     'class_labels.json'),
+    (os.path.join(HERE, 'huggingface_india', 'app.py'),
+     'app.py'),
+]
+
+CANDIDATE = UPLOADS[0][0]
 LIVE_COPY = os.path.join(HERE, 'huggingface', 'plant_disease_model.tflite')
 REMOTE_PATH = 'plant_disease_model.tflite'
 
@@ -88,9 +110,27 @@ def main():
         sys.exit(f'No model to deploy at {CANDIDATE}\n'
                  'Run finetune_field.py first.')
 
-    size = os.path.getsize(CANDIDATE)
-    print(f'candidate: {CANDIDATE} ({size / 1e6:.1f} MB)')
-    print(f'target:    {args.repo} -> {REMOTE_PATH}')
+    # The model and the labels must agree on the class count, or every answer
+    # is mislabelled. Checked here rather than discovered by a farmer.
+    import json as _json
+    labels = _json.load(open(UPLOADS[1][0], encoding='utf-8'))
+    try:
+        import tensorflow as _tf
+        _interp = _tf.lite.Interpreter(model_path=CANDIDATE)
+        _interp.allocate_tensors()
+        n_out = int(_interp.get_output_details()[0]['shape'][-1])
+        if n_out != len(labels):
+            sys.exit('Model emits %d classes but class_labels.json has %d. '
+                     'These must match exactly.' % (n_out, len(labels)))
+        print('checked:   model and labels agree on %d classes' % n_out)
+    except ImportError:
+        print('  note: TensorFlow unavailable, class-count check skipped')
+
+    print('target:    %s' % args.repo)
+    for local, remote in UPLOADS:
+        print('  %-26s -> %-28s %.1f MB'
+              % (os.path.basename(local), remote,
+                 os.path.getsize(local) / 1e6))
 
     if args.dry_run:
         print('\ndry run: nothing uploaded.')
@@ -125,13 +165,15 @@ def main():
         print(f'kept the current live model at {backup}')
 
     print(f'\nuploading to {args.repo} ...')
-    api.upload_file(
-        path_or_fileobj=CANDIDATE,
-        path_in_repo=REMOTE_PATH,
-        repo_id=args.repo,
-        repo_type=REPO_TYPE,
-        commit_message='Fine-tuned on field photographs: 28% to 58% on PlantDoc test',
-    )
+    for local, remote in UPLOADS:
+        print('  %s' % remote)
+        api.upload_file(
+            path_or_fileobj=local,
+            path_in_repo=remote,
+            repo_id=args.repo,
+            repo_type=REPO_TYPE,
+            commit_message='India-focused model: 32 classes, 87% on field photographs',
+        )
 
     # Keep the repo copy in step, so what is committed here matches what runs.
     shutil.copy2(CANDIDATE, LIVE_COPY)
@@ -140,7 +182,7 @@ def main():
     print('Then confirm the live endpoint actually changed:')
     print('  cd ../weedDetection')
     print('  python evaluate_disease_model.py --limit 3')
-    print('\nExpect roughly 58% rather than 28% on a full run.')
+    print('\nExpect roughly 87% on a full run, against 28% before.')
 
 
 if __name__ == '__main__':
