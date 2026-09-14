@@ -173,13 +173,20 @@ def build():
     # ── Headline figures ──
     head = doc.add_table(rows=2, cols=4)
     head.alignment = WD_TABLE_ALIGNMENT.CENTER
+    # The big number is always the current model; the line under it says what
+    # the old one scored. An earlier version wrote these as '28 -> 87%', which
+    # left the reader to work out which end was which.
     figures = [
-        ('DISEASE IDENTIFIED', '28 → 87%', 'Exact class, 1,581 photographs'),
-        ('CROP IDENTIFIED', '49 → 99%', 'Which plant it is'),
-        ('HEALTHY CALLED DISEASED', '42 → 8%', 'A fungicide nobody needed'),
-        ('CROPS COVERED', '9', 'Including wheat and rice'),
+        ('DISEASE IDENTIFIED', '87%', 'Old model: 28%',
+         'Names the right disease, on 1,581 photographs'),
+        ('CROP IDENTIFIED', '99%', 'Old model: 49%',
+         'Knows which plant it is looking at'),
+        ('HEALTHY PLANT CALLED DISEASED', '8%', 'Old model: 42%',
+         'Sent the farmer to buy a fungicide he did not need'),
+        ('CROPS COVERED', '9', 'Old model: 7',
+         'Wheat and rice are new — most of our users grow them'),
     ]
-    for i, (k, v, s) in enumerate(figures):
+    for i, (k, v, was, s) in enumerate(figures):
         top = head.cell(0, i).paragraphs[0]
         rk = top.add_run(k + '\n')
         rk.font.size = Pt(7.5)
@@ -188,6 +195,9 @@ def build():
         rv.font.size = Pt(17)
         rv.font.bold = True
         rv.font.color.rgb = RGBColor(0x2E, 0x7D, 0x32)
+        rw = top.add_run('\n' + was)
+        rw.font.size = Pt(8)
+        rw.font.color.rgb = RGBColor(0x69, 0x70, 0x5F)
 
         bot = head.cell(1, i).paragraphs[0]
         rs = bot.add_run(s)

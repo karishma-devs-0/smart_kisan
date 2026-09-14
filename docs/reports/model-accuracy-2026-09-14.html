@@ -87,6 +87,11 @@
     font-family: Bitter, Georgia, serif; font-size: 1.85rem; font-weight: 700;
     line-height: 1.05; font-variant-numeric: tabular-nums; color: var(--accent);
   }
+  .verdict .was {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.78rem; color: var(--muted);
+    padding-bottom: 0.25rem;
+  }
   .verdict .s { font-size: 0.85rem; color: var(--muted); }
 
   .table-wrap { overflow-x: auto; }
@@ -150,23 +155,27 @@
     <div class="verdict">
       <div>
         <span class="k">Disease identified</span>
-        <span class="v">28 &rarr; 87%</span>
-        <span class="s">Exact class, 1,581 photographs</span>
+        <span class="v">87%</span>
+        <span class="was">Old model: 28%</span>
+        <span class="s">Names the right disease, on 1,581 photographs</span>
       </div>
       <div>
         <span class="k">Crop identified</span>
-        <span class="v">49 &rarr; 99%</span>
-        <span class="s">Which plant it is</span>
+        <span class="v">99%</span>
+        <span class="was">Old model: 49%</span>
+        <span class="s">Knows which plant it is looking at</span>
       </div>
       <div>
-        <span class="k">Healthy called diseased</span>
-        <span class="v">42 &rarr; 8%</span>
-        <span class="s">A fungicide nobody needed</span>
+        <span class="k">Healthy plant called diseased</span>
+        <span class="v">8%</span>
+        <span class="was">Old model: 42%</span>
+        <span class="s">Sent the farmer to buy a fungicide he did not need</span>
       </div>
       <div>
         <span class="k">Crops covered</span>
         <span class="v">9</span>
-        <span class="s">Including wheat and rice</span>
+        <span class="was">Old model: 7</span>
+        <span class="s">Wheat and rice are new &mdash; most of our users grow them</span>
       </div>
     </div>
   </section>
