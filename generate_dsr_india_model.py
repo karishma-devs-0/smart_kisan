@@ -37,6 +37,9 @@ MON = "2026-09-14"
 
 FILENAME = "SmartKisan_DSR_2026-09-10_to_09-14.xlsx"
 
+# Title, sub-title, "Prepared by", one blank, then the column headings.
+HEADER_ROW = 5
+
 HEADERS = ["Date", "Task Category", "Detailed Task Description",
            "Deliverables / Artifacts", "Status", "Hours Spent", "Remarks & Notes"]
 
@@ -61,8 +64,8 @@ ROWS = [
         "Disease Detection - Root Cause",
         "Examined what the model had actually been taught. 16 of its 38 "
         "disease classes are apple, grape, cherry, peach, blueberry, "
-        "raspberry and strawberry: temperate orchard and berry crops our "
-        "farmers do not grow. It had no wheat and no rice at all.",
+        "raspberry and strawberry: temperate orchard and berry crops "
+        "Indian farmers do not grow. It had no wheat and no rice at all.",
         "classes_india.py",
         "Completed",
         1.0,
@@ -80,7 +83,8 @@ ROWS = [
         "Completed",
         2.0,
         "One good multi-crop set from Bangladesh was rejected: its licence "
-        "forbids commercial use, so it cannot sit inside a product we sell. "
+        "forbids commercial use, so it cannot sit inside a product the "
+        "company sells. "
         "Cheaper to find that now than after it is in a shipped model.",
     ],
     [
@@ -133,7 +137,7 @@ ROWS = [
         3.0,
         "85.9% overall, and rice and wheat work for the first time. But three "
         "crops were still weak - tomato 44%, potato 50%, maize 65%. Those are "
-        "the crops our users grow most, so this was not shippable.",
+        "the crops most SmartKisan users grow, so this was not shippable.",
     ],
     [
         FRI,
@@ -241,8 +245,8 @@ ROWS = [
     [
         MON,
         "Accuracy Report - Correction",
-        "Found and fixed a labelling error in our own report before sending "
-        "it. The chart called our first training run the previous model, "
+        "Found and fixed a labelling error in my own report before sending "
+        "it. The chart called my first training run the previous model, "
         "which reads as the model the app was running.",
         "docs/reports/model-accuracy-2026-09-14.html",
         "Fixed",
@@ -275,10 +279,10 @@ RESULT = [
     ["Healthy plant called diseased", "42%", "8%",
      "A spray recommended to a farmer who did not need one"],
     ["Crops covered", "7", "9",
-     "Wheat and rice added - most of our users grow them"],
-    ["Tomato", "44%", "88%", "Before figure is our own first training run"],
-    ["Potato", "50%", "86%", "Before figure is our own first training run"],
-    ["Maize", "65%", "82%", "Before figure is our own first training run"],
+     "Wheat and rice added - most SmartKisan users grow them"],
+    ["Tomato", "44%", "88%", "Before figure is my first training run"],
+    ["Potato", "50%", "86%", "Before figure is my first training run"],
+    ["Maize", "65%", "82%", "Before figure is my first training run"],
     ["Rice", "not covered", "92%", "The old model had no rice class"],
     ["Wheat", "not covered", "90%", "The old model had no wheat class"],
     ["Like-for-like", "about 35%", "about 86%",
@@ -289,30 +293,30 @@ RESULT = [
 
 WHY = [
     ["Training time",
-     "One full training run takes about five hours on a laptop processor. We "
-     "have no graphics card. Three runs were needed, so roughly 15 of the 18 "
-     "hours was the machine working."],
+     "One full training run takes about five hours on a laptop processor. I "
+     "have no graphics card, and I needed three runs, so roughly 15 of the 18 "
+     "hours was the machine working rather than me."],
     ["Runs cannot overlap",
-     "Running two at once was tried. Both slowed badly - one step went from 8 "
+     "I tried running two at once. Both slowed badly - one step went from 8 "
      "minutes to 37. So it is one run at a time."],
     ["Results arrive only at the end",
-     "Whether a change worked is unknown until the run finishes. The shape of "
-     "the day is: start a run, wait, measure, work out what went wrong, "
-     "change one thing, start the next. Two attempts a day at most."],
+     "Whether a change worked is unknown until the run finishes. My day is: "
+     "start a run, wait, measure, work out what went wrong, change one thing, "
+     "start the next. Two attempts a day at most."],
     ["Two of the three runs failed",
      "That is the part that was worth the time. The failed rebalancing run is "
      "what proved the problem was field conditions and not a shortage of "
-     "data. Without it, the next day would have been spent adding more of the "
-     "wrong thing."],
+     "data. Without it, I would have spent the next day adding more of the wrong "
+     "thing."],
     ["What would make it faster",
      "Renting a cloud graphics card for a day brings a five-hour run to well "
-     "under an hour. The same job would fit in one shift instead of three."],
+     "under an hour. The same job would fit into one of my shifts instead of three."],
 ]
 
 OPEN_ITEMS = [
     ["Disease model", "Field testing not yet done",
-     "Tomato, potato and maize are measured mostly on collections where we "
-     "divided training and testing images ourselves, so those are the "
+     "Tomato, potato and maize are measured mostly on collections where I "
+     "divided the training and testing images myself, so those are the "
      "optimistic end. On the one collection where outside authors published "
      "the division, the model scores 57%. Real field results will land "
      "between the two."],
@@ -322,7 +326,8 @@ OPEN_ITEMS = [
      "this matters more than the overall figure."],
     ["Training hardware", "No graphics card",
      "The main reason this work is measured in days rather than hours. A "
-     "rented cloud machine for a day would remove it."],
+     "rented cloud machine for a day would remove it, and I would not need "
+     "three shifts for the next model."],
     ["Phone sign-in", "Codes cannot reach Indian numbers",
      "Unchanged. Requires DLT registration with TRAI, or credentials for an "
      "SMS account the company already holds. Business registration, not "
@@ -415,10 +420,15 @@ def build():
     ws.cell(row=2, column=1).alignment = Alignment(horizontal="center")
     ws.cell(row=2, column=1).font = Font(italic=True, size=10, color="555555")
 
+    ws.append(["Prepared by: Karishma"])
+    ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=len(HEADERS))
+    ws.cell(row=3, column=1).alignment = Alignment(horizontal="center")
+    ws.cell(row=3, column=1).font = Font(size=10, color="555555")
+
     ws.append([])
     ws.append(HEADERS)
     for c in range(1, len(HEADERS) + 1):
-        cell = ws.cell(row=4, column=c)
+        cell = ws.cell(row=HEADER_ROW, column=c)
         cell.fill = HEADER_FILL
         cell.font = HEADER_FONT
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -464,8 +474,8 @@ def build():
     for i, w in enumerate([12, 34, 62, 34, 26, 12, 56], start=1):
         ws.column_dimensions[chr(64 + i)].width = w
 
-    ws.row_dimensions[4].height = 28
-    ws.freeze_panes = "A5"
+    ws.row_dimensions[HEADER_ROW].height = 28
+    ws.freeze_panes = "A" + str(HEADER_ROW + 1)
 
     out = os.path.join(os.path.dirname(os.path.abspath(__file__)), FILENAME)
     wb.save(out)
