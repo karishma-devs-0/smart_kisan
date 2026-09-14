@@ -84,8 +84,8 @@ def chart_by_crop(path):
     before = [c[1] for c in CROPS]
     now = [c[2] for c in CROPS]
 
-    ax.bar([i - w / 2 for i in x], before, w, color=BLUE, label='Previous model')
-    ax.bar([i + w / 2 for i in x], now, w, color=GREEN, label='Current model')
+    ax.bar([i - w / 2 for i in x], before, w, color=BLUE, label='Our first training run')
+    ax.bar([i + w / 2 for i in x], now, w, color=GREEN, label='Model now live')
 
     for i, (b, n) in enumerate(zip(before, now)):
         ax.text(i - w / 2, b + 2, '%.0f' % b, ha='center', fontsize=8, color=MUTED)
@@ -210,9 +210,13 @@ def build():
     doc.add_picture(crop_png, width=Inches(6.7))
     cap = doc.add_paragraph()
     rc = cap.add_run(
-        'The three crops on the left were the ones failing. Rice and wheat were '
-        'already strong and held their ground. Soybean and squash have too few '
-        'test images to read anything into.')
+        'Both bars are our own training runs - the first one, and the one now '
+        'live. The three crops on the left were the ones failing, and adding '
+        'real field photographs is what fixed them. Rice and wheat worked from '
+        'the first run and held. Soybean and squash have too few test images to '
+        'read anything into. The model the app used until today is not on this '
+        'chart: it had no rice or wheat classes, so there is no per-crop figure '
+        'to set against these.')
     rc.font.size = Pt(8.5)
     rc.font.color.rgb = RGBColor(0x69, 0x70, 0x5F)
 
@@ -221,7 +225,7 @@ def build():
     t = doc.add_table(rows=1, cols=4)
     t.style = 'Light Grid Accent 1'
     hdr = t.rows[0].cells
-    for i, label in enumerate(['Crop', 'Before', 'Now', 'Test images']):
+    for i, label in enumerate(['Crop', 'First run', 'Now', 'Test images']):
         p = hdr[i].paragraphs[0]
         rr = p.add_run(label)
         rr.font.bold = True
@@ -264,6 +268,19 @@ def build():
         'collections whose train/test splits we made ourselves, so they are the '
         'optimistic end. On the one split published by outside authors, the '
         'model scores 57%.')
+    rt.font.size = Pt(9.5)
+
+    cav2 = doc.add_paragraph()
+    rb2 = cav2.add_run('And on the 28% figure. ')
+    rb2.font.bold = True
+    rb2.font.size = Pt(9.5)
+    rt = cav2.add_run(
+        'A fifth of the test set is rice and wheat, which the old model had no '
+        'classes for and so could never have answered. Leaving those out, the '
+        'old model scores about 35% and the new one about 86%. Both '
+        'comparisons are real: 35% to 86% is the like-for-like one, and 28% to '
+        '87% is what a farmer actually experiences, since the rice and wheat '
+        'photographs are ones he would have taken anyway.')
     rt.font.size = Pt(9.5)
 
     # ── Threshold ──

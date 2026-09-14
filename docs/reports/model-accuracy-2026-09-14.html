@@ -185,7 +185,7 @@
     <figure>
       <div class="chart-shell">
         <svg viewBox="0 0 780 330" role="img" aria-labelledby="crop-title">
-          <title id="crop-title">Accuracy by crop before and after: tomato, potato and maize improved sharply; rice and wheat held</title>
+          <title id="crop-title">Accuracy by crop across our two training runs: tomato, potato and maize improved sharply once field photographs were added; rice and wheat held</title>
 
           <g font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--muted)">
             <line x1="58" y1="250" x2="756" y2="250" stroke="var(--chart-grid)" stroke-width="1"></line>
@@ -203,28 +203,28 @@
           <!-- Ordered by how much each crop moved -->
           <g>
             <!-- Tomato 43.5 -> 88.0 -->
-            <rect x="68"  y="163" width="32" height="87"  rx="4" fill="var(--series-b)"><title>Tomato before: 43.5%</title></rect>
+            <rect x="68"  y="163" width="32" height="87"  rx="4" fill="var(--series-b)"><title>Tomato, first run: 43.5%</title></rect>
             <rect x="106" y="74"  width="32" height="176" rx="4" fill="var(--accent)"><title>Tomato now: 88.0% of 625 images</title></rect>
             <!-- Potato 50.0 -> 85.7 -->
-            <rect x="154" y="150" width="32" height="100" rx="4" fill="var(--series-b)"><title>Potato before: 50.0%</title></rect>
+            <rect x="154" y="150" width="32" height="100" rx="4" fill="var(--series-b)"><title>Potato, first run: 50.0%</title></rect>
             <rect x="192" y="79"  width="32" height="171" rx="4" fill="var(--accent)"><title>Potato now: 85.7% of 210 images</title></rect>
             <!-- Maize 65.4 -> 81.7 -->
-            <rect x="240" y="119" width="32" height="131" rx="4" fill="var(--series-b)"><title>Maize before: 65.4%</title></rect>
+            <rect x="240" y="119" width="32" height="131" rx="4" fill="var(--series-b)"><title>Maize, first run: 65.4%</title></rect>
             <rect x="278" y="87"  width="32" height="163" rx="4" fill="var(--accent)"><title>Maize now: 81.7% of 389 images</title></rect>
             <!-- Capsicum 82.4 -> 94.1 -->
-            <rect x="326" y="85"  width="32" height="165" rx="4" fill="var(--series-b)"><title>Capsicum before: 82.4%</title></rect>
+            <rect x="326" y="85"  width="32" height="165" rx="4" fill="var(--series-b)"><title>Capsicum, first run: 82.4%</title></rect>
             <rect x="364" y="62"  width="32" height="188" rx="4" fill="var(--accent)"><title>Capsicum now: 94.1% of 17 images</title></rect>
             <!-- Rice 94.9 -> 92.4 -->
-            <rect x="412" y="60"  width="32" height="190" rx="4" fill="var(--series-b)"><title>Rice before: 94.9%</title></rect>
+            <rect x="412" y="60"  width="32" height="190" rx="4" fill="var(--series-b)"><title>Rice, first run: 94.9%</title></rect>
             <rect x="450" y="65"  width="32" height="185" rx="4" fill="var(--accent)"><title>Rice now: 92.4% of 185 images</title></rect>
             <!-- Wheat 90.8 -> 90.1 -->
-            <rect x="498" y="68"  width="32" height="182" rx="4" fill="var(--series-b)"><title>Wheat before: 90.8%</title></rect>
+            <rect x="498" y="68"  width="32" height="182" rx="4" fill="var(--series-b)"><title>Wheat, first run: 90.8%</title></rect>
             <rect x="536" y="70"  width="32" height="180" rx="4" fill="var(--accent)"><title>Wheat now: 90.1% of 141 images</title></rect>
             <!-- Soybean 75.0 -> 75.0 -->
-            <rect x="584" y="100" width="32" height="150" rx="4" fill="var(--series-b)"><title>Soybean before: 75.0%</title></rect>
+            <rect x="584" y="100" width="32" height="150" rx="4" fill="var(--series-b)"><title>Soybean, first run: 75.0%</title></rect>
             <rect x="622" y="100" width="32" height="150" rx="4" fill="var(--accent)"><title>Soybean now: 75.0% of 8 images</title></rect>
             <!-- Squash 100 -> 100 -->
-            <rect x="670" y="50"  width="32" height="200" rx="4" fill="var(--series-b)"><title>Squash before: 100%</title></rect>
+            <rect x="670" y="50"  width="32" height="200" rx="4" fill="var(--series-b)"><title>Squash, first run: 100%</title></rect>
             <rect x="708" y="50"  width="32" height="200" rx="4" fill="var(--accent)"><title>Squash now: 100% of 6 images</title></rect>
           </g>
 
@@ -278,13 +278,17 @@
         </svg>
       </div>
       <div class="legend">
-        <span><i class="swatch" style="background:var(--series-b)"></i> Previous model</span>
+        <span><i class="swatch" style="background:var(--series-b)"></i> Our first training run</span>
         <span><i class="swatch" style="background:var(--accent)"></i> Current model</span>
       </div>
       <figcaption>
-        The three crops on the left were the ones failing. Rice and wheat were
-        already strong and held their ground. Soybean and squash have too few
-        test images to read anything into.
+        Both bars here are our own training runs &mdash; the first one, and the
+        one now live. The three crops on the left were the ones failing, and
+        adding real field photographs is what fixed them. Rice and wheat worked
+        from the first run and held. Soybean and squash have too few test images
+        to read anything into. The model the app used until today is not on this
+        chart: it had no rice or wheat classes, so there is no per-crop figure
+        to set against these.
       </figcaption>
     </figure>
   </section>
@@ -297,7 +301,7 @@
         <thead>
           <tr>
             <th scope="col">Crop</th>
-            <th scope="col">Before <small>previous model</small></th>
+            <th scope="col">First run <small>lab photos only</small></th>
             <th scope="col">Now</th>
             <th scope="col">Test images</th>
           </tr>
@@ -329,6 +333,13 @@
       potato and maize are measured largely on newly added collections whose
       train/test splits we made ourselves, so they are the optimistic end. On
       the one split published by outside authors, the model scores 57%.
+      <br><br>
+      <strong>And on the 28% figure.</strong> A fifth of the test set is rice
+      and wheat, which the old model had no classes for and so could never have
+      answered. Leaving those out, the old model scores about 35% and the new
+      one about 86%. Both comparisons are real; 35% to 86% is the like-for-like
+      one, and 28% to 87% is what a farmer actually experiences, since the rice
+      and wheat photographs are ones he would have taken anyway.
     </div>
   </section>
 
