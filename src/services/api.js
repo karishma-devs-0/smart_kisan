@@ -1125,26 +1125,28 @@ export const onboardingService = {
  * Below this the classifier's answer is not usable. See the check in
  * scanImage for why naming a disease under it is actively harmful.
  *
- * Chosen by measurement, not by feel. Scoring the model against PlantDoc's 236
- * field photographs at a range of floors (plantDetection/evaluate_field_model.py):
+ * Re-measured for the current model, because a threshold does not carry over
+ * between models - a better-calibrated one pushes more answers above any fixed
+ * cut, so an inherited number silently stops doing its job. Scored on 1,581
+ * held-out photographs (plantDetection/evaluate_india_model.py):
  *
  *   floor   scans answered   of those correct   wrong answers shown
- *     0%         100%              57%            43% of all scans
- *    50%          70%              69%            22%
- *    60%          56%              75%            14%
- *    70%          47%              84%             8%
- *    80%          41%              86%             6%
+ *     0%         100%              87%             13.1% of all scans
+ *    60%          94%              90%              9.5%
+ *    70%          88%              92%              6.8%
+ *    80%          83%              94%              5.1%
+ *    90%          74%              96%              3.0%
  *
- * 70 is where the curve turns. Going from 60 to 70 nearly halves the wrong
- * diagnoses a farmer is shown, for nine points of coverage. Past 70 the
- * accuracy gain flattens while coverage keeps falling, so the extra silence
- * buys little.
+ * 80 rather than the previous 70: it cuts the wrong diagnoses a farmer is
+ * shown by a quarter for six points of coverage. The curve is flat enough
+ * either side that this is a judgement rather than a clear optimum, and the
+ * asymmetry decides it - an unanswered scan costs another photograph, a wrong
+ * one costs a fungicide and a sprayed plant that did not need it.
  *
- * The asymmetry is the point: an unanswered scan costs someone another
- * photograph, and a wrong one costs them a fungicide and a sprayed plant that
- * did not need it.
+ * Worth noting how much the model improved: the previous one answered only 47%
+ * of scans at its 70% floor, against 88% here at the same cut.
  */
-const MIN_SCAN_CONFIDENCE = 70;
+const MIN_SCAN_CONFIDENCE = 80;
 
 /** Distinguishes "the model answered, but not usefully" from "it did not answer". */
 class LowConfidenceError extends Error {}

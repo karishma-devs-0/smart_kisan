@@ -1,0 +1,536 @@
+<title>SmartKisan Model Accuracy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground:      #FBFAF7;
+    --surface:     #FFFFFF;
+    --surface-sub: #F3F2ED;
+    --ink:         #1A1E18;
+    --ink-2:       #3D4438;
+    --muted:       #69705F;
+    --rule:        #DCDBD2;
+    --rule-soft:   #EAE9E2;
+    --accent:      #2E7D32;
+    --accent-soft: #E4EFE4;
+    --series-b:    #1F6FB2;
+    --series-b-soft:#E2ECF6;
+    --critical:    #A32B1E;
+    --critical-soft:#F6E5E2;
+    --chart-grid:  #E6E5DD;
+    --measure: 68ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #12150F; --surface: #1A1E17; --surface-sub: #22271E;
+      --ink: #E9ECE3; --ink-2: #C6CBBC; --muted: #9BA38F;
+      --rule: #333A2C; --rule-soft: #272D21;
+      --accent: #4FA855; --accent-soft: #1E2C1D;
+      --series-b: #4C93D8; --series-b-soft: #16212B;
+      --critical: #E8806D; --critical-soft: #2C1B17;
+      --chart-grid: #2B3125;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #12150F; --surface: #1A1E17; --surface-sub: #22271E;
+    --ink: #E9ECE3; --ink-2: #C6CBBC; --muted: #9BA38F;
+    --rule: #333A2C; --rule-soft: #272D21;
+    --accent: #4FA855; --accent-soft: #1E2C1D;
+    --series-b: #4C93D8; --series-b-soft: #16212B;
+    --critical: #E8806D; --critical-soft: #2C1B17;
+    --chart-grid: #2B3125;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1040px; margin: 0 auto;
+    padding: clamp(2rem, 5vw, 4.5rem) clamp(1.1rem, 4vw, 3rem) 5rem;
+    display: flex; flex-direction: column; gap: 4rem;
+  }
+
+  .masthead { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.72rem; font-weight: 500; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted);
+  }
+
+  h1 {
+    font-family: Bitter, Georgia, serif; font-weight: 700;
+    font-size: clamp(2rem, 5.2vw, 2.4rem); line-height: 1.12;
+    letter-spacing: -0.015em; margin: 0; text-wrap: balance;
+  }
+
+  .standfirst { font-size: 1.1rem; color: var(--ink-2); max-width: var(--measure); margin: 0; }
+
+  .meta-strip {
+    display: flex; flex-wrap: wrap; gap: 0 2.25rem;
+    padding-top: 1.25rem; border-top: 1px solid var(--rule);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.78rem; color: var(--muted);
+  }
+  .meta-strip b { color: var(--ink-2); font-weight: 500; }
+
+  section { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  h2 {
+    font-family: Bitter, Georgia, serif; font-weight: 600;
+    font-size: 1.75rem; line-height: 1.2; letter-spacing: -0.01em;
+    margin: 0; text-wrap: balance;
+  }
+  h3 { font-family: Bitter, Georgia, serif; font-weight: 600; font-size: 1.35rem; margin: 0; }
+
+  p { margin: 0; max-width: var(--measure); }
+  p + p { margin-top: 0.85rem; }
+  .lede { font-size: 1.1rem; color: var(--ink-2); }
+  strong { font-weight: 600; }
+
+  .note {
+    background: var(--surface-sub); border-left: 3px solid var(--accent);
+    padding: 1.35rem 1.6rem; display: flex; flex-direction: column; gap: 0.7rem;
+  }
+  .note.warn { border-left-color: var(--critical); }
+  .note p { max-width: 62ch; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+  caption {
+    text-align: left; font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); padding-bottom: 0.7rem;
+  }
+  th, td { padding: 0.66rem 0.9rem; text-align: left; }
+  th:first-child, td:first-child { padding-left: 0; }
+  th:not(:first-child), td:not(:first-child) { text-align: right; }
+  thead th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.72rem;
+    font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted); border-bottom: 1px solid var(--rule); vertical-align: bottom;
+  }
+  thead th small { display: block; font-weight: 400; opacity: 0.75; letter-spacing: 0; text-transform: none; }
+  tbody tr { border-bottom: 1px solid var(--rule-soft); }
+  tbody tr:last-child { border-bottom: none; }
+  td.num { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  td.gain { color: var(--accent); font-weight: 500; }
+  td.loss { color: var(--critical); font-weight: 500; }
+  tr.highlight { background: var(--surface-sub); }
+  tr.highlight td:first-child { font-weight: 600; padding-left: 0.9rem; }
+  .row-note { font-size: 0.84rem; color: var(--muted); display: block; font-weight: 400; }
+
+  figure { margin: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+  .chart-shell { overflow-x: auto; }
+  svg { display: block; max-width: 100%; height: auto; }
+  figcaption { font-size: 0.88rem; color: var(--muted); max-width: var(--measure); }
+  .legend {
+    display: flex; gap: 1.4rem; flex-wrap: wrap;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.76rem; color: var(--ink-2);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
+  .swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
+
+  .verdict {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+    gap: 1px; background: var(--rule); border: 1px solid var(--rule);
+  }
+  .verdict > div { background: var(--surface); padding: 1.3rem 1.4rem; display: flex; flex-direction: column; gap: 0.3rem; }
+  .verdict .k {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.7rem;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+  }
+  .verdict .v {
+    font-family: Bitter, Georgia, serif; font-size: 1.85rem; font-weight: 700;
+    line-height: 1.05; font-variant-numeric: tabular-nums;
+  }
+  .verdict .v.up { color: var(--accent); }
+  .verdict .s { font-size: 0.85rem; color: var(--muted); }
+
+  .pill {
+    display: inline-block; font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.68rem; font-weight: 500; letter-spacing: 0.07em;
+    text-transform: uppercase; padding: 0.22rem 0.5rem; border-radius: 3px;
+  }
+  .pill.live { background: var(--accent-soft); color: var(--accent); }
+  .pill.ready { background: var(--series-b-soft); color: var(--series-b); }
+
+  .trials { display: flex; flex-direction: column; }
+  .trial {
+    display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 0.4rem 1.5rem;
+    align-items: baseline; padding: 1.15rem 0; border-bottom: 1px solid var(--rule-soft);
+  }
+  .trial:last-child { border-bottom: none; }
+  .trial h4 { margin: 0; font-family: Bitter, Georgia, serif; font-size: 1.02rem; font-weight: 600; }
+  .trial .score {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.95rem;
+    font-variant-numeric: tabular-nums; color: var(--critical); white-space: nowrap;
+  }
+  .trial p { grid-column: 1 / -1; font-size: 0.93rem; color: var(--ink-2); max-width: 72ch; }
+
+  footer {
+    border-top: 1px solid var(--rule); padding-top: 1.5rem;
+    font-size: 0.85rem; color: var(--muted);
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.86em;
+    background: var(--surface-sub); padding: 0.1em 0.36em; border-radius: 3px;
+  }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--series-b); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <div class="eyebrow">SmartKisan &middot; Model Accuracy Report &middot; 14 September 2026</div>
+    <h1>Rebuilt around the crops Indian farmers actually grow</h1>
+    <p class="standfirst">
+      The disease model has gone from 28% to 86.9% correct on real field
+      photographs. Most of that came not from better training, but from
+      discovering the model was answering the wrong question: a third of its
+      classes were apple, grape and strawberry, and it had never seen wheat or
+      rice at all.
+    </p>
+    <div class="meta-strip">
+      <span>Prepared for <b>Hbeonlabs Technologies</b></span>
+      <span>Held-out test set <b>1,581 photographs</b></span>
+      <span>Training set <b>20,777, of which 78% field</b></span>
+    </div>
+  </header>
+
+  <!-- ═══ The finding ═══ -->
+  <section>
+    <h2>The problem was the question, not the answer</h2>
+    <div class="note">
+      <p>
+        The deployed model classifies 38 diseases. Sixteen of them are apple,
+        grape, cherry, peach, blueberry, raspberry and strawberry &mdash;
+        temperate orchard and berry crops that a smallholder in Punjab or Tamil
+        Nadu does not grow.
+      </p>
+      <p>
+        Worse, <strong>wheat and rice had no classes at all.</strong> A farmer
+        photographing his wheat received a confident answer about a tomato,
+        because tomato was the nearest thing the model knew. No amount of
+        accuracy would have fixed that.
+      </p>
+      <p>
+        The label space was replaced: orchard and berry crops out, rice and
+        wheat in. <strong>32 classes across 9 crops.</strong>
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══ Headline ═══ -->
+  <section>
+    <h2>Where it stands</h2>
+
+    <div class="verdict">
+      <div>
+        <span class="k">Disease identified</span>
+        <span class="v up">28 &rarr; 87%</span>
+        <span class="s">Exact class, 1,581 photographs</span>
+      </div>
+      <div>
+        <span class="k">Crop identified</span>
+        <span class="v up">49 &rarr; 99%</span>
+        <span class="s">Which plant it is</span>
+      </div>
+      <div>
+        <span class="k">Healthy called diseased</span>
+        <span class="v up">42 &rarr; 8%</span>
+        <span class="s">A fungicide nobody needed</span>
+      </div>
+      <div>
+        <span class="k">Crops covered</span>
+        <span class="v up">9</span>
+        <span class="s">Including wheat and rice</span>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <caption>By crop &middot; held-out photographs the model never saw in training</caption>
+        <thead>
+          <tr>
+            <th scope="col">Crop</th>
+            <th scope="col">Before <small>previous model</small></th>
+            <th scope="col">Now</th>
+            <th scope="col">Test images</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Capsicum / chilli</td><td class="num">82.4%</td><td class="num">94.1%</td><td class="num">17</td></tr>
+          <tr><td>Rice</td><td class="num">94.9%</td><td class="num">92.4%</td><td class="num">185</td></tr>
+          <tr><td>Wheat</td><td class="num">90.8%</td><td class="num">90.1%</td><td class="num">141</td></tr>
+          <tr class="highlight">
+            <td>Tomato<span class="row-note">The crop the testing team will reach for first</span></td>
+            <td class="num">43.5%</td><td class="num gain">88.0%</td><td class="num">625</td>
+          </tr>
+          <tr class="highlight">
+            <td>Potato<span class="row-note">Early blight against late blight was the failure</span></td>
+            <td class="num">50.0%</td><td class="num gain">85.7%</td><td class="num">210</td>
+          </tr>
+          <tr class="highlight">
+            <td>Maize<span class="row-note">Leaf blight against gray leaf spot</span></td>
+            <td class="num">65.4%</td><td class="num gain">81.7%</td><td class="num">389</td>
+          </tr>
+          <tr><td>Soybean</td><td class="num">75.0%</td><td class="num">75.0%</td><td class="num">8</td></tr>
+          <tr><td>Squash</td><td class="num">100%</td><td class="num">100%</td><td class="num">6</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <h3>Read this before quoting 88% for tomato</h3>
+      <p>
+        Tomato, potato and maize are now measured largely on the new
+        collections, whose train/test splits were made by us rather than
+        published by the dataset authors. Those are the optimistic end.
+      </p>
+      <p>
+        The PlantDoc portion &mdash; the only split published by someone else,
+        and therefore the hardest test &mdash; is <strong>57%, unchanged.</strong>
+        The honest reading: the model is much better on photographs resembling
+        real farm photography, and the toughest benchmark did not move.
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══ What actually worked ═══ -->
+  <section>
+    <h2>Four attempts failed. Real photographs worked.</h2>
+    <p class="lede">
+      Every training-side technique was tried on the weak crops first. All of
+      them used PlantVillage, which is laboratory imagery &mdash; one detached
+      leaf on a plain background. The test is field imagery. More laboratory
+      data does not teach a model to separate two blights on a phone camera in
+      a field.
+    </p>
+
+    <div class="trials">
+      <div class="trial">
+        <h4>A larger, longer training run</h4>
+        <span class="score">58% &rarr; 55%</span>
+        <p>
+          More of the network unfrozen, nearly twice the epochs. Scored
+          <em>higher</em> on validation and worse on held-out field
+          photographs, with missed infections rising.
+        </p>
+      </div>
+      <div class="trial">
+        <h4>Averaging over multiple views of each photo</h4>
+        <span class="score">no gain</span>
+        <p>
+          Accuracy unchanged for 3.4&times; the inference cost &mdash; several
+          extra seconds on every scan.
+        </p>
+      </div>
+      <div class="trial">
+        <h4>Weighting rare diseases more heavily</h4>
+        <span class="score">58% &rarr; 56%</span>
+        <p>
+          Intended to lift the scarcest classes. Those were precisely the ones
+          that did not move. They are not merely rare, they are hard.
+        </p>
+      </div>
+      <div class="trial">
+        <h4>Rebalancing: more lab images for the weak crops</h4>
+        <span class="score">44% &rarr; 38%</span>
+        <p>
+          Tomato was raised from 120 to 400 laboratory images per disease and
+          rice cut back. Tomato got worse; potato did not move.
+        </p>
+      </div>
+    </div>
+
+    <div class="note">
+      <h3>What worked, in a single run</h3>
+      <p>
+        <strong>7,448 photographs taken on real farms</strong> &mdash; 6,152 of
+        maize and tomato from Ghana, 1,296 of potato taken on smartphones in
+        Central Java. Training went from 54% field imagery to 78%.
+      </p>
+      <p>
+        Tomato 44&rarr;88%, potato 50&rarr;86%, maize 65&rarr;82%. The
+        bottleneck was never the training method. It was photographs that look
+        like what a farmer takes.
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══ Threshold ═══ -->
+  <section>
+    <h2>When the app declines to answer</h2>
+    <p class="lede">
+      The app withholds a diagnosis below a confidence threshold and asks for a
+      clearer photograph. That threshold belongs to the model and was
+      re-measured &mdash; a better-calibrated model pushes more answers above
+      any fixed cut, so an inherited number quietly stops doing its job.
+    </p>
+
+    <figure>
+      <div class="chart-shell">
+        <svg viewBox="0 0 780 320" role="img" aria-labelledby="thr-title">
+          <title id="thr-title">Raising the confidence threshold answers fewer scans but shows far fewer wrong diagnoses</title>
+          <g font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--muted)">
+            <line x1="58" y1="250" x2="742" y2="250" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <text x="48" y="254" text-anchor="end">0%</text>
+            <line x1="58" y1="200" x2="742" y2="200" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <text x="48" y="204" text-anchor="end">25%</text>
+            <line x1="58" y1="150" x2="742" y2="150" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <text x="48" y="154" text-anchor="end">50%</text>
+            <line x1="58" y1="100" x2="742" y2="100" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <text x="48" y="104" text-anchor="end">75%</text>
+            <line x1="58" y1="50" x2="742" y2="50" stroke="var(--chart-grid)" stroke-width="1"></line>
+            <text x="48" y="54" text-anchor="end">100%</text>
+          </g>
+
+          <g>
+            <rect x="76"  y="50"  width="34" height="200" rx="4" fill="var(--series-b)"><title>No threshold: 100% of scans answered</title></rect>
+            <rect x="112" y="224" width="34" height="26"  rx="4" fill="var(--accent)"><title>No threshold: 13.1% of scans are a wrong diagnosis shown</title></rect>
+            <rect x="184" y="62"  width="34" height="188" rx="4" fill="var(--series-b)"><title>60% floor: 94.0% answered</title></rect>
+            <rect x="220" y="231" width="34" height="19"  rx="4" fill="var(--accent)"><title>60% floor: 9.5% wrong shown</title></rect>
+            <rect x="292" y="74"  width="34" height="176" rx="4" fill="var(--series-b)"><title>70% floor: 88.2% answered</title></rect>
+            <rect x="328" y="236" width="34" height="14"  rx="4" fill="var(--accent)"><title>70% floor: 6.8% wrong shown</title></rect>
+            <rect x="400" y="85"  width="34" height="165" rx="4" fill="var(--series-b)"><title>80% floor: 82.5% answered</title></rect>
+            <rect x="436" y="240" width="34" height="10"  rx="4" fill="var(--accent)"><title>80% floor: 5.1% wrong shown</title></rect>
+            <rect x="508" y="101" width="34" height="149" rx="4" fill="var(--series-b)"><title>90% floor: 74.4% answered</title></rect>
+            <rect x="544" y="244" width="34" height="6"   rx="4" fill="var(--accent)"><title>90% floor: 3.0% wrong shown</title></rect>
+            <rect x="616" y="117" width="34" height="133" rx="4" fill="var(--series-b)"><title>95% floor: 66.7% answered</title></rect>
+            <rect x="652" y="246" width="34" height="4"   rx="4" fill="var(--accent)"><title>95% floor: 2.1% wrong shown</title></rect>
+          </g>
+
+          <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--ink-2)" text-anchor="middle">
+            <text x="93"  y="43">100</text>
+            <text x="201" y="55">94</text>
+            <text x="309" y="67">88</text>
+            <text x="417" y="78">83</text>
+            <text x="525" y="94">74</text>
+            <text x="633" y="110">67</text>
+          </g>
+          <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--ink-2)" text-anchor="middle">
+            <text x="129" y="217">13</text>
+            <text x="237" y="224">9.5</text>
+            <text x="345" y="229">6.8</text>
+            <text x="453" y="233">5.1</text>
+            <text x="561" y="237">3.0</text>
+            <text x="669" y="239">2.1</text>
+          </g>
+
+          <g>
+            <rect x="394" y="34" width="82" height="19" rx="3" fill="var(--accent-soft)"></rect>
+            <text x="435" y="47" font-family="IBM Plex Mono, monospace" font-size="10.5"
+                  font-weight="600" fill="var(--accent)" text-anchor="middle">IN USE</text>
+            <line x1="435" y1="53" x2="435" y2="80" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3 3"></line>
+          </g>
+
+          <g font-family="IBM Plex Mono, monospace" font-size="11.5" fill="var(--ink-2)" text-anchor="middle">
+            <text x="111" y="273">none</text>
+            <text x="219" y="273">60%</text>
+            <text x="327" y="273">70%</text>
+            <text x="435" y="273" font-weight="600">80%</text>
+            <text x="543" y="273">90%</text>
+            <text x="651" y="273">95%</text>
+          </g>
+          <text x="400" y="299" font-family="IBM Plex Mono, monospace" font-size="11"
+                fill="var(--muted)" text-anchor="middle">Confidence threshold below which the app declines to answer</text>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--series-b)"></i> Scans answered, % of all scans</span>
+        <span><i class="swatch" style="background:var(--accent)"></i> Wrong diagnoses shown, % of all scans</span>
+      </div>
+      <figcaption>
+        Raised from 70% to <strong>80%</strong>: a quarter fewer wrong
+        diagnoses reach the farmer, for six points of coverage. The improvement
+        in the model shows here too &mdash; the previous one answered only 47%
+        of scans at its 70% threshold, against 88% for this one at the same cut.
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- ═══ Status ═══ -->
+  <section>
+    <h2>Status and limits</h2>
+
+    <div class="table-wrap">
+      <table>
+        <caption>Deployment</caption>
+        <thead>
+          <tr><th scope="col">Component</th><th scope="col">State</th><th scope="col">Blocked on</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Disease model, 32 classes</td>
+            <td><span class="pill ready">Ready</span></td>
+            <td>A HuggingFace write token &mdash; upload script written and tested</td>
+          </tr>
+          <tr>
+            <td>Confidence threshold at 80%</td>
+            <td><span class="pill live">In the build</span></td>
+            <td>&mdash;</td>
+          </tr>
+          <tr>
+            <td>Rice and wheat treatment advice</td>
+            <td><span class="pill ready">Ready</span></td>
+            <td>Ships with the model</td>
+          </tr>
+          <tr>
+            <td>Weed detection, on-device</td>
+            <td><span class="pill live">Live</span></td>
+            <td>&mdash;</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      <strong>These are not Indian field conditions.</strong> The new
+      photographs are from Ghana and Indonesia. They are real farm photography,
+      which is what mattered, but they are not photographs of Indian farms taken
+      on the phones our users carry. The true figure here remains unmeasured.
+    </p>
+    <p>
+      <strong>Two potato classes carry known label noise.</strong> The source's
+      &ldquo;fungi&rdquo; folder is early blight together with at least one
+      other fungal disease. It was used deliberately: the alternative added
+      late-blight examples and no early-blight ones, which would have pushed the
+      model further towards an answer it already over-gives.
+    </p>
+    <p>
+      <strong>Advice is bounded.</strong> Every answer now carries a note to
+      confirm with the local Krishi Vigyan Kendra before buying any chemical,
+      and for rice bacterial blight and tungro the app deliberately recommends
+      no spray &mdash; none works, and selling a farmer one costs money for
+      nothing.
+    </p>
+  </section>
+
+  <footer>
+    <div>
+      Every figure is reproducible:
+      <code>plantDetection/evaluate_india_model.py</code> for the disease model,
+      <code>weedDetection/evaluate_weed_model.py</code> for weeds.
+    </div>
+    <div>
+      SmartKisan &middot; Hbeonlabs Technologies Pvt. Ltd. &middot; Measurements taken 3&ndash;14 September 2026
+    </div>
+  </footer>
+
+</div>
