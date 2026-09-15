@@ -30,7 +30,31 @@ output_details = interpreter.get_output_details()
 with open(LABELS_PATH, "r") as f:
     class_labels = json.load(f)
 
-IMG_SIZE = 224
+# Taken from the model rather than hardcoded.
+#
+# The model file and this constant have to agree, and when the model was last
+# swapped they did not: a 288x288 network was dropped in while this still said
+# 224, which feeds the interpreter a tensor of the wrong shape. Reading it from
+# the model means swapping the file is enough.
+IMG_SIZE = int(input_details[0]["shape"][1])
+
+# The labels and the model have to agree too, and when the model was swapped
+# they did not: a 32-class network was paired with a 38-class label file left
+# over from the previous one. Nothing would have failed — the server would have
+# started, answered every request with HTTP 200, and named a disease from the
+# wrong list, so index 0 would have been reported as Apple scab when the model
+# meant Corn Cercospora leaf spot. Every scan would have been confidently wrong
+# and recommended the wrong chemical.
+#
+# Refusing to start is the only safe response: a silently mislabelled model is
+# worse than an unavailable one, because the farmer acts on it.
+_n_outputs = int(output_details[0]["shape"][-1])
+if len(class_labels) != _n_outputs:
+    raise RuntimeError(
+        f"Model/label mismatch: {MODEL_PATH} outputs {_n_outputs} classes but "
+        f"{LABELS_PATH} lists {len(class_labels)}. These must be replaced "
+        f"together."
+    )
 
 # Disease info mapping (crop, disease, healthy?)
 DISEASE_INFO = {
