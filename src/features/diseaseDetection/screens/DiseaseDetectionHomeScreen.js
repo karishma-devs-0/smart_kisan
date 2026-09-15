@@ -69,10 +69,18 @@ const DiseaseDetectionHomeScreen = ({ navigation }) => {
         } else if (action.meta.requestStatus === 'rejected') {
           // Show why it failed. A scan now fails rather than inventing a
           // diagnosis, so the reason is the only thing the user can act on.
+          //
+          // Two different things end up here. The model declining to guess from
+          // an unclear photograph is the guard working, and the user just needs
+          // to retake the picture; being unable to reach the model is a
+          // failure. Both were shown as "Scan Failed", which made a correct
+          // refusal look like the feature being broken — it is what the testing
+          // team reported as the scan "showing the rejection".
+          const lowConfidence = action.payload?.kind === 'low-confidence';
           Alert.alert(
-            'Scan Failed',
-            action.error?.message ||
-              action.payload ||
+            lowConfidence ? 'Try another photo' : 'Scan Failed',
+            action.payload?.message ||
+              action.error?.message ||
               'Could not analyze the image. Please try again.',
           );
         }

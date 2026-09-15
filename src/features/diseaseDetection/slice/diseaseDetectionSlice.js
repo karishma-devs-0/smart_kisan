@@ -12,7 +12,15 @@ export const scanImage = createAsyncThunk(
       diseaseDetectionService.saveScanResult(result).catch(() => {});
       return result;
     } catch (error) {
-      return rejectWithValue(error.message);
+      // A scan the model answered unconfidently is not the same as a scan that
+      // could not run. Only the message used to survive, so advice about
+      // retaking the photograph arrived at the screen indistinguishable from a
+      // network failure and was shown under "Scan Failed" — which reads as the
+      // feature being broken rather than as the guard doing its job.
+      return rejectWithValue({
+        message: error.message,
+        kind: error.kind || 'error',
+      });
     }
   },
 );
@@ -62,7 +70,9 @@ const diseaseDetectionSlice = createSlice({
       })
       .addCase(scanImage.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        // The payload is an object now; store only the text, so anything that
+        // renders this later cannot print "[object Object]".
+        state.error = action.payload?.message || 'Scan failed';
       });
 
     // fetchScanHistory

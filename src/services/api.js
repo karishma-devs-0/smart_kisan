@@ -1146,10 +1146,24 @@ export const onboardingService = {
  * Worth noting how much the model improved: the previous one answered only 47%
  * of scans at its 70% floor, against 88% here at the same cut.
  */
+// Below this the scan is refused rather than answered. An earlier comment here
+// described this as 60 "matching the severity scale", but the value has been 80
+// for some time — and at 80 the scale's lowest band is unreachable, since a
+// result under 80 never gets far enough to be graded. The bands below are cut
+// to match what can actually occur.
 const MIN_SCAN_CONFIDENCE = 80;
 
 /** Distinguishes "the model answered, but not usefully" from "it did not answer". */
-class LowConfidenceError extends Error {}
+class LowConfidenceError extends Error {
+  constructor(message) {
+    super(message);
+    // createAsyncThunk carries a serialisable payload, not the Error itself, so
+    // the class is lost by the time this reaches the screen. A flag on the
+    // value survives, and is what lets the UI present this as advice about the
+    // photograph rather than as a failure.
+    this.kind = 'low-confidence';
+  }
+}
 
 // ─── Disease Detection Service ──────────────────────────────────────────────
 
@@ -1235,16 +1249,32 @@ export const diseaseDetectionService = {
           //
           // 60% matches the boundary the severity scale already uses for its
           // lowest confident band.
-          if (!result.is_healthy && result.confidence < MIN_SCAN_CONFIDENCE) {
+          // The floor applies to a clean bill of health as much as to a
+          // diagnosis. It used to read `!result.is_healthy &&`, so only
+          // disease calls were checked and every unconfident "healthy" went
+          // straight through.
+          //
+          // That is the wrong way round. Tested against 15 photographs of
+          // diseased potato leaves taken in the field, four came back healthy
+          // — three of them between 63% and 69% — and each would have told the
+          // farmer to carry on monitoring a plant that needed treating. A
+          // wrongly named disease costs a spray; a wrongly clean result costs
+          // the crop, because nothing is done until the damage is visible.
+          if (result.confidence < MIN_SCAN_CONFIDENCE) {
             throw new LowConfidenceError(
-              'Could not identify this reliably. Take a clear photo of a single '
-              + 'leaf filling the frame, in good daylight, against a plain background.'
+              result.is_healthy
+                ? 'Not sure enough to call this plant healthy. Take a clear photo '
+                  + 'of a single leaf filling the frame, in good daylight, against '
+                  + 'a plain background — and if the plant looks unwell, ask your '
+                  + 'local Krishi Vigyan Kendra.'
+                : 'Could not identify this reliably. Take a clear photo of a single '
+                  + 'leaf filling the frame, in good daylight, against a plain background.'
             );
           }
 
           const severity = result.is_healthy ? 'none'
             : result.confidence > 85 ? 'severe'
-            : result.confidence > 60 ? 'moderate' : 'mild';
+            : 'moderate';
 
           return {
             id: Date.now().toString(),
