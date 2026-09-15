@@ -83,6 +83,44 @@ it 0.4 points, which is what established that the number is about altitude
 rather than about grass. See diagnose_grass.py. Keep it as a stress test; do not
 let it choose priorities.
 
+THE ANSWER TO "DOES IT ONLY WORK ON DATASET IMAGES", 15 September 2026
+----------------------------------------------------------------------
+Largely yes, and the new data does not fix it.
+
+Scored as grass against broadleaf, which is the only question a photograph can
+answer (see evaluate_weed_type_only.py), balanced accuracy = mean of the two
+per-class recalls:
+
+                          wild-inat (390 real)     rice-weeds (800, a dataset)
+    shipped, crop masked        83.1                      73.0
+    cap 200, crop masked        82.5                      79.3
+    2-class, trained            80.2                      86.0
+
+Dataset to dataset, the Indian collections are worth thirteen points. Dataset to
+real photographs, they are worth nothing: every model sits at 80-83, and the
+spread is a handful of images out of 390. What the new data changed is WHICH
+class is weak - shipped is 95.6 grass / 70.5 broadleaf, the 2-class model is
+71.7 / 88.6 - not how good the model is.
+
+That is the textbook signature of learning photographers rather than plants. Two
+collections agree with each other more than either agrees with the world, so
+training on one and testing on the other rewards a style both share.
+
+WHAT THIS MEANS FOR WHAT SHIPS
+Do not replace the weights on this evidence. Balanced accuracy on real
+photographs is a tie, the incumbent needs no APK rebuild, and a tie should go to
+the model already in people's hands.
+
+Do change how it is read. Masking the crop output costs nothing, needs no
+retraining, and is worth 3.1 points on real photographs (79.0 to 82.1) plus
+grass to 100% on the home collection.
+
+Keep these collections. They are not wasted - they are what made the ceiling
+visible, and they will matter once there is real training imagery to combine
+them with. What would actually move the real-world number is photographs taken
+by farmers on phones, which is the same conclusion the disease model reached and
+the same one the 3 September report recorded for weeds.
+
 STILL OPEN
 crop is sorghum alone (983 images against 3,089 broadleaf), and it slips as weed
 data grows: 100% to 97.9% on sorghum-test, and the one crop photograph in
