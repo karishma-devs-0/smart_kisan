@@ -242,6 +242,64 @@ def rice_weeds_ood(cap_per_class=400):
     return out
 
 
+def wild_test():
+    """Photographs taken by people, not by a dataset. See fetch_wild_test.py.
+
+    Research-grade iNaturalist observations from India: thousands of different
+    phones and hands, whatever light there was, identification confirmed by at
+    least two independent people. Nothing here appears in any collection the
+    models trained on, and - unlike every other set - nothing here shares a
+    photographer, a camera or a campaign with anything else in it.
+
+    This is the set that says whether the gains on held-out collections are
+    real or are an artefact of dataset style.
+
+    Only the scored classes are returned. The _sedge and _unseen_crop folders
+    are diagnostics with no correct answer in a three-class model and are
+    reported separately by wild_diagnostics().
+    """
+    root = os.path.join(HERE, 'data', 'wild_test')
+    if not os.path.isdir(root):
+        return []
+    pairs = []
+    for cls in sorted(os.listdir(root)):
+        if cls.startswith('_') or cls not in CLASSES:
+            continue
+        d = os.path.join(root, cls)
+        if not os.path.isdir(d):
+            continue
+        for name in sorted(os.listdir(d)):
+            if name.lower().endswith(('.jpg', '.jpeg', '.png')):
+                pairs.append((os.path.join(d, name), cls))
+    return pairs
+
+
+def wild_diagnostics():
+    """The groups with no right answer, returned as (folder, paths).
+
+    _unseen_crop is wheat, rice and maize - crops the model has never been
+    shown. There is no correct label for them in a three-class model whose only
+    crop is sorghum, but what it answers decides whether a wheat farmer is told
+    to spray his own field, so it is worth seeing.
+
+    _sedge is nutsedge, which takes a herbicide neither grass nor broadleaf
+    responds to.
+    """
+    root = os.path.join(HERE, 'data', 'wild_test')
+    out = {}
+    if not os.path.isdir(root):
+        return out
+    for cls in sorted(os.listdir(root)):
+        if not cls.startswith('_'):
+            continue
+        d = os.path.join(root, cls)
+        if not os.path.isdir(d):
+            continue
+        out[cls] = [os.path.join(d, n) for n in sorted(os.listdir(d))
+                    if n.lower().endswith(('.jpg', '.jpeg', '.png'))]
+    return out
+
+
 SETS = {
     'sorghum-test': sorghum_test,
     'test_pack': lambda: _labelled_folder('test_pack', strip_prefix='EXPECT_'),
@@ -249,6 +307,7 @@ SETS = {
     'cofly-ood': cofly_ood,
     'deepweeds-ood': deepweeds_ood,
     'rice-weeds-ood': rice_weeds_ood,
+    'wild-inat': wild_test,
 }
 
 
@@ -358,6 +417,26 @@ def main():
         # Listing every image is useful for a handful, unreadable for hundreds.
         results[name] = report(name, pairs, probs, CLASSES,
                                show_each=args.each or len(pairs) <= 20)
+
+    diag = wild_diagnostics()
+    if diag and (not args.only or args.only == 'wild-inat'):
+        for folder, paths in diag.items():
+            if not paths:
+                continue
+            probs = predict_all(model, paths)
+            pred = [CLASSES[i] for i in probs.argmax(axis=1)]
+            conf = probs.max(axis=1) * 100
+            counts = {}
+            for pr in pred:
+                counts[pr] = counts.get(pr, 0) + 1
+            print()
+            print('%s  (%d images, NOT scored - no correct answer exists)'
+                  % (folder, len(paths)))
+            for k in sorted(counts, key=lambda x: -counts[x]):
+                print('    called %-16s %4d  (%.0f%%)'
+                      % (k, counts[k], 100.0 * counts[k] / len(paths)))
+            print('    mean confidence when wrong-by-construction: %.0f%%'
+                  % (sum(conf) / len(conf)))
 
     if len(results) > 1:
         print('\nsummary')
