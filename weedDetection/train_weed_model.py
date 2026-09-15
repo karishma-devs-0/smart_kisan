@@ -46,6 +46,50 @@ spike. Two earlier runs died silently that way and lost everything. So the model
 and a small state file are written after EVERY epoch, and a re-run picks up
 where it stopped. A kill now costs one epoch, not the whole run.
 
+MEASURED RESULT, 15 September 2026
+----------------------------------
+Three models, every set unseen by all of them except where noted. rice-weeds is
+the collection held out whole - a different country, camera, photographer, crop
+and species - and at 800 images it is the closest thing to a real generalisation
+test that exists here.
+
+                        shipped    +MH-Weed16    +MH-Weed16
+                       (sorghum)     cap 500       cap 200
+    rice-weeds-ood        70.6%       81.5%         79.0%     <- 800 imgs, held out
+       broadleaf          53.5%       86.8%         76.8%
+       grass              87.8%       76.2%         81.2%
+    deepweeds-ood         52.5%       60.2%         64.8%     <- 600 imgs
+    sorghum-test          97.4%       95.4%         96.1%     <- home collection
+    test_pack            100.0%      100.0%        100.0%     <- 12 imgs
+    internet_test         86.7%       73.3%         73.3%     <- 15 imgs
+    cofly-ood             66.2%       66.5%         66.5%     <- drone, see below
+       grass              12.8%        3.8%          5.1%
+
+Read it as: on the 1,400 unseen images that resemble app use, the new data is
+worth eight to twelve points. On the 15-image set it costs two photographs. The
+15-image set cannot settle anything and should not be allowed to.
+
+cap 200 is the better of the two despite scoring 2.5 points lower overall. Its
+per-class recall is even (76.8 / 81.2 against 86.8 / 76.2), it is better on
+sorghum-test and deepweeds, and where it is wrong it is far less confident -
+the sorghum photograph it misses drops from 99.0% to 68.4%, which the app's
+60% flag can act on. Overall accuracy on a set that happens to be half broadleaf
+rewards leaning broadleaf; a farmer does not.
+
+WHAT DID NOT IMPROVE, AND WHY IT DOES NOT MATTER MUCH
+Grass on CoFly fell from 12.8% to 5.1%. CoFly is a drone at 5 m and the app has
+never received such a frame. Adding two grass species from another state moved
+it 0.4 points, which is what established that the number is about altitude
+rather than about grass. See diagnose_grass.py. Keep it as a stress test; do not
+let it choose priorities.
+
+STILL OPEN
+crop is sorghum alone (983 images against 3,089 broadleaf), and it slips as weed
+data grows: 100% to 97.9% on sorghum-test, and the one crop photograph in
+internet_test is now missed. No collection here supplies a second crop. That is
+the next real gap, and it is the half of the answer that tells a farmer not to
+spray.
+
 Usage:
     .venv/Scripts/python.exe train_weed_model.py --task gog
     .venv/Scripts/python.exe train_weed_model.py --task yog
