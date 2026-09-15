@@ -693,6 +693,13 @@ def main():
                          'mh_weed16, rice_weeds, cofly, deepweeds. Sorghum is '
                          'always included. mh_weed16 and rice_weeds add a '
                          'fourth class, sedge_weed.')
+    ap.add_argument('--broadleaf-cap', type=int, default=0,
+                    help='override the per-species cap on broadleaf. The '
+                         'default of 500 leaves 6,019 broadleaf against 2,843 '
+                         'grass, and the model leans broadleaf accordingly - '
+                         'grass fell 87.8%% to 76.2%% on the held-out set while '
+                         'broadleaf rose 53.5%% to 86.8%%. Class weighting did '
+                         'not offset it.')
     ap.add_argument('--drop-classes', default='',
                     help='comma-separated classes to leave out entirely, e.g. '
                          'sedge_weed. Images of those species are dropped, not '
@@ -719,6 +726,10 @@ def main():
                 os.remove(p)
 
     tf.random.set_seed(SEED)
+
+    if args.broadleaf_cap:
+        classes_weeds.PER_SPECIES_CAP[classes_weeds.BROADLEAF] = args.broadleaf_cap
+        print('  broadleaf capped at %d per species' % args.broadleaf_cap)
 
     sources = tuple(x.strip() for x in args.sources.split(',') if x.strip())
     loaders = {'gog': load_gog, 'yog': load_yog, 'cofly': load_cofly,
