@@ -84,6 +84,37 @@ Two things follow.
      photograph rather than guessing - the same reasoning as the confidence
      floor on the disease model.
 
+FOLLOW-UP, LATER THE SAME DAY - READ THIS BEFORE ACTING ON THE ABOVE
+--------------------------------------------------------------------
+The conclusion above is right about blur and wrong about what follows from it.
+
+Scoring both models against a collection neither trained on - the Bangladeshi
+rice weeds, handheld, a different country, camera and set of species:
+
+                        shipped 3-class    retrained with 3 grass species
+    grass recall            87.8%                     57.2%
+    on CoFly (drone)        12.8%                     13.2%
+
+The shipped model's grass is not weak. On handheld photographs from an entirely
+unseen collection it is already at 87.8%. And adding two more grass species
+from another Indian state moved CoFly by 0.4 points, which is nothing.
+
+So 12.8% is a fact about CoFly specifically, not about grass. Blur is genuinely
+not the mechanism - the measurement above stands - but altitude changes more
+than sharpness: scale relative to the frame, the overhead angle, the absence of
+any side view of the blade. A variance-of-Laplacian test cannot see any of
+that, so this script measured the one thing that was not the problem and
+returned a clean answer to the wrong question.
+
+The app receives handheld photographs. It has never received a drone frame and
+has no way to. "Grass is the weakest class" came from a test set the app does
+not resemble, and it sent a day of work at a class that was already working.
+
+What the same comparison shows IS weak on unseen handheld imagery is broadleaf,
+at 53.5% for the shipped model - the class nobody was worried about.
+
+Keep CoFly in the evaluation as a stress test. Do not let it set priorities.
+
 Usage:
   .venv/Scripts/python.exe diagnose_grass.py
 """
