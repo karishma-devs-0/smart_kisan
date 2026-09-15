@@ -693,6 +693,11 @@ def main():
                          'mh_weed16, rice_weeds, cofly, deepweeds. Sorghum is '
                          'always included. mh_weed16 and rice_weeds add a '
                          'fourth class, sedge_weed.')
+    ap.add_argument('--drop-classes', default='',
+                    help='comma-separated classes to leave out entirely, e.g. '
+                         'sedge_weed. Images of those species are dropped, not '
+                         'relabelled - teaching a wrong label is worse than '
+                         'teaching nothing.')
     ap.add_argument('--epochs1', type=int, default=10)
     ap.add_argument('--epochs2', type=int, default=15)
     ap.add_argument('--limit', type=int, default=0, help='cap images (smoke test)')
@@ -720,6 +725,15 @@ def main():
                'sorghum': load_sorghum,
                'combined': lambda: load_combined(sources)}
     (train_pairs, valid_pairs), class_names = loaders[args.task]()
+
+    drop = {x.strip() for x in args.drop_classes.split(',') if x.strip()}
+    if drop:
+        before = len(train_pairs) + len(valid_pairs)
+        train_pairs = [r for r in train_pairs if r[1] not in drop]
+        valid_pairs = [r for r in valid_pairs if r[1] not in drop]
+        class_names = [c for c in class_names if c not in drop]
+        print('  dropped %s: %d images removed'
+              % (', '.join(sorted(drop)), before - len(train_pairs) - len(valid_pairs)))
 
     if args.limit:
         rng = random.Random(SEED)

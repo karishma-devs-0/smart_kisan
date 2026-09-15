@@ -47,6 +47,31 @@ genuinely improve, and it is also the half that decides which chemical is
 bought.
 
 Anything not listed here is dropped rather than guessed at.
+
+MEASURED RESULT, 15 September 2026 - THE SEDGE CLASS DOES NOT WORK YET
+----------------------------------------------------------------------
+Trained on sorghum + MH-Weed16, tested against the rice collection held out
+whole (different country, camera, photographer, crop and species):
+
+    sedge_weed recall   8.7%   (31 of 358)
+        152 of 358 called broadleaf, 173 called grass
+
+One sedge species is not enough to learn what a sedge is. The class was
+trained on Cyperus rotundus from Maharashtra and tested on Cyperus ochraceus
+and Fimbristylis littoralis from Bangladesh, and it did not transfer.
+
+Worse, it does active harm. The class becomes a dumping ground: it absorbed
+101 grass images and 98 broadleaf ones that the three-class model gets right.
+Merging sedge back into its neighbours recovers grass from 57.2% to 82.5% and
+broadleaf from 66.0% to 90.5%. So a fourth class that cannot be learned costs
+more than the mistake it was meant to fix.
+
+The agronomy is still correct - nutsedge does need a different herbicide, and
+calling it broadleaf is still wrong. What is missing is species coverage. Three
+sedge species exist across the collections on disk; a future attempt should
+train on two and hold out the third, rather than train on one and hope.
+
+Until then the shipped model stays at three classes. See --drop-classes.
 """
 
 
