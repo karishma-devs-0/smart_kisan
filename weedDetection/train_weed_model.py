@@ -11,9 +11,32 @@ Two tasks, matching the modes in WeedDetectionHomeScreen:
                plantDetection/_split, remapped to healthy / chlorosis /
                other_stress.
 
+  --task combined
+               Sorghum widened with other collections via --sources. With
+               mh_weed16 and/or rice_weeds this becomes a FOUR class model -
+               crop, grass_weed, sedge_weed, broadleaf_weed - because those
+               collections carry sedges, which take a different herbicide from
+               either grass or broadleaf and which the three-class model calls
+               broadleaf. See classes_weeds.py.
+
 Both mirror plantDetection/train_model.py: MobileNetV2 backbone, two-phase
 schedule (frozen head, then fine-tune the last 30 layers), .keras + .tflite
 export. One inference path in the app, one deployment pattern.
+
+HOW TO TEST THIS HONESTLY
+-------------------------
+Do not split mh_weed16 and rice_weeds at random and quote the result. Both are
+single collections, so a random split measures memorisation of one photographer
+and one season - which is precisely how the shipped model came to claim 97.4%
+while scoring 12.8% on grass from another farm.
+
+Hold a whole collection out instead:
+
+    --sources mh_weed16          train, then score against rice_weeds
+    --sources mh_weed16,rice_weeds   the shipping model, once the above is known
+
+The first number is the honest one - different country, camera, species and
+crop. The second is what ships, and it should be reported with the first.
 
 RESUMABILITY
 ------------
@@ -38,6 +61,8 @@ import random
 
 import tensorflow as tf
 from tensorflow import keras
+
+import classes_weeds
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
@@ -323,6 +348,36 @@ def _capped(rows, cap, seed):
     return out
 
 
+def _scan_mapped_tree(root, mapping):
+    """Folders to classes, capped per species.
+
+    The cap is per source folder rather than per resulting class. Broadleaf
+    draws from thirteen species in MH-Weed16 alone; capping the class would
+    take 500 images from whichever folder sorted first and none from the rest,
+    which is the opposite of the variety being bought.
+
+    A folder not in the mapping is skipped rather than guessed at - see
+    classes_weeds.DROPPED_RICE for the two ferns and why.
+    """
+    rows = []
+    for folder in sorted(os.listdir(root)):
+        d = os.path.join(root, folder)
+        if not os.path.isdir(d):
+            continue
+        label = mapping.get(folder)
+        if label is None:
+            continue
+        names = sorted(n for n in os.listdir(d)
+                       if n.lower().endswith(('.jpg', '.jpeg', '.png')))
+        cap = classes_weeds.PER_SPECIES_CAP.get(label)
+        if cap:
+            rng = random.Random(SEED)
+            rng.shuffle(names)
+            names = names[:cap]
+        rows += [(os.path.join(d, n), label) for n in names]
+    return rows
+
+
 def load_combined(sources=DEFAULT_SOURCES):
     """Sorghum, widened with capped broadleaf and grass from other sources.
 
@@ -391,6 +446,30 @@ def load_combined(sources=DEFAULT_SOURCES):
         extra += capped
     elif 'cofly' in sources:
         print('  note: CoFly patches not present, skipping')
+
+    # ── MH-Weed16 and the Bangladeshi rice weed set ──
+    # The two collections that actually address the diagnosis. The shipped
+    # model learned grass from one farm and scores 95.9% there against 12.8%
+    # elsewhere; diagnose_grass.py rules out blur, and evaluate_crop_aware.py
+    # rules out re-reading the outputs. Only grass from somewhere else is left.
+    #
+    # Capped per SPECIES rather than per class, because broadleaf outnumbers
+    # everything roughly 13:1 here and a per-class cap would fill the quota
+    # from whichever folder is read first, throwing away the species variety
+    # that is the whole reason for adding them.
+    for key, subdir, mapping in (
+        ('mh_weed16', 'mh_weed16', classes_weeds.MH_WEED16_CLASSES),
+        ('rice_weeds', 'rice_weeds', classes_weeds.RICE_WEED_CLASSES),
+    ):
+        root = os.path.join(HERE, 'data', subdir)
+        if key not in sources:
+            continue
+        if not os.path.isdir(root):
+            print(f'  note: {key} not present, skipping')
+            continue
+        rows = _scan_mapped_tree(root, mapping)
+        parts[key] = len(rows)
+        extra += rows
 
     e_train, e_valid = stratified_split(extra, VALID_FRACTION, SEED)
 
@@ -611,7 +690,9 @@ def main():
                     required=True)
     ap.add_argument('--sources', default=','.join(DEFAULT_SOURCES),
                     help='comma-separated extra sources for --task combined: '
-                         'cofly, deepweeds. Sorghum is always included.')
+                         'mh_weed16, rice_weeds, cofly, deepweeds. Sorghum is '
+                         'always included. mh_weed16 and rice_weeds add a '
+                         'fourth class, sedge_weed.')
     ap.add_argument('--epochs1', type=int, default=10)
     ap.add_argument('--epochs2', type=int, default=15)
     ap.add_argument('--limit', type=int, default=0, help='cap images (smoke test)')

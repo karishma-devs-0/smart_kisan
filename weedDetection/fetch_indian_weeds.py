@@ -94,9 +94,9 @@ def class_names(schema):
     return names
 
 
-def safe(name):
-    keep = [c if (c.isalnum() or c in '-_') else '_' for c in name.strip()]
-    return ''.join(keep).strip('_').lower()
+# One definition, shared with the class mapping. Keeping a second copy here is
+# what silently dropped every MH-Weed16 image the first time.
+from classes_weeds import normalise as safe  # noqa: E402
 
 
 def fetch(src, dry):

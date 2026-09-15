@@ -31,6 +31,7 @@ Usage:
 """
 
 import argparse
+import json
 import os
 import sys
 
@@ -47,8 +48,35 @@ DEFAULT_MODEL = os.path.join(HERE, 'model', 'sorghum', 'best.keras')
 GOG_IMAGES = os.path.join(HERE, 'data', 'images')
 GOG_LABELS = os.path.join(HERE, 'data', 'labels.csv')
 
-# The three classes the app uses, in the order the model emits them.
+# The classes the app uses, in the order the model emits them. This is the
+# three-class default; a four-class model (with sedge_weed) carries its own
+# class_labels.json next to the weights and main() adopts it, because reading
+# the order from the model is the only way to be sure index 2 means what the
+# report says it means.
 CLASSES = ['broadleaf_weed', 'crop', 'grass_weed']
+
+
+def adopt_model_classes(model_path):
+    """Use the label list shipped beside the model, if there is one.
+
+    Returns the class list actually in force. Order matters absolutely: the
+    model emits indices, and reading them against the wrong list mislabels
+    every answer while still reporting a plausible-looking accuracy.
+    """
+    global CLASSES
+    for cand in (os.path.join(os.path.dirname(model_path), 'class_labels.json'),
+                 os.path.join(os.path.dirname(os.path.dirname(model_path)),
+                              'class_labels.json')):
+        if os.path.exists(cand):
+            with open(cand, encoding='utf-8') as fh:
+                names = json.load(fh)
+            if isinstance(names, list) and names:
+                CLASSES = names
+                print('classes: %s  (from %s)'
+                      % (', '.join(CLASSES), os.path.relpath(cand, HERE)))
+                return CLASSES
+    print('classes: %s  (default)' % ', '.join(CLASSES))
+    return CLASSES
 
 SORGHUM_FOLDER_TO_CLASS = {
     'Class0_Sorghum': 'crop',
@@ -169,12 +197,58 @@ def deepweeds_ood(cap=600):
     return rows[:cap]
 
 
+def rice_weeds_ood(cap_per_class=400):
+    """The Bangladeshi rice weed set, scored as an unseen collection.
+
+    This is the honest generalisation test for a model trained on sorghum and
+    MH-Weed16: a different country, camera, photographer, crop and set of
+    species. It carries both of the things the shipped model cannot do - grass
+    that is not johnson grass from Chengalpattu, and sedges, which it has no
+    class for at all.
+
+    CAVEAT, and it is the same one CoFly carries: this is only unseen for a
+    model that did not train on it. Scoring a --sources rice_weeds model here
+    measures memorisation. Train with --sources mh_weed16 alone to get the
+    number that means something.
+    """
+    root = os.path.join(HERE, 'data', 'rice_weeds')
+    if not os.path.isdir(root):
+        return []
+    try:
+        import classes_weeds
+    except ImportError:
+        return []
+
+    rows = []
+    for folder in sorted(os.listdir(root)):
+        label = classes_weeds.RICE_WEED_CLASSES.get(folder)
+        if label is None or label not in CLASSES:
+            continue
+        d = os.path.join(root, folder)
+        if not os.path.isdir(d):
+            continue
+        names = sorted(n for n in os.listdir(d)
+                       if n.lower().endswith(('.jpg', '.jpeg', '.png')))
+        rows.append((label, [os.path.join(d, n) for n in names]))
+
+    # Capped per class so broadleaf's five species cannot drown the two grass
+    # species and make an "answer broadleaf" model look competent.
+    by_class = {}
+    for label, paths in rows:
+        by_class.setdefault(label, []).extend(paths)
+    out = []
+    for label, paths in sorted(by_class.items()):
+        out += [(p, label) for p in sorted(paths)[:cap_per_class]]
+    return out
+
+
 SETS = {
     'sorghum-test': sorghum_test,
     'test_pack': lambda: _labelled_folder('test_pack', strip_prefix='EXPECT_'),
     'internet_test': lambda: _labelled_folder('internet_test', split_on='__'),
     'cofly-ood': cofly_ood,
     'deepweeds-ood': deepweeds_ood,
+    'rice-weeds-ood': rice_weeds_ood,
 }
 
 
@@ -265,9 +339,12 @@ def main():
     print(f'model: {args.model}')
     model = tf.keras.models.load_model(args.model)
 
+    adopt_model_classes(args.model)
     n_out = model.output_shape[-1]
     if n_out != len(CLASSES):
-        sys.exit(f'Model emits {n_out} classes, expected {len(CLASSES)}: {CLASSES}')
+        sys.exit(f'Model emits {n_out} classes but the label list has '
+                 f'{len(CLASSES)}: {CLASSES}. These must match exactly, or '
+                 f'every prediction is mislabelled.')
 
     chosen = [args.only] if args.only else list(SETS)
     results = {}
