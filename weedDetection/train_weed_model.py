@@ -460,6 +460,93 @@ def _scan_mapped_tree(root, mapping):
     return rows
 
 
+
+INAT_ROOT = os.path.join(HERE, 'data', 'wild_train')
+INAT_TEST_ATTRIBUTION = os.path.join(HERE, 'data', 'wild_test', 'ATTRIBUTION.csv')
+
+
+def load_inat(valid_fraction=VALID_FRACTION, seed=SEED):
+    """Photographs uploaded by the public, split so no photographer spans it.
+
+    Every other source here is one campaign: a handful of cameras, one place,
+    one season. A model can score well on all of them by learning the
+    photographer, and the 15 September measurement showed that is what happened
+    - the Indian collections were worth thirteen points against another
+    collection and nothing at all against photographs taken by the public.
+
+    This source exists because it has no single style to learn. The pull behind
+    it is about 11,000 research-grade observations from roughly 1,900 different
+    people, each identification confirmed by at least two others.
+
+    TWO RULES, BOTH ABOUT THE SAME FAILURE
+    Photographers who appear in the held-out test set are dropped outright.
+    Their photographs are different images, so nothing leaks in the ordinary
+    sense, but a model that has learned a person's habits would be scored on
+    that person again - measuring the very effect this is meant to remove. That
+    costs about 4,700 of the 11,000.
+
+    What remains is split BY PHOTOGRAPHER rather than by image. Splitting by
+    image puts the same hands on both sides and reports a validation figure
+    that flatters the same way. Whole photographers go to one side or the other.
+
+    Returns (train, valid) directly rather than rows to split later, because
+    the split is the point.
+    """
+    if not os.path.isdir(INAT_ROOT):
+        return [], []
+
+    attribution = os.path.join(INAT_ROOT, 'ATTRIBUTION.csv')
+    if not os.path.exists(attribution):
+        print('  note: iNaturalist pull has no ATTRIBUTION.csv, skipping')
+        return [], []
+
+    held_out_people = set()
+    if os.path.exists(INAT_TEST_ATTRIBUTION):
+        with open(INAT_TEST_ATTRIBUTION, newline='', encoding='utf-8') as fh:
+            for row in csv.DictReader(fh):
+                held_out_people.add(row.get('observer', ''))
+
+    # Folders beginning with an underscore were collected to be reported on,
+    # not trained against: _sedge did not transfer, and _unseen_crop exists to
+    # show what a model whose only crop is sorghum says about wheat and rice.
+    by_person = {}
+    dropped = 0
+    with open(attribution, newline='', encoding='utf-8') as fh:
+        for row in csv.DictReader(fh):
+            label = row.get('class', '')
+            if not label or label.startswith('_'):
+                continue
+            person = row.get('observer', '')
+            if person in held_out_people:
+                dropped += 1
+                continue
+            path = os.path.join(INAT_ROOT, row['file'])
+            if not os.path.exists(path):
+                continue
+            by_person.setdefault(person, []).append((path, label))
+
+    if not by_person:
+        return [], []
+
+    people = sorted(by_person)
+    rng = random.Random(seed)
+    rng.shuffle(people)
+    cut = max(1, int(len(people) * valid_fraction))
+    valid_people = set(people[:cut])
+
+    train, valid = [], []
+    for person, rows in by_person.items():
+        (valid if person in valid_people else train).extend(rows)
+
+    rng.shuffle(train)
+    rng.shuffle(valid)
+
+    print('  inat: %d train / %d valid from %d people '
+          '(%d images dropped: photographer is in the test set)'
+          % (len(train), len(valid), len(people), dropped))
+    return train, valid
+
+
 def load_combined(sources=DEFAULT_SOURCES):
     """Sorghum, widened with capped broadleaf and grass from other sources.
 
@@ -555,8 +642,18 @@ def load_combined(sources=DEFAULT_SOURCES):
 
     e_train, e_valid = stratified_split(extra, VALID_FRACTION, SEED)
 
-    train = s_train + e_train
-    valid = s_valid + e_valid
+    # iNaturalist brings its own split, by photographer rather than by image.
+    # Putting it through stratified_split would undo that.
+    i_train, i_valid = ([], [])
+    if 'inat' in sources:
+        i_train, i_valid = load_inat()
+        if i_train:
+            parts['inat'] = len(i_train) + len(i_valid)
+        else:
+            print('  note: iNaturalist pull not present, skipping')
+
+    train = s_train + e_train + i_train
+    valid = s_valid + e_valid + i_valid
 
     rng = random.Random(SEED)
     rng.shuffle(train)
@@ -772,9 +869,11 @@ def main():
                     required=True)
     ap.add_argument('--sources', default=','.join(DEFAULT_SOURCES),
                     help='comma-separated extra sources for --task combined: '
-                         'mh_weed16, rice_weeds, cofly, deepweeds. Sorghum is '
-                         'always included. mh_weed16 and rice_weeds add a '
-                         'fourth class, sedge_weed.')
+                         'mh_weed16, rice_weeds, cofly, deepweeds, inat. '
+                         'Sorghum is always included. mh_weed16 and rice_weeds '
+                         'add a fourth class, sedge_weed. inat is the public '
+                         'photograph pull and brings its own split, by '
+                         'photographer - see load_inat.')
     ap.add_argument('--broadleaf-cap', type=int, default=0,
                     help='override the per-species cap on broadleaf. The '
                          'default of 500 leaves 6,019 broadleaf against 2,843 '
