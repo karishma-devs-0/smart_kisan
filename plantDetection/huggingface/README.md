@@ -9,29 +9,36 @@ pinned: false
 
 ## State of this folder
 
-The model staged here (`plant_disease_model.tflite`, 288px, 32 classes) is a
-**candidate that has not been deployed**. The Space is still serving the
-previous one, kept alongside as `plant_disease_model.tflite.replaced` (224px,
-38 classes) with its own `class_labels.json.replaced`.
+This folder is a working copy and has drifted from what the Space actually
+runs. The Space reports 32 classes at 288px and returns `input_size` and
+`crops` from its root endpoint, which the `app.py` here does not; the live
+`app.py` is therefore ahead of this one. Check the Space before assuming this
+folder reflects production.
 
-Do not push this folder expecting an improvement. Measured over 60 photographs
-of diseased potato leaves taken in the field:
+The 32-class India model has been live since 14 September. `.replaced` holds
+the 38-class model it succeeded, with its own labels, purely as history.
+
+A model and its labels must be replaced together. In this folder they were
+not: the 32-class model sat next to the 38-class label file for a day, and
+`app.py` still hardcoded 224px. Pushing it in that state would have overwritten
+a working Space with one that started cleanly, answered every request with
+HTTP 200, and read predictions off the wrong list -- index 0 reported as Apple
+scab where the model meant Corn Cercospora leaf spot. `app.py` now takes the
+input size from the model and refuses to start if the label count disagrees
+with the output tensor, so that push cannot succeed silently.
+
+## Known weakness of the live model
+
+Measured on 60 photographs of diseased potato leaves taken in the field, and
+compared against the model it replaced:
 
 | model | answers given | wrongly called healthy |
 |---|---|---|
-| deployed (38-class) | 25 | 4 |
-| candidate (32-class) | 47 | 8 |
+| 38-class (previous) | 25 | 4 |
+| 32-class (live) | 47 | 8 |
 
-The candidate answers far more often at a similar error rate, so it roughly
-doubles the number of farmers told a diseased plant is healthy. That is the
-costliest mistake the feature can make: nothing is done until the damage is
-visible. Whether the extra answers are worth it depends on how often the
-disease *name* is right, which these folders cannot measure — the dataset
-labels causes (Bacteria, Virus, Fungi, Pest, Phytopthora) rather than
-PlantVillage classes.
-
-A model and its labels must be replaced together. They were not last time: a
-32-class model was left paired with the 38-class label file, which would have
-reported index 0 as Apple scab when the model meant Corn Cercospora leaf spot —
-every scan confidently wrong, with HTTP 200. `app.py` now reads the input size
-from the model and refuses to start if the label count disagrees.
+The live model answers far more often, which is the improvement the accuracy
+report records. It also calls roughly twice as many diseased leaves healthy.
+Telling a farmer his sick plant is fine is the costliest mistake this feature
+makes, because nothing is then done. The app's confidence floor now applies to
+healthy verdicts as well as to diagnoses, which is what holds that number down.
