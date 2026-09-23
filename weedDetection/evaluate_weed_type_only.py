@@ -82,6 +82,11 @@ MODELS = [
     ('shipped (sorghum only)', 'model/sorghum/best.keras'),
     ('+MH-Weed16 cap 500', 'model/india3_holdout/best.keras'),
     ('+MH-Weed16 cap 200', 'model/india3_balanced/best.keras'),
+    # Trained on public photographs from ~1,400 people, none of whom appear in
+    # the wild-inat set below. That disjointness is the reason this row can be
+    # read: every earlier row was trained on one or two campaigns and scored
+    # against a third, which rewards a shared style rather than the plant.
+    ('+public photos (inat)', 'model/inat/best.keras'),
 ]
 
 # Sets that contain both weed types. The crop images are excluded here by

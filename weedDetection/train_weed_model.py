@@ -83,6 +83,44 @@ it 0.4 points, which is what established that the number is about altitude
 rather than about grass. See diagnose_grass.py. Keep it as a stress test; do not
 let it choose priorities.
 
+WHAT PUBLIC PHOTOGRAPHS BOUGHT, 23 September 2026
+----------------------------------------------------------------------
+The ceiling above was a data problem, and it lifts.
+
+Scored the same way - grass against broadleaf, crop output ignored, balanced
+accuracy - on the 390 real photographs no model here was trained on:
+
+                              wild (390 real)   rice-weeds (800)   sorghum (291)
+    shipped, crop masked            82.1               73.0             99.0
+    +MH-Weed16 cap 500              78.5               81.9             98.3
+    +MH-Weed16 cap 200              82.6               79.2             99.3
+    +public photos                  93.1               89.4             99.7
+
+Eleven points over anything reached before, and it wins on all three sets at
+once, which nothing else here has done. It also does not trade one class for
+the other: grass 91.1 and broadleaf 94.8, where every earlier attempt moved
+which class was weak rather than fixing either.
+
+WHY THIS ONE WORKED WHERE THE COLLECTIONS DID NOT
+Not volume. 5,504 usable images against 4,312 for sorghum alone - the same
+order. What changed is that they come from about 1,400 different people
+instead of one or two campaigns, so there is no shared style to learn instead
+of the plant. That was the diagnosis on 15 September and this is the test of
+it.
+
+Two rules made the number readable. Photographers appearing in the test set
+were dropped from training outright, costing 4,120 images, because scoring a
+model on someone whose habits it has learned measures the effect being
+removed. And the remainder splits by photographer, not by image.
+
+WHAT THIS MEANS FOR WHAT SHIPS
+Worth an APK rebuild, unlike the last one. Still masks the crop output - that
+question is answered from the farmer own crop, not by the model.
+
+The disease model reached the same conclusion from the other direction: real
+field photographs are what moved it. Both models say the same thing about
+where effort goes.
+
 THE ANSWER TO "DOES IT ONLY WORK ON DATASET IMAGES", 15 September 2026
 ----------------------------------------------------------------------
 Largely yes, and the new data does not fix it.
