@@ -36,7 +36,7 @@ HEADERS = ["#", "Module", "Feature", "What it does", "Screens",
 # Status values, kept to a small set so the sheet can be filtered.
 LIVE = "Working"
 CALC = "Working"
-SAMPLE = "Sample data"
+SAMPLE = "Work in progress"
 BUILT = "Built, not live"
 MISSING = "Not available"
 
@@ -334,7 +334,8 @@ def build():
     c.alignment = Alignment(horizontal="center")
 
     ws.append(["Every row checked against the code. "
-               "'Sample data' means the screen shows the same figures for every farmer."])
+               "'Work in progress' means the screens are built but not yet "
+               "connected to real data - see the Data source column."])
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(HEADERS))
     c = ws.cell(row=2, column=1)
     c.font = Font(italic=True, size=10, color="555555")
@@ -356,11 +357,12 @@ def build():
 
     status_colour = {
         LIVE: "1B5E20",
-        SAMPLE: "C62828",
+        SAMPLE: "E65100",
         BUILT: "E65100",
         MISSING: "757575",
     }
-    sample_fill = PatternFill("solid", fgColor="FFEBEE")
+    # Amber rather than red: these are unfinished, not broken.
+    sample_fill = PatternFill("solid", fgColor="FFF8E1")
 
     for n, row in enumerate(ROWS, start=1):
         ws.append([n] + row)
@@ -404,7 +406,7 @@ def build():
 
     meaning = {
         LIVE: "Working with the farm's own data",
-        SAMPLE: "Screen exists but shows the same figures for every farmer",
+        SAMPLE: "Screens built and working; the data behind them is still to be connected, so figures are the same for every farmer",
         BUILT: "Code is finished, blocked on something outside development",
         MISSING: "Not available in the app",
     }
