@@ -7,17 +7,24 @@ export const fetchAnalytics = createAsyncThunk(
   'analytics/fetchAnalytics',
   async (_, { getState, rejectWithValue }) => {
     try {
-      // Gather weather + soil + fields data for the irrigation engine
+      // Everything the health and irrigation engines score from.
       const state = getState();
       const forecast = state.weather?.forecast || [];
-      const soilData = state.soil?.data || {};
+      // The soil slice keeps the latest reading under `current`. This read
+      // `state.soil.data`, which does not exist, so soil arrived empty every
+      // time - the irrigation engine has never seen a reading either.
+      const soilData = state.soil?.current || null;
       const fields = state.fields?.fields || [];
+      const crops = state.crops?.crops || [];
+      const pumps = state.pumps?.pumps || [];
       const location = state.settings?.location || null;
 
       return await analyticsService.fetchAnalytics({
         forecast,
         soilData,
         fields,
+        crops,
+        pumps,
         location,
       });
     } catch (error) {

@@ -36,14 +36,6 @@ import {
   MOCK_WIND_HISTORY,
   MOCK_HUMIDITY_HISTORY,
 } from '../features/weather/mock/weatherMockData';
-import {
-  MOCK_CROP_HEALTH,
-  MOCK_AI_INSIGHTS,
-  MOCK_NDVI_DATA,
-  MOCK_YIELD_PREDICTION,
-  MOCK_IRRIGATION_SCHEDULE,
-  MOCK_EXPERT_NETWORK,
-} from '../features/analytics/mock/analyticsMockData';
 import { MOCK_FARM_CATEGORIES } from '../features/farm/mock/farmMockData';
 import { MOCK_FIELDS, MOCK_FIELD_GROWTH_DATA } from '../features/fields/mock/fieldsMockData';
 import { MOCK_LISTINGS, MOCK_MANDI_PRICES, MOCK_MY_LISTINGS } from '../features/marketplace/mock/marketplaceMockData';
@@ -52,6 +44,7 @@ import {
   MOCK_RECOMMENDATIONS,
 } from '../features/cropRecommend/mock/cropRecommendMockData';
 import { calculateRecommendations } from './cropRecommendEngine';
+import { assessCropHealth, buildInsights } from './farmHealthEngine';
 import { generateIrrigationSchedule, calculateETSummary } from './irrigationEngine';
 
 // ─── Offline-aware helper ──────────────────────────────────────────────────
@@ -829,8 +822,22 @@ export const reportService = {
 // ─── Analytics Service ──────────────────────────────────────────────────────
 
 export const analyticsService = {
+  /**
+   * Farm analytics.
+   *
+   * Crop health and the observations are worked out from the farm's own soil
+   * reading, crops, fields and forecast. They used to be a fixed set - Field A
+   * at 88, Field B at 64, four insights with confidence figures like 92% -
+   * shown to every farmer.
+   *
+   * Satellite crop health and yield prediction return null. The first needs a
+   * satellite imagery provider, the second needs a season of recorded
+   * harvests, and nothing in the app records one. The expert list is null for
+   * the same reason: those were invented names with invented ratings, and a
+   * farmer ringing one would find nobody there.
+   */
   fetchAnalytics: async (options = {}) => {
-    const { forecast, soilData, fields, location } = options;
+    const { forecast, soilData, fields, crops, pumps, location } = options;
 
     // Generate real irrigation schedule if we have weather data
     let irrigationSchedule;
@@ -847,14 +854,22 @@ export const analyticsService = {
       if (__DEV__) console.warn('Irrigation engine error:', e.message);
     }
 
-    await mockDelay(400);
     return {
-      cropHealth: { ...MOCK_CROP_HEALTH },
-      aiInsights: [...MOCK_AI_INSIGHTS],
-      ndviData: { ...MOCK_NDVI_DATA },
-      yieldPrediction: { ...MOCK_YIELD_PREDICTION },
-      irrigationSchedule: irrigationSchedule || [...MOCK_IRRIGATION_SCHEDULE],
-      expertNetwork: [...MOCK_EXPERT_NETWORK],
+      cropHealth: assessCropHealth({
+        fields: fields || [],
+        crops: crops || [],
+        soil: soilData || null,
+      }),
+      aiInsights: buildInsights({
+        soil: soilData || null,
+        forecast: forecast || [],
+        crops: crops || [],
+        pumps: pumps || [],
+      }),
+      ndviData: null,
+      yieldPrediction: null,
+      irrigationSchedule: irrigationSchedule || [],
+      expertNetwork: null,
     };
   },
 
