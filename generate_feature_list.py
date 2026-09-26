@@ -257,24 +257,53 @@ ROWS = [
      "AlertRules, AddAlertRule", REAL, LIVE, ""],
 
     # ── Not yet backed by real data ──────────────────────────────────────
-    ["Reports", "Reports",
-     "Water used, hours run, soil and harvest performance, trends.",
-     "ComprehensiveReport, MetricReports, SoilHarvestReport, TrendReports",
-     NONE, SAMPLE,
-     "Shows the same figures for every farmer. Real pump runs are now "
-     "recorded, so this is the closest of the three to being made real."],
-    ["Analytics", "Farm analytics",
-     "Crop health, farm overview and AI insights.",
-     "FarmAnalytics, FarmOverview", NONE, SAMPLE,
-     "Reported by the testing team as dummy data."],
+    ["Reports", "Water, hours and energy",
+     "How much water and electricity the farm used, and for how long the "
+     "pumps ran, by day and by week.",
+     "ComprehensiveReport, MetricReports, TrendReports", REAL, LIVE,
+     "Worked out from recorded pump runs: litres from each pump's flow rate, "
+     "units from its horsepower. Compares against the period before."],
+    ["Reports", "Soil condition report",
+     "Moisture, pH and nutrients rated in plain words.",
+     "SoilHarvestReport", REAL, LIVE,
+     "Rated against Soil Health Card bands. The nutrient rating takes the "
+     "worst of N, P and K, not the average - a farmer acts on the one that "
+     "is short."],
+    ["Reports", "Harvest performance",
+     "Expected against actual yield.",
+     "SoilHarvestReport", NONE, MISSING,
+     "Left empty on purpose. Nothing records a sowing or a harvest, so there "
+     "is no yield to compare. It used to show 91.7% efficiency to everyone."],
+    ["Analytics", "Crop health",
+     "A health score per field, with what is wrong listed.",
+     "FarmAnalytics, FarmOverview", INAPP, LIVE,
+     "Scored from the farm's soil reading against Soil Health Card bands. A "
+     "field with no reading shows as unknown rather than being given a "
+     "number."],
+    ["Analytics", "Farm observations",
+     "Plain advice drawn from the readings - dry soil, short nutrients, a "
+     "pump offline, a harvest coming up.",
+     "FarmAnalytics", INAPP, LIVE,
+     "Each one says which reading it came from. Dry soil with rain forecast "
+     "says wait rather than irrigate. No readings means no advice, instead "
+     "of four cheerful tips."],
+    ["Analytics", "Expert network",
+     "Agronomists a farmer can consult.",
+     "FarmAnalytics", NONE, MISSING,
+     "Removed. These were invented names with invented ratings; a farmer "
+     "ringing one would find nobody. Needs real agronomists signed up."],
     ["Analytics", "Satellite crop health (NDVI)",
      "Crop health from satellite imagery.",
-     "NDVIMap", NONE, SAMPLE,
-     "Needs a satellite imagery provider."],
+     "NDVIMap", NONE, MISSING,
+     "Returns nothing now rather than a made-up index. Needs a satellite "
+     "imagery provider - Sentinel-2 through Copernicus is free but needs an "
+     "account and real work to wire up."],
     ["Analytics", "Yield prediction",
      "Expected harvest.",
-     "YieldPrediction", NONE, SAMPLE,
-     "Needs a season of real harvest records before it can mean anything."],
+     "YieldPrediction", NONE, MISSING,
+     "Returns nothing now rather than a made-up figure. Needs a season of "
+     "recorded harvests first, which means recording sowings and harvests - "
+     "a feature in itself, and the sensible next thing to build."],
     ["Marketplace", "Buy and sell produce",
      "Listings, chat with buyers, and creating a listing.",
      "MarketplaceHome, ListingDetail, CreateListing, ChatList, Chat",
@@ -284,7 +313,10 @@ ROWS = [
     ["Marketplace", "Mandi prices",
      "Market prices for crops.",
      "MandiPrices", NONE, SAMPLE,
-     "Could be made real from the government's public mandi price feed."],
+     "The government publishes daily mandi prices through data.gov.in and "
+     "this could use them. The feed did not respond when tried, so it needs "
+     "our own free API key from data.gov.in before it can be wired and "
+     "tested."],
     ["Schemes", "Government schemes",
      "PM-KISAN, Fasal Bima, KCC, Soil Health Card, eNAM and others, with "
      "eligibility and how to apply.",
