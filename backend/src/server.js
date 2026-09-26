@@ -26,6 +26,7 @@ const pumpGroupRoutes = require('./routes/pumpGroups');
 const aiPumpRoutes = require('./routes/aiPump');
 const fieldRoutes = require('./routes/fields');
 const farmTaskRoutes = require('./routes/farmTasks');
+const reportRoutes = require('./routes/reports');
 const cropRoutes = require('./routes/crops');
 const deviceRoutes = require('./routes/devices');
 const soilRoutes = require('./routes/soil');
@@ -234,6 +235,12 @@ app.use(
   '/api/farm-tasks',
   authMiddleware,
   farmTaskRoutes
+);
+
+app.use(
+  '/api/reports',
+  authMiddleware,
+  reportRoutes
 );
 
 app.use(

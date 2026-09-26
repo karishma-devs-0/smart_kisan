@@ -12,6 +12,7 @@ import {
   profileAPI,
   pumpAPI,
   farmTaskAPI,
+  reportAPI,
 } from './backendApi';
 import * as weatherAPI from './weather';
 
@@ -35,14 +36,6 @@ import {
   MOCK_WIND_HISTORY,
   MOCK_HUMIDITY_HISTORY,
 } from '../features/weather/mock/weatherMockData';
-import {
-  MOCK_WATER_USAGE,
-  MOCK_RUN_HOURS,
-  MOCK_PUMP_RUNTIME,
-  MOCK_SOIL_CONDITION,
-  MOCK_HARVEST_PERFORMANCE,
-  MOCK_GENERAL_METRICS,
-} from '../features/reports/mock/reportsMockData';
 import {
   MOCK_CROP_HEALTH,
   MOCK_AI_INSIGHTS,
@@ -797,74 +790,39 @@ export const weatherService = {
 // ─── Report Service ──────────────────────────────────────────────────────────
 
 export const reportService = {
-  fetchReports: async () => {
-    if (FIREBASE_ENABLED) {
-      try {
-        const [pumps, history, soil] = await Promise.all([
-          cache.remember('pumps:all', () => getFirestore().getAll('pumps'), 300),
-          cache.remember('report:history', () => getFirestore().getAll('pump_history'), 300),
-          cache.remember('soil:current', () => getFirestore().getSingleton('soil', 'current'), 300),
-        ]);
-
-        // Compute pump runtime from history
-        const totalRuns = (history || []).filter((h) => h.action === 'on').length;
-        const totalStops = (history || []).filter((h) => h.action === 'off').length;
-        const timerRuns = (history || []).filter((h) => h.action === 'timer_started');
-        const totalTimerSec = timerRuns.reduce((sum, h) => sum + (h.duration || 0), 0);
-
-        return {
-          waterUsage: { ...MOCK_WATER_USAGE, totalLiters: totalTimerSec * 2 }, // rough estimate
-          runHours: { ...MOCK_RUN_HOURS, total: Math.round(totalTimerSec / 3600 * 10) / 10, sessions: totalRuns },
-          pumpRuntime: (pumps || []).map((p) => ({
-            id: p.id,
-            name: p.name,
-            status: p.status,
-            lastRun: p.lastTurnedOn || p.lastRun,
-          })),
-          soilCondition: soil ? { ...MOCK_SOIL_CONDITION, moisture: soil.moisture, ph: soil.ph, nitrogen: soil.nitrogen } : { ...MOCK_SOIL_CONDITION },
-          harvestPerformance: { ...MOCK_HARVEST_PERFORMANCE },
-          generalMetrics: { ...MOCK_GENERAL_METRICS, totalPumps: (pumps || []).length, activePumps: (pumps || []).filter((p) => p.status === 'on').length },
-        };
-      } catch (e) {
-        if (__DEV__) console.warn('[Reports] Firestore fetch failed, falling back to mock', e.message);
-      }
-    }
-    await mockDelay(800);
-    return {
-      waterUsage: { ...MOCK_WATER_USAGE },
-      runHours: { ...MOCK_RUN_HOURS },
-      pumpRuntime: [...MOCK_PUMP_RUNTIME],
-      soilCondition: { ...MOCK_SOIL_CONDITION },
-      harvestPerformance: { ...MOCK_HARVEST_PERFORMANCE },
-      generalMetrics: { ...MOCK_GENERAL_METRICS },
-    };
-  },
-};
-
-// ─── Device Service ─────────────────────────────────────────────────────────
-
-export const deviceService = {
-  fetchDevices: async () => {
+  /**
+   * Farm reports.
+   *
+   * These screens used to show a fixed set of figures - 2,450 litres, 156
+   * hours, a 91.7% harvest efficiency - the same for every farmer, which is
+   * what the testing team reported. They now come from what the farm has
+   * actually done: water from each pump's flow rate against the seconds it
+   * ran, energy from its horsepower, soil from the readings taken.
+   *
+   * Harvest performance comes back null, because nothing in the app records a
+   * sowing or a harvest. The screens already guard for a missing section, so
+   * that part reads as absent rather than inventing a yield.
+   */
+  fetchReports: async (days = 30) => {
     try {
-      const { devices } = await deviceAPI.fetchAll();
-      return devices.map(mapDevice);
+      return await reportAPI.fetch(days);
     } catch (error) {
-      if (__DEV__) console.warn('fetchDevices failed:', error.message);
-      throw new Error('Could not load your devices. Check your connection and try again.');
+      if (__DEV__) console.warn('fetchReports failed:', error.message);
+      // No substituted figures on failure. An empty report says "nothing
+      // recorded" honestly; a mock one would be read as the farm's own.
+      return {
+        periodDays: days,
+        hasData: false,
+        waterUsage: { daily: [], weekly: [], totalLiters: 0 },
+        runHours: { daily: [], weekly: [], total: 0, sessions: 0 },
+        energyUse: { daily: [], totalKwh: 0 },
+        pumpRuntime: [],
+        soilCondition: null,
+        generalMetrics: null,
+        harvestPerformance: null,
+        error: 'Could not load reports.',
+      };
     }
-  },
-
-  updateDevice: async (id, updates) => {
-    if (FIREBASE_ENABLED && shouldUseOffline()) {
-      throw new Error('Offline — cannot update device. Changes will sync when you reconnect.');
-    }
-    if (FIREBASE_ENABLED) {
-      const result = await getFirestore().update('devices', id, updates);
-      await cache.del('devices:all');
-      return result;
-    }
-    await mockDelay(500);
-    return { id, ...updates };
   },
 };
 

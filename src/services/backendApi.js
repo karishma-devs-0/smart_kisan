@@ -448,6 +448,13 @@ export const farmTaskAPI = {
   remove: (id) => apiRequest(`/farm-tasks/${id}`, { method: 'DELETE' }),
 };
 
+// ─── Report APIs ──────────────────────────────────────────────────────────────
+
+export const reportAPI = {
+  /** Farm reports over a window, worked out from recorded pump runs and soil. */
+  fetch: (days = 30) => apiRequest(`/reports?days=${days}`),
+};
+
 // ─── Health Check ─────────────────────────────────────────────────────────────
 
 export const healthCheck = () =>

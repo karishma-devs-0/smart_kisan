@@ -20,6 +20,8 @@ export const fetchReports = createAsyncThunk(
 const initialState = {
   waterUsage: null,
   runHours: null,
+  energyUse: null,
+  hasData: false,
   pumpRuntime: [],
   soilCondition: null,
   harvestPerformance: null,
