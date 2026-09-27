@@ -27,6 +27,7 @@ const aiPumpRoutes = require('./routes/aiPump');
 const fieldRoutes = require('./routes/fields');
 const farmTaskRoutes = require('./routes/farmTasks');
 const reportRoutes = require('./routes/reports');
+const harvestRoutes = require('./routes/harvests');
 const cropRoutes = require('./routes/crops');
 const deviceRoutes = require('./routes/devices');
 const soilRoutes = require('./routes/soil');
@@ -241,6 +242,12 @@ app.use(
   '/api/reports',
   authMiddleware,
   reportRoutes
+);
+
+app.use(
+  '/api/harvests',
+  authMiddleware,
+  harvestRoutes
 );
 
 app.use(

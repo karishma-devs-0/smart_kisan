@@ -406,6 +406,80 @@ async function main() {
     record('the deleted task is gone', after.data?.count === 0, `${after.data?.count} left`);
   }
 
+  // ── 8d. Harvests ────────────────────────────────────────────────────
+  // Nothing recorded what came off the field, so harvest performance showed
+  // the same efficiency to everyone and yield prediction had nothing behind
+  // it. Conversions matter here: records entered in different units have to
+  // add up, and yield per acre is how a farmer compares seasons.
+  console.log('\n8d. Harvests');
+
+  const noCrop = await call('POST', '/harvests', { token, body: { quantity: 10 } });
+  record('a harvest with no crop is refused', noCrop.status === 400, noCrop.data?.error);
+
+  const negative = await call('POST', '/harvests', {
+    token, body: { cropName: 'Wheat', quantity: -5 } });
+  record('a negative quantity is refused', negative.status === 400, negative.data?.error);
+
+  const backwards = await call('POST', '/harvests', {
+    token,
+    body: { cropName: 'Wheat', quantity: 10, sownOn: '2026-09-01', harvestedOn: '2026-08-01' },
+  });
+  record('harvesting before sowing is refused', backwards.status === 400,
+    backwards.data?.error);
+
+  // 1 tonne is 10 quintals; over 1 acre that is 10 quintals an acre.
+  const tonne = await call('POST', '/harvests', {
+    token,
+    body: { cropName: 'E2E Wheat', quantity: 1, unit: 'tonne', area: 1, areaUnit: 'acre' },
+  });
+  record('record a harvest', tonne.status === 201, `HTTP ${tonne.status}`);
+  record('tonnes convert to quintals', Number(tonne.data?.harvest?.quantity_qtl) === 10,
+    `${tonne.data?.harvest?.quantity_qtl} qtl`);
+  record('yield per acre is worked out',
+    Number(tonne.data?.harvest?.yield_per_acre) === 10,
+    `${tonne.data?.harvest?.yield_per_acre} qtl/acre`);
+
+  // A date must come back as the day entered. Selected as text server-side,
+  // because a date column arrives in node at local midnight and in IST that
+  // is the previous evening in UTC.
+  const dated = await call('POST', '/harvests', {
+    token,
+    body: { cropName: 'E2E Wheat', quantity: 40, unit: 'maund', area: 1,
+            areaUnit: 'hectare', harvestedOn: '2026-03-15', expectedQuintals: 20 },
+  });
+  record('the harvest date is not shifted a day',
+    dated.data?.harvest?.harvested_on === '2026-03-15',
+    String(dated.data?.harvest?.harvested_on));
+  record('maunds convert to quintals', Number(dated.data?.harvest?.quantity_qtl) === 16,
+    `${dated.data?.harvest?.quantity_qtl} qtl`);
+
+  const summary = await call('GET', '/harvests/summary', { token });
+  const wheat = (summary.data?.crops || []).find((c) => c.cropName === 'E2E Wheat');
+  record('yield summary groups by crop', !!wheat && wheat.harvests === 2,
+    `${wheat?.harvests} harvests`);
+  record('best and worst yields are reported',
+    wheat?.bestYieldPerAcre === 10 && Math.abs(wheat?.worstYieldPerAcre - 6.47) < 0.05,
+    `best ${wheat?.bestYieldPerAcre}, worst ${wheat?.worstYieldPerAcre}`);
+  record('two seasons is enough for a trend', summary.data?.enoughForTrend === true, '');
+
+  // The whole point of recording harvests: this used to be null, and before
+  // that a fixed 91.7% shown to every farmer.
+  const withHarvest = await call('GET', '/reports?days=30', { token });
+  const hp = withHarvest.data?.harvestPerformance;
+  record('harvest performance is real now', !!hp && hp.harvests === 2,
+    `${hp?.harvests} harvests, ${hp?.actualYield} qtl`);
+  // Only one of the two carried an expectation, and the count says so rather
+  // than treating a missing expectation as a met one.
+  record('only records with an expectation count toward efficiency',
+    hp?.comparable === 1 && hp?.efficiency === 80,
+    `${hp?.comparable} comparable, ${hp?.efficiency}%`);
+
+  for (const h of (await call('GET', '/harvests', { token })).data?.harvests || []) {
+    await call('DELETE', `/harvests/${h.id}`, { token });
+  }
+  const cleared = await call('GET', '/harvests', { token });
+  record('harvests delete', cleared.data?.count === 0, `${cleared.data?.count} left`);
+
   // ── 9. Isolation from a second account ───────────────────────────────────
   console.log('\n9. Isolation');
   const otherEmail = `e2e_other_${rand()}@example.com`;

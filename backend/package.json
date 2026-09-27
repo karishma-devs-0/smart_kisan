@@ -9,6 +9,7 @@
     "db:init": "node src/scripts/initDb.js",
     "db:ai": "node src/scripts/addAiPumpSchema.js",
     "db:tasks": "node src/scripts/addFarmTasksSchema.js",
+    "db:harvests": "node src/scripts/addHarvestSchema.js",
     "e2e": "node scripts/e2eCheck.js",
     "check:reset": "node scripts/checkPasswordReset.js"
   },

@@ -448,6 +448,24 @@ export const farmTaskAPI = {
   remove: (id) => apiRequest(`/farm-tasks/${id}`, { method: 'DELETE' }),
 };
 
+// ─── Harvest APIs ─────────────────────────────────────────────────────────────
+
+export const harvestAPI = {
+  /** @param {string} [crop] limit to one crop */
+  fetchAll: (crop) => apiRequest(`/harvests${crop ? `?crop=${encodeURIComponent(crop)}` : ''}`),
+
+  /** Yield per crop across seasons, and whether there is enough for a trend. */
+  summary: () => apiRequest('/harvests/summary'),
+
+  create: (harvest) =>
+    apiRequest('/harvests', { method: 'POST', body: JSON.stringify(harvest) }),
+
+  update: (id, updates) =>
+    apiRequest(`/harvests/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
+
+  remove: (id) => apiRequest(`/harvests/${id}`, { method: 'DELETE' }),
+};
+
 // ─── Report APIs ──────────────────────────────────────────────────────────────
 
 export const reportAPI = {

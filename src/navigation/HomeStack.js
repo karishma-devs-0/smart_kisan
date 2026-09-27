@@ -11,6 +11,7 @@ import ConnectedDevicesScreen from '../features/devices/screens/ConnectedDevices
 import DeviceConnectionScreen from '../features/devices/screens/DeviceConnectionScreen';
 // Farm Management
 import FarmManagementScreen from '../features/farm/screens/FarmManagementScreen';
+import HarvestsScreen from '../features/harvests/screens/HarvestsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -35,6 +36,7 @@ const HomeStack = () => {
 
       {/* ── Farm Management ── */}
       <Stack.Screen name="FarmManagement" component={FarmManagementScreen} />
+      <Stack.Screen name="Harvests" component={HarvestsScreen} />
     </Stack.Navigator>
   );
 };

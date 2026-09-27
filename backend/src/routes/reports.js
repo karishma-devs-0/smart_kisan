@@ -151,6 +151,19 @@ router.get('/', async (req, res) => {
       [userId]
     );
 
+    // Harvest performance. This was null because nothing recorded a harvest;
+    // now that harvests are recorded it is the real thing - what was expected
+    // against what actually came off the field.
+    const { rows: harvestRows } = await db.query(
+      `SELECT crop_name, quantity_qtl, expected_qtl, yield_per_acre,
+              to_char(harvested_on, 'YYYY-MM-DD') AS harvested_on
+       FROM harvests
+       WHERE owner_id = $1
+       ORDER BY harvested_on DESC
+       LIMIT 20`,
+      [userId]
+    );
+
     const waterDaily = daily.map((d) => ({
       date: d.day,
       liters: Math.round(Number(d.litres)),
@@ -238,11 +251,41 @@ router.get('/', async (req, res) => {
         energyUse: { value: totalKwh, unit: 'kWh', change: null },
       },
 
-      // Null on purpose. Nothing in the app records a sowing or a harvest, so
-      // there is no yield to compare an estimate against. The previous screen
-      // showed 2,400 estimated against 2,200 actual at 91.7% efficiency for
-      // every farmer, which is exactly the kind of figure that gets believed.
-      harvestPerformance: null,
+      // Real now that harvests are recorded. Null until the first one, rather
+      // than the 2,400 estimated against 2,200 actual at 91.7% efficiency this
+      // used to show every farmer.
+      //
+      // Efficiency is only worked out from records that carry an expectation.
+      // A harvest entered without one still counts toward the totals but
+      // cannot contribute to a percentage, and saying so is better than
+      // quietly treating a missing expectation as a met one.
+      harvestPerformance: (() => {
+        if (!harvestRows.length) return null;
+
+        const withExpectation = harvestRows.filter(
+          (h) => h.expected_qtl != null && Number(h.expected_qtl) > 0
+        );
+
+        const actual = harvestRows.reduce((s2, h) => s2 + Number(h.quantity_qtl || 0), 0);
+        const estimated = withExpectation.reduce(
+          (s2, h) => s2 + Number(h.expected_qtl), 0
+        );
+        const actualOfThose = withExpectation.reduce(
+          (s2, h) => s2 + Number(h.quantity_qtl || 0), 0
+        );
+
+        return {
+          harvests: harvestRows.length,
+          actualYield: Number(actual.toFixed(2)),
+          estimatedYield: estimated ? Number(estimated.toFixed(2)) : null,
+          efficiency: estimated
+            ? Number(((actualOfThose / estimated) * 100).toFixed(1))
+            : null,
+          comparable: withExpectation.length,
+          unit: 'quintal',
+          lastHarvest: harvestRows[0].harvested_on,
+        };
+      })(),
     });
   } catch (error) {
     console.error('GET /reports error:', error);

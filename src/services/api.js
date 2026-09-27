@@ -13,6 +13,7 @@ import {
   pumpAPI,
   farmTaskAPI,
   reportAPI,
+  harvestAPI,
 } from './backendApi';
 import * as weatherAPI from './weather';
 
@@ -781,6 +782,82 @@ export const weatherService = {
 };
 
 // ─── Report Service ──────────────────────────────────────────────────────────
+
+const mapHarvest = (r) => ({
+  id: r.id,
+  cropId: r.crop_id,
+  fieldId: r.field_id,
+  cropName: r.crop_name,
+  variety: r.variety,
+  fieldName: r.field_name,
+  season: r.season,
+  sownOn: r.sown_on,
+  harvestedOn: r.harvested_on,
+  quantity: r.quantity,
+  unit: r.unit,
+  quantityQuintals: r.quantity_qtl,
+  area: r.area,
+  areaUnit: r.area_unit,
+  yieldPerAcre: r.yield_per_acre,
+  quality: r.quality,
+  expectedQuintals: r.expected_qtl,
+  notes: r.notes,
+});
+
+// ─── Harvest Service ─────────────────────────────────────────────────────────
+
+export const harvestService = {
+  /**
+   * What actually came off the field.
+   *
+   * Nothing recorded this before, which is why the harvest performance report
+   * showed the same 91.7% efficiency to every farmer and yield prediction had
+   * nothing to learn from. Both become real from the first season recorded.
+   */
+  fetchHarvests: async (crop) => {
+    try {
+      const { harvests } = await harvestAPI.fetchAll(crop);
+      return (harvests || []).map(mapHarvest);
+    } catch (error) {
+      if (__DEV__) console.warn('fetchHarvests failed:', error.message);
+      return [];
+    }
+  },
+
+  /** Yield per crop across seasons. Empty until something has been recorded. */
+  fetchYieldSummary: async () => {
+    try {
+      return await harvestAPI.summary();
+    } catch (error) {
+      if (__DEV__) console.warn('fetchYieldSummary failed:', error.message);
+      return { crops: [], enoughForTrend: false };
+    }
+  },
+
+  createHarvest: async (harvest) => {
+    if (shouldUseOffline()) {
+      throw new Error('Offline — cannot record a harvest right now.');
+    }
+    const { harvest: created } = await harvestAPI.create(harvest);
+    return mapHarvest(created);
+  },
+
+  updateHarvest: async (id, updates) => {
+    if (shouldUseOffline()) {
+      throw new Error('Offline — cannot update a harvest right now.');
+    }
+    const { harvest } = await harvestAPI.update(id, updates);
+    return mapHarvest(harvest);
+  },
+
+  deleteHarvest: async (id) => {
+    if (shouldUseOffline()) {
+      throw new Error('Offline — cannot delete a harvest right now.');
+    }
+    await harvestAPI.remove(id);
+    return { id };
+  },
+};
 
 export const reportService = {
   /**
