@@ -95,9 +95,13 @@ const NDVIMapScreen = ({ navigation }) => {
     }
   }, [dispatch, ndviData]);
 
-  const ndvi = ndviData || { overallIndex: 0.72, lastUpdated: new Date().toISOString(), zones: [] };
+  // No invented index. This fell back to a hardcoded 0.72, which every farmer
+  // saw as their farm's satellite crop health whether or not any imagery
+  // existed - and none does, since no provider is connected.
+  const ndvi = ndviData || { overallIndex: null, lastUpdated: null, zones: [] };
+  const hasIndex = ndvi.overallIndex !== null && ndvi.overallIndex !== undefined;
   const experts = expertNetwork || [];
-  const overallColor = getNdviColor(ndvi.overallIndex);
+  const overallColor = hasIndex ? getNdviColor(ndvi.overallIndex) : COLORS.textTertiary;
 
   if (loading) {
     return (
@@ -113,6 +117,28 @@ const NDVIMapScreen = ({ navigation }) => {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
+
+      {/* Satellite crop health is not connected. It used to show an invented
+          index and coloured zones; an empty screen with no explanation would
+          just look broken instead, so it says what is missing and why. */}
+      {!zones.length && (
+        <View style={styles.unavailableCard}>
+          <MaterialCommunityIcons
+            name="satellite-variant"
+            size={40}
+            color={COLORS.textTertiary}
+          />
+          <Text style={styles.unavailableTitle}>
+            {t('ndvi.unavailableTitle', 'Satellite crop health is not available yet')}
+          </Text>
+          <Text style={styles.unavailableText}>
+            {t('ndvi.unavailableText',
+              'This needs a satellite imagery provider, which is not connected. '
+              + 'The figures shown here before were not from your fields.')}
+          </Text>
+        </View>
+      )}
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -122,23 +148,33 @@ const NDVIMapScreen = ({ navigation }) => {
         <Text style={styles.titleText}> {t('ndvi.title')}</Text>
       </View>
 
-      {/* Overall NDVI Index */}
-      <View style={styles.overallCard}>
-        <View style={styles.overallHeader}>
-          <MaterialCommunityIcons name="satellite-variant" size={24} color={overallColor} />
-          <Text style={styles.overallLabel}>{t('ndvi.overallIndex')}</Text>
-        </View>
-        <View style={styles.overallValueRow}>
-          <Text style={[styles.overallValue, { color: overallColor }]}>{ndvi.overallIndex.toFixed(2)}</Text>
-          <View style={[styles.overallIndicator, { backgroundColor: overallColor + '20' }]}>
-            <View style={[styles.overallIndicatorDot, { backgroundColor: overallColor }]} />
-            <Text style={[styles.overallIndicatorText, { color: overallColor }]}>
-              {ndvi.overallIndex > 0.6 ? t('ndvi.goodVegetation') : t('ndvi.needsAttention')}
-            </Text>
+      {/* Overall NDVI Index. Only rendered when there is one: calling
+          toFixed on the absent index crashed the screen outright, which is
+          what the hardcoded 0.72 was hiding. */}
+      {hasIndex && (
+        <View style={styles.overallCard}>
+          <View style={styles.overallHeader}>
+            <MaterialCommunityIcons name="satellite-variant" size={24} color={overallColor} />
+            <Text style={styles.overallLabel}>{t('ndvi.overallIndex')}</Text>
           </View>
+          <View style={styles.overallValueRow}>
+            <Text style={[styles.overallValue, { color: overallColor }]}>
+              {ndvi.overallIndex.toFixed(2)}
+            </Text>
+            <View style={[styles.overallIndicator, { backgroundColor: overallColor + '20' }]}>
+              <View style={[styles.overallIndicatorDot, { backgroundColor: overallColor }]} />
+              <Text style={[styles.overallIndicatorText, { color: overallColor }]}>
+                {ndvi.overallIndex > 0.6 ? t('ndvi.goodVegetation') : t('ndvi.needsAttention')}
+              </Text>
+            </View>
+          </View>
+          {!!ndvi.lastUpdated && (
+            <Text style={styles.lastUpdated}>
+              {t('ndvi.lastUpdated')}: {formatDate(ndvi.lastUpdated)}
+            </Text>
+          )}
         </View>
-        <Text style={styles.lastUpdated}>{t('ndvi.lastUpdated')}: {formatDate(ndvi.lastUpdated)}</Text>
-      </View>
+      )}
 
       {/* NDVI Scale Legend */}
       <Text style={styles.sectionTitle}>{t('ndvi.ndviScale')}</Text>
@@ -182,21 +218,50 @@ const NDVIMapScreen = ({ navigation }) => {
         <ZoneCard key={zone.id} zone={zone} />
       ))}
 
-      {/* Expert Network */}
-      <View style={styles.sectionHeaderRow}>
-        <MaterialCommunityIcons name="account-group" size={22} color={COLORS.primary} />
-        <Text style={styles.sectionTitle}>{t('ndvi.expertNetwork')}</Text>
-      </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.expertScroll}>
-        {experts.map((expert) => (
-          <ExpertCard key={expert.id} expert={expert} />
-        ))}
-      </ScrollView>
+      {/* Hidden rather than shown empty. The list held invented names with
+          invented ratings, and a farmer ringing one would find nobody; a
+          heading over an empty scroller just looks broken. It returns when
+          real agronomists are signed up. */}
+      {experts.length > 0 && (
+        <>
+          <View style={styles.sectionHeaderRow}>
+            <MaterialCommunityIcons name="account-group" size={22} color={COLORS.primary} />
+            <Text style={styles.sectionTitle}>{t('ndvi.expertNetwork')}</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.expertScroll}>
+            {experts.map((expert) => (
+              <ExpertCard key={expert.id} expert={expert} />
+            ))}
+          </ScrollView>
+        </>
+      )}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  unavailableCard: {
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.xl,
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.lg,
+  },
+  unavailableTitle: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.semiBold,
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+    marginTop: SPACING.md,
+  },
+  unavailableText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SPACING.sm,
+    lineHeight: 19,
+  },
   container: { flex: 1, backgroundColor: COLORS.white },
   contentContainer: { padding: SPACING.lg, paddingBottom: SPACING.xxxxl },
   loadingContainer: { alignItems: 'center', justifyContent: 'center' },

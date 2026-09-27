@@ -146,6 +146,28 @@ const FarmOverviewScreen = ({ navigation }) => {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
+
+      {/* Satellite crop health is not connected. It used to show an invented
+          index and coloured zones; an empty screen with no explanation would
+          just look broken instead, so it says what is missing and why. */}
+      {!zones.length && (
+        <View style={styles.unavailableCard}>
+          <MaterialCommunityIcons
+            name="satellite-variant"
+            size={40}
+            color={COLORS.textTertiary}
+          />
+          <Text style={styles.unavailableTitle}>
+            {t('ndvi.unavailableTitle', 'Satellite crop health is not available yet')}
+          </Text>
+          <Text style={styles.unavailableText}>
+            {t('ndvi.unavailableText',
+              'This needs a satellite imagery provider, which is not connected. '
+              + 'The figures shown here before were not from your fields.')}
+          </Text>
+        </View>
+      )}
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -234,6 +256,28 @@ const FarmOverviewScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  unavailableCard: {
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.xl,
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.lg,
+  },
+  unavailableTitle: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.semiBold,
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+    marginTop: SPACING.md,
+  },
+  unavailableText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SPACING.sm,
+    lineHeight: 19,
+  },
   container: { flex: 1, backgroundColor: COLORS.white },
   contentContainer: { padding: SPACING.lg, paddingBottom: SPACING.xxxxl },
   loadingContainer: { alignItems: 'center', justifyContent: 'center' },

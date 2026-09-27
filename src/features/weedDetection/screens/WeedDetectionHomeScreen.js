@@ -36,6 +36,8 @@ import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { useSelector } from 'react-redux';
 import { classify, preloadModels, isInferenceAvailable } from '../../../services/weedInference';
+import SpeakButton from '../../../components/common/SpeakButton';
+import { readable } from '../../../services/speech';
 
 const MODES = [
   {
@@ -180,7 +182,22 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
                   : t('weedDetection.canopyHealthy', 'Canopy looks healthy')
                 : t('weedDetection.detected', 'Detected')}
             </Text>
-            <Text style={[styles.resultLabel, { color: accent }]}>{result.label}</Text>
+            <View style={styles.labelRow}>
+              <Text style={[styles.resultLabel, { color: accent }]}>{result.label}</Text>
+              {/* The whole point of this screen is telling a weed from a crop
+                  before spraying. Read it out, including the caution, for a
+                  farmer who cannot easily read it. */}
+              <SpeakButton
+                text={readable(
+                  result.label,
+                  `${result.confidence} percent`,
+                  result.couldBeTheCrop
+                    ? t('weedDetection.couldBeCrop', '', { crops: (result.cropContext || []).join(', ') })
+                    : '',
+                )}
+                color={accent}
+              />
+            </View>
           </View>
           <View style={styles.confidenceWrap}>
             <Text style={[styles.confidenceValue, { color: accent }]}>{result.confidence}%</Text>
@@ -364,6 +381,7 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
   cropNote: {
     flexDirection: 'row',
     gap: SPACING.sm,

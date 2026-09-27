@@ -15,6 +15,8 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { fetchAnalytics } from '../slice/analyticsSlice';
+import SpeakButton from '../../../components/common/SpeakButton';
+import { readable } from '../../../services/speech';
 import { useTranslation } from 'react-i18next';
 
 const getHealthColor = (index) => {
@@ -59,20 +61,39 @@ const CropHealthRing = ({ score, t }) => {
 };
 
 const FieldHealthCard = ({ field, t }) => {
-  const color = getHealthColor(field.healthIndex);
+  // A field with no soil reading has no score. It used to be given one; now
+  // it is reported as unknown, so the bar and the number have to cope with
+  // null rather than rendering "null%" across the card.
+  const scored = field.healthIndex !== null && field.healthIndex !== undefined;
+  const color = scored ? getHealthColor(field.healthIndex) : COLORS.textTertiary;
+
   return (
     <View style={styles.fieldCard}>
       <View style={styles.fieldCardHeader}>
         <Text style={styles.fieldName}>{field.fieldName}</Text>
         <View style={[styles.statusBadge, { backgroundColor: color + '20' }]}>
-          <Text style={[styles.statusBadgeText, { color }]}>{getStatusLabel(field.status, t)}</Text>
+          <Text style={[styles.statusBadgeText, { color }]}>
+            {scored
+              ? getStatusLabel(field.status, t)
+              : t('analytics.noReading', 'No reading')}
+          </Text>
         </View>
       </View>
-      <Text style={styles.fieldCropType}>{field.cropType}</Text>
-      <View style={styles.healthBarContainer}>
-        <View style={[styles.healthBarFill, { width: `${field.healthIndex}%`, backgroundColor: color }]} />
-      </View>
-      <Text style={[styles.healthBarValue, { color }]}>{field.healthIndex}%</Text>
+      {!!field.cropType && <Text style={styles.fieldCropType}>{field.cropType}</Text>}
+
+      {scored ? (
+        <>
+          <View style={styles.healthBarContainer}>
+            <View style={[styles.healthBarFill, { width: `${field.healthIndex}%`, backgroundColor: color }]} />
+          </View>
+          <Text style={[styles.healthBarValue, { color }]}>{field.healthIndex}%</Text>
+        </>
+      ) : (
+        <Text style={styles.noReadingText}>
+          {t('analytics.addSoilReading',
+            'Add a soil reading and this field can be scored.')}
+        </Text>
+      )}
       {field.issues.length > 0 && (
         <View style={styles.issuesList}>
           {field.issues.map((issue, index) => (
@@ -100,16 +121,22 @@ const InsightCard = ({ insight, t }) => (
             {insight.type.charAt(0).toUpperCase() + insight.type.slice(1)}
           </Text>
         </View>
-        <Text style={styles.insightTimestamp}>{formatTimestamp(insight.timestamp)}</Text>
+        {/* Observations are drawn from readings and carry no timestamp or
+            confidence score. The bar here rendered `undefined%` once the
+            invented percentages were removed; what replaces it is the reading
+            the observation came from, which a farmer can actually check. */}
+        <SpeakButton
+          text={readable(insight.title, insight.description, insight.basis)}
+          color={insight.color}
+          size={18}
+        />
       </View>
       <Text style={styles.insightTitle}>{insight.title}</Text>
-      <Text style={styles.insightDescription} numberOfLines={2}>{insight.description}</Text>
+      <Text style={styles.insightDescription}>{insight.description}</Text>
       <View style={styles.confidenceRow}>
-        <Text style={styles.confidenceLabel}>{t('analytics.confidence')}</Text>
-        <View style={styles.confidenceBarContainer}>
-          <View style={[styles.confidenceBarFill, { width: `${insight.confidence}%` }]} />
-        </View>
-        <Text style={styles.confidenceValue}>{insight.confidence}%</Text>
+        {insight.basis ? (
+          <Text style={styles.basisText}>{insight.basis}</Text>
+        ) : null}
       </View>
     </View>
   </View>
@@ -235,6 +262,18 @@ const FarmAnalyticsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  noReadingText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textTertiary,
+    marginTop: SPACING.sm,
+    lineHeight: 16,
+  },
+  basisText: {
+    flex: 1,
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textTertiary,
+    fontStyle: 'italic',
+  },
   container: { flex: 1, backgroundColor: COLORS.white },
   contentContainer: { padding: SPACING.lg, paddingBottom: SPACING.xxxxl },
   loadingContainer: { alignItems: 'center', justifyContent: 'center' },

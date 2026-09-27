@@ -12,6 +12,8 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { scanImage } from '../slice/diseaseDetectionSlice';
+import SpeakButton from '../../../components/common/SpeakButton';
+import { readable } from '../../../services/speech';
 
 const severityConfig = {
   none: { color: COLORS.success, label: 'Healthy', icon: 'check-circle' },
@@ -142,8 +144,25 @@ const ScanResultScreen = ({ navigation, route }) => {
       {/* Disease Name / Healthy + Confidence */}
       <View style={[styles.resultCard, { borderLeftColor: statusColor }]}>
         <View style={styles.resultHeader}>
-          <View>
-            <Text style={styles.cropName}>{scan.cropName}</Text>
+          <View style={{ flex: 1 }}>
+            <View style={styles.nameRow}>
+              <Text style={styles.cropName}>{scan.cropName}</Text>
+              {/* Read aloud. A farmer who cannot comfortably read the name of
+                  a disease still has to decide what to spray, and this is the
+                  screen where getting it wrong costs money. */}
+              <SpeakButton
+                text={readable(
+                  scan.cropName,
+                  isHealthy ? 'Healthy plant' : scan.disease,
+                  (scan.symptoms || []).join('. '),
+                  chemicalTreatments[0]?.method,
+                  organicTreatments[0]
+                    ? `Organic option. ${organicTreatments[0].name}. ${organicTreatments[0].method}`
+                    : '',
+                )}
+                color={statusColor}
+              />
+            </View>
             <Text style={[styles.diseaseName, { color: statusColor }]}>
               {isHealthy ? 'Healthy Plant' : scan.disease}
             </Text>
@@ -251,6 +270,7 @@ const ScanResultScreen = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
   // Image
   simulatedBanner: {
     flexDirection: 'row',

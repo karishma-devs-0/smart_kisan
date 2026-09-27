@@ -37,6 +37,7 @@
     "expo-notifications": "~56.0.12",
     "expo-secure-store": "~56.0.4",
     "expo-sharing": "~56.0.12",
+    "expo-speech": "~56.0.3",
     "expo-status-bar": "~56.0.4",
     "expo-web-browser": "~56.0.5",
     "i18next": "^25.8.14",
