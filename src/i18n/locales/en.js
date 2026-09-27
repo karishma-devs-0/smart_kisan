@@ -109,6 +109,7 @@ export default {
 
   // Home Screen
   home: {
+    harvests: 'Harvests',
     goodMorning: 'Good Morning',
     goodAfternoon: 'Good Afternoon',
     goodEvening: 'Good Evening',
@@ -431,6 +432,10 @@ export default {
 
   // Yield Prediction
   yield: {
+    quintalsExpected: 'quintals expected',
+    quintalsPerAcre: 'quintals an acre',
+    range: 'Your range',
+    needsArea: 'Add the area of this crop and the app can give a total, not just a per-acre figure.',
     prefix: 'Yield',
     title: 'Prediction',
     cropForecast: 'Crop Yield Forecast',
@@ -884,6 +889,35 @@ export default {
     backToLogin: 'Back to sign in',
   },
 
+  harvests: {
+    title: 'Harvests',
+    record: 'Record a harvest',
+    records: 'Records',
+    yourYields: 'Your yields',
+    whichCrop: 'Which crop?',
+    orType: 'Or type the crop name',
+    cropName: 'Crop name',
+    cropPlaceholder: 'e.g. Wheat',
+    howMuch: 'How much came off?',
+    areaHarvested: 'Area harvested',
+    areaHint: 'Needed to work out yield per acre, which is how seasons compare.',
+    when: 'When?',
+    quality: 'Quality',
+    expected: 'What did you expect?',
+    expectedHint: 'In quintals. Only records with an expectation can show how close the harvest came to it.',
+    notes: 'Notes',
+    notesPlaceholder: 'Anything worth remembering next season',
+    optional: 'optional',
+    save: 'Save harvest',
+    needCrop: 'Choose a crop, or type its name',
+    needQuantity: 'Enter how much was harvested',
+    noneTitle: 'No harvests recorded yet',
+    noneText: 'Record what comes off each field and the app can show how your yields change from season to season, and how each harvest compared with what you expected.',
+    trendNote: 'One season of each crop so far. After a second the app can show whether a harvest was better or worse than usual.',
+    deleteTitle: 'Delete this record?',
+    deleteMsg: 'The yield figures will be worked out again without it.',
+  },
+
   profile: {
     title: 'My Profile',
     name: 'Full Name',
@@ -1007,6 +1041,7 @@ export default {
 
   // Weed Detection (Camera Poles Field Monitor)
   weedDetection: {
+    couldBeCrop: 'You grow {{crops}}, which is itself a grass. Check this is a weed and not your own crop before spraying.',
     needsBuild: 'Detection runs on the device and is not available in Expo Go. Install the app build to use it — everything else works here.',
     title: 'AI Field Monitor',
     // Modes
