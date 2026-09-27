@@ -47,6 +47,12 @@ import {
 import { calculateRecommendations } from './cropRecommendEngine';
 import { assessCropHealth, buildInsights } from './farmHealthEngine';
 import { predictYield } from './yieldEngine';
+import {
+  spraySchedule,
+  stressAlerts,
+  growingDegreeDays,
+  rainOutlook,
+} from './weatherAdvisoryEngine';
 import { generateIrrigationSchedule, calculateETSummary } from './irrigationEngine';
 
 // ─── Offline-aware helper ──────────────────────────────────────────────────
@@ -944,6 +950,14 @@ export const analyticsService = {
         crops: crops || [],
         pumps: pumps || [],
       }),
+
+      // What the forecast actually means for the week's work. The weather
+      // screens showed the numbers and left the farmer to decide; these are
+      // the decisions those numbers drive.
+      sprayAdvice: spraySchedule(forecast || []),
+      weatherAlerts: stressAlerts(forecast || [], crops || []),
+      growingDegreeDays: growingDegreeDays(forecast || []),
+      rainOutlook: rainOutlook(forecast || []),
       ndviData: null,
       // Real once a harvest has been recorded: the farmer's own average yield
       // per acre for that crop, over the area planted. Not a trained model,

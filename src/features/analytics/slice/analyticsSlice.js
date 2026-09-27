@@ -39,6 +39,10 @@ export const fetchAnalytics = createAsyncThunk(
 // ─── Slice ───────────────────────────────────────────────────────────────────
 
 const initialState = {
+  rainOutlook: null,
+  growingDegreeDays: null,
+  weatherAlerts: null,
+  sprayAdvice: null,
   cropHealth: null,
   aiInsights: [],
   ndviData: null,
@@ -69,6 +73,10 @@ const analyticsSlice = createSlice({
         state.yieldPrediction = action.payload.yieldPrediction;
         state.irrigationSchedule = action.payload.irrigationSchedule;
         state.expertNetwork = action.payload.expertNetwork;
+        state.sprayAdvice = action.payload.sprayAdvice;
+        state.weatherAlerts = action.payload.weatherAlerts;
+        state.growingDegreeDays = action.payload.growingDegreeDays;
+        state.rainOutlook = action.payload.rainOutlook;
       })
       .addCase(fetchAnalytics.rejected, (state, action) => {
         state.loading = false;

@@ -129,26 +129,32 @@ async function owmForecast(lat, lng) {
       windSpeed: Math.round(d.windSpeed.reduce((a, b) => a + b, 0) / d.windSpeed.length),
     }));
 
-  // Extend 5 → 14 days by cycling so callers always get a comparable shape.
-  const extended = [...fiveDay];
-  if (fiveDay.length >= 3) {
-    const lastDate = new Date(fiveDay[fiveDay.length - 1].date);
-    for (let i = 0; i < 9; i++) {
-      const src = fiveDay[i % fiveDay.length];
-      const next = new Date(lastDate);
-      next.setDate(next.getDate() + i + 1);
-      extended.push({
-        ...src,
-        date: next.toISOString().split('T')[0],
-        high: src.high + Math.round((Math.random() - 0.5) * 4),
-        low: src.low + Math.round((Math.random() - 0.5) * 3),
-        humidity: Math.min(100, Math.max(30, src.humidity + Math.round((Math.random() - 0.5) * 10))),
-        windSpeed: Math.max(1, src.windSpeed + Math.round((Math.random() - 0.5) * 6)),
-        estimated: true,
-      });
-    }
+  // Days six to fourteen come from Open-Meteo, not from here.
+  //
+  // OpenWeatherMap's free tier forecasts five days. This used to fill the
+  // remaining nine by cycling the first five and jittering each figure with
+  // Math.random - a different temperature every time the screen loaded, for
+  // days no forecast covered. It carried an `estimated` flag, but the app
+  // presented it as a 14-day forecast, and a farmer deciding when to sow or
+  // spray cannot tell invented weather from observed.
+  //
+  // Open-Meteo forecasts a genuine 14 days, needs no key, and is already the
+  // fallback provider here. Asking it for the tail costs one request and
+  // makes every day on the screen real.
+  if (fiveDay.length >= 14) return fiveDay;
+
+  let tail = [];
+  try {
+    const om = await omForecast(lat, lng);
+    const covered = new Set(fiveDay.map((d) => d.date));
+    tail = om.filter((d) => !covered.has(d.date)).slice(0, 14 - fiveDay.length);
+  } catch (err) {
+    // Better a short forecast than a fabricated one: the screen shows the days
+    // that are real and nothing beyond them.
+    if (__DEV__) console.warn('14-day tail unavailable:', err.message);
   }
-  return extended;
+
+  return [...fiveDay, ...tail];
 }
 
 async function owmWindToday(lat, lng) {
