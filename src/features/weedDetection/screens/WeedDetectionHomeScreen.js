@@ -13,7 +13,7 @@
  * Both models are bundled in the APK (2.4 MB each) and run offline, which is
  * the point: a farmer standing in a field usually has no usable signal.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,7 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
+import { useSelector } from 'react-redux';
 import { classify, preloadModels, isInferenceAvailable } from '../../../services/weedInference';
 
 const MODES = [
@@ -66,6 +67,19 @@ const HISTORY_LIMIT = 10;
 
 const WeedDetectionHomeScreen = ({ navigation }) => {
   const { t } = useTranslation();
+
+  // What the farmer planted. A grass growing in wheat may be the wheat; a
+  // grass in cotton cannot be. The model cannot make that call - it only ever
+  // learned sorghum - but the app already knows the answer.
+  // Selecting the array and deriving in a memo, rather than mapping inside the
+  // selector: a selector that builds a new array returns a new reference every
+  // render, which would re-run useSelector's comparison endlessly and change
+  // the identity runScan depends on.
+  const crops = useSelector((state) => state.crops?.crops);
+  const cropNames = useMemo(
+    () => (crops || []).map((c) => c.name).filter(Boolean),
+    [crops],
+  );
 
   const [mode, setMode] = useState('gog');
   const [image, setImage] = useState(null);
@@ -124,7 +138,10 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
       setBusy(true);
 
       try {
-        const prediction = await classify(mode, uri);
+        // The model is poor at telling a crop from a grass weed - it only
+        // ever learned sorghum. The app knows what this farmer planted, so
+        // that question is answered here rather than by the model.
+        const prediction = await classify(mode, uri, cropNames);
         setResult(prediction);
         rememberScan({ uri, mode, ...prediction, at: Date.now() });
       } catch (error) {
@@ -140,7 +157,7 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
         setBusy(false);
       }
     },
-    [mode, t, rememberScan]
+    [mode, t, rememberScan, cropNames]
   );
 
   const activeMode = MODES.find((m) => m.id === mode);
@@ -180,6 +197,24 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
               {t(
                 'weedDetection.lowConfidence',
                 'Low confidence — take a closer, well-lit photo before acting on this.'
+              )}
+            </Text>
+          </View>
+        )}
+
+        {/* A grass growing in a cereal may be the cereal. The model cannot
+            tell - it only ever learned sorghum - so this comes from the crops
+            the farmer entered, and is worded as a caution rather than a
+            verdict: the app knows what was planted, not what is in frame. */}
+        {result.couldBeTheCrop && (
+          <View style={styles.cropNote}>
+            <MaterialCommunityIcons name="information-outline" size={16} color="#1565C0" />
+            <Text style={styles.cropNoteText}>
+              {t(
+                'weedDetection.couldBeCrop',
+                'You grow {{crops}}, which is itself a grass. Check this is a '
+                + 'weed and not your own crop before spraying.',
+                { crops: (result.cropContext || []).join(', ') }
               )}
             </Text>
           </View>
@@ -329,6 +364,21 @@ const WeedDetectionHomeScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  cropNote: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    alignItems: 'flex-start',
+    backgroundColor: '#E3F2FD',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginTop: SPACING.md,
+  },
+  cropNoteText: {
+    flex: 1,
+    fontSize: FONT_SIZES.sm,
+    color: '#0D47A1',
+    lineHeight: 18,
+  },
   body: { paddingBottom: SPACING.xxxxl },
 
   modeRow: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.lg },
