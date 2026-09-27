@@ -46,6 +46,7 @@ import {
 } from '../features/cropRecommend/mock/cropRecommendMockData';
 import { calculateRecommendations } from './cropRecommendEngine';
 import { assessCropHealth, buildInsights } from './farmHealthEngine';
+import { predictYield } from './yieldEngine';
 import { generateIrrigationSchedule, calculateETSummary } from './irrigationEngine';
 
 // ─── Offline-aware helper ──────────────────────────────────────────────────
@@ -914,7 +915,7 @@ export const analyticsService = {
    * farmer ringing one would find nobody there.
    */
   fetchAnalytics: async (options = {}) => {
-    const { forecast, soilData, fields, crops, pumps, location } = options;
+    const { forecast, soilData, fields, crops, pumps, yieldByCrop, location } = options;
 
     // Generate real irrigation schedule if we have weather data
     let irrigationSchedule;
@@ -944,7 +945,15 @@ export const analyticsService = {
         pumps: pumps || [],
       }),
       ndviData: null,
-      yieldPrediction: null,
+      // Real once a harvest has been recorded: the farmer's own average yield
+      // per acre for that crop, over the area planted. Not a trained model,
+      // and not described as one. Empty with a reason before the first
+      // harvest, rather than the fixed 3,200 kg at 88% confidence this used
+      // to show everyone.
+      yieldPrediction: predictYield({
+        crops: crops || [],
+        yieldByCrop: yieldByCrop || [],
+      }),
       irrigationSchedule: irrigationSchedule || [],
       expertNetwork: null,
     };

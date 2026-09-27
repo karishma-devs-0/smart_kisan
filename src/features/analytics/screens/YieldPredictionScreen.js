@@ -15,19 +15,8 @@ import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS, SHADOWS } from '../../../constants/layout';
 import { fetchAnalytics } from '../slice/analyticsSlice';
+import { fetchYieldSummary } from '../../harvests/slice/harvestsSlice';
 import { useTranslation } from 'react-i18next';
-
-const getTrendIcon = (trend) => {
-  if (trend === 'up') return 'trending-up';
-  if (trend === 'down') return 'trending-down';
-  return 'minus';
-};
-
-const getTrendColor = (trend) => {
-  if (trend === 'up') return COLORS.success;
-  if (trend === 'down') return COLORS.danger;
-  return COLORS.textTertiary;
-};
 
 const getPriorityColor = (priority) => {
   if (priority === 'high') return COLORS.danger;
@@ -59,9 +48,23 @@ const getNextIrrigationCountdown = (schedules) => {
   return `${diffMins}m`;
 };
 
+const CONFIDENCE_COLOURS = {
+  good: COLORS.success,
+  fair: COLORS.warning,
+  low: COLORS.textTertiary,
+};
+
+/**
+ * One crop's expected yield.
+ *
+ * This used to show a confidence percentage on a filled bar - 88%, 74% - with
+ * no model behind it to be that confident about. The figure now comes from the
+ * farmer's own past harvests, so the card says how many it is drawn from and
+ * shows the arithmetic instead of a decorated number.
+ */
 const YieldCard = ({ crop, t }) => {
-  const trendColor = getTrendColor(crop.trend);
-  const changePrefix = crop.changePercent > 0 ? '+' : '';
+  const colour = CONFIDENCE_COLOURS[crop.confidence?.level] || COLORS.textTertiary;
+
   return (
     <View style={styles.yieldCard}>
       <View style={styles.yieldCardHeader}>
@@ -69,30 +72,60 @@ const YieldCard = ({ crop, t }) => {
           <MaterialCommunityIcons name="sprout" size={20} color={COLORS.primary} />
           <Text style={styles.yieldCropName}>{crop.cropName}</Text>
         </View>
-        <View style={styles.yieldTrendRow}>
-          <MaterialCommunityIcons name={getTrendIcon(crop.trend)} size={18} color={trendColor} />
-          <Text style={[styles.yieldChangePercent, { color: trendColor }]}>
-            {changePrefix}{crop.changePercent}%
+        <View style={[styles.confidenceChip, { backgroundColor: colour + '22' }]}>
+          <Text style={[styles.confidenceChipText, { color: colour }]}>
+            {crop.basedOnHarvests} harvest{crop.basedOnHarvests === 1 ? '' : 's'}
           </Text>
         </View>
       </View>
+
       <View style={styles.yieldValueRow}>
         <View>
-          <Text style={styles.yieldValue}>{crop.predictedYield.toLocaleString()}</Text>
-          <Text style={styles.yieldUnit}>{t('yield.kgAcre')} ({t('yield.predicted')})</Text>
+          {crop.predictedQuintals != null ? (
+            <>
+              <Text style={styles.yieldValue}>{crop.predictedQuintals.toLocaleString()}</Text>
+              <Text style={styles.yieldUnit}>
+                {t('yield.quintalsExpected', 'quintals expected')}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.yieldValue}>{crop.yieldPerAcre}</Text>
+              <Text style={styles.yieldUnit}>
+                {t('yield.quintalsPerAcre', 'quintals an acre')}
+              </Text>
+            </>
+          )}
         </View>
-        <View style={styles.yieldLastYear}>
-          <Text style={styles.yieldLastYearLabel}>{t('yield.lastYear')}</Text>
-          <Text style={styles.yieldLastYearValue}>{crop.lastYearYield.toLocaleString()} {t('yield.kgAcre')}</Text>
-        </View>
+
+        {/* Shown only when past harvests actually varied. A single figure on a
+            crop that has come in between 14 and 22 would read as more certain
+            than it is. */}
+        {crop.rangeQuintals && (
+          <View style={styles.yieldLastYear}>
+            <Text style={styles.yieldLastYearLabel}>
+              {t('yield.range', 'Your range')}
+            </Text>
+            <Text style={styles.yieldLastYearValue}>
+              {crop.rangeQuintals.low}–{crop.rangeQuintals.high} qtl
+            </Text>
+          </View>
+        )}
       </View>
-      <View style={styles.confidenceRow}>
-        <Text style={styles.confidenceLabel}>{t('analytics.confidence')}</Text>
-        <View style={styles.confidenceBarContainer}>
-          <View style={[styles.confidenceBarFill, { width: `${crop.confidence}%` }]} />
-        </View>
-        <Text style={styles.confidenceValue}>{crop.confidence}%</Text>
-      </View>
+
+      <Text style={styles.workedOut}>{crop.workedOut}</Text>
+
+      <Text style={[styles.confidenceNote, { color: colour }]}>
+        {crop.confidence?.label}
+      </Text>
+
+      {crop.needsArea && (
+        <Text style={styles.needsArea}>
+          {t('yield.needsArea',
+            'Add the area of this crop and the app can give a total, not just '
+            + 'a per-acre figure.')}
+        </Text>
+      )}
     </View>
   );
 };
@@ -146,12 +179,19 @@ const YieldPredictionScreen = ({ navigation }) => {
   const { yieldPrediction, irrigationSchedule, loading } = useSelector((state) => state.analytics);
 
   useEffect(() => {
+    // The prediction is drawn from past harvests, so those have to be loaded
+    // before the analytics are worked out.
+    dispatch(fetchYieldSummary());
+  }, [dispatch]);
+
+  useEffect(() => {
     if (!yieldPrediction) {
       dispatch(fetchAnalytics());
     }
   }, [dispatch, yieldPrediction]);
 
-  const yields = yieldPrediction ? yieldPrediction.crops : [];
+  const yields = yieldPrediction?.crops || [];
+  const yieldNote = yieldPrediction?.note || null;
   const schedules = irrigationSchedule || [];
 
   const totalWater = schedules.reduce((sum, s) => sum + s.waterAmount, 0);
@@ -186,6 +226,20 @@ const YieldPredictionScreen = ({ navigation }) => {
       {yields.map((crop, index) => (
         <YieldCard key={index} crop={crop} t={t} />
       ))}
+
+      {/* Said plainly rather than left blank. Before harvests were recorded
+          this screen showed invented figures; an empty screen with no
+          explanation would just look broken instead. */}
+      {yieldNote ? (
+        <View style={styles.noteCard}>
+          <MaterialCommunityIcons
+            name="information-outline"
+            size={18}
+            color={COLORS.textSecondary}
+          />
+          <Text style={styles.noteText}>{yieldNote}</Text>
+        </View>
+      ) : null}
 
       {/* Divider */}
       <View style={styles.divider} />
@@ -227,6 +281,43 @@ const YieldPredictionScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  confidenceChip: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.sm,
+  },
+  confidenceChipText: { fontSize: FONT_SIZES.xs, fontWeight: FONT_WEIGHTS.medium },
+  workedOut: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.sm,
+    lineHeight: 16,
+  },
+  confidenceNote: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.medium,
+    marginTop: SPACING.xs,
+  },
+  needsArea: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textTertiary,
+    marginTop: SPACING.xs,
+    lineHeight: 15,
+  },
+  noteCard: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    backgroundColor: '#F5F5F5',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  noteText: {
+    flex: 1,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    lineHeight: 19,
+  },
   container: { flex: 1, backgroundColor: COLORS.white },
   contentContainer: { padding: SPACING.lg, paddingBottom: SPACING.xxxxl },
   loadingContainer: { alignItems: 'center', justifyContent: 'center' },

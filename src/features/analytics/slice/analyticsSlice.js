@@ -17,6 +17,8 @@ export const fetchAnalytics = createAsyncThunk(
       const fields = state.fields?.fields || [];
       const crops = state.crops?.crops || [];
       const pumps = state.pumps?.pumps || [];
+      // Past yields per crop, which is what the prediction is drawn from.
+      const yieldByCrop = state.harvests?.yieldByCrop || [];
       const location = state.settings?.location || null;
 
       return await analyticsService.fetchAnalytics({
@@ -25,6 +27,7 @@ export const fetchAnalytics = createAsyncThunk(
         fields,
         crops,
         pumps,
+        yieldByCrop,
         location,
       });
     } catch (error) {
