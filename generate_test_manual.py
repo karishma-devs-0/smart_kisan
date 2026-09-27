@@ -36,6 +36,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 HERE = os.path.dirname(os.path.abspath(__file__))
 SHOTS = os.path.join(HERE, "docs", "screenshots")
 FILENAME = "SmartKisan_Testing_Manual.docx"
+OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "documents")
 
 GREEN = RGBColor(0x1B, 0x5E, 0x20)
 AMBER = RGBColor(0xE6, 0x51, 0x00)
@@ -450,7 +451,11 @@ def build():
         'most likely place for something to have been missed.')
 
     total = sum(len(items) for _, items in SECTIONS)
-    have = len([f for f in os.listdir(SHOTS)]) if os.path.isdir(SHOTS) else 0
+    # .png only - the folder also holds a README, and counting it would
+    # report a screenshot that does not exist.
+    # .png only - the folder also holds a README, and counting it would report a screenshot that does not exist.
+    pngs = [f for f in os.listdir(SHOTS) if f.lower().endswith('.png')] if os.path.isdir(SHOTS) else []
+    have = len(pngs)
     p = doc.add_paragraph()
     r = p.add_run('%d screens to test.' % total)
     r.bold = True
@@ -533,7 +538,8 @@ def build():
     ]:
         doc.add_paragraph(line, style='List Bullet')
 
-    out = os.path.join(HERE, FILENAME)
+    os.makedirs(OUT_DIR, exist_ok=True)
+    out = os.path.join(OUT_DIR, FILENAME)
     doc.save(out)
     print('Wrote ' + out)
     print('  %d screens, %d screenshots found in docs/screenshots'

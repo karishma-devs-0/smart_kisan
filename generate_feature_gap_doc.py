@@ -35,6 +35,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 
 FILENAME = "SmartKisan_Feature_Gap_Analysis.docx"
+OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "documents")
 
 GREEN = RGBColor(0x1B, 0x5E, 0x20)
 AMBER = RGBColor(0xE6, 0x51, 0x00)
@@ -404,7 +405,8 @@ def build():
         'sign-in and account deletion are all in the app and appear nowhere '
         'in that document.')
 
-    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), FILENAME)
+    os.makedirs(OUT_DIR, exist_ok=True)
+    out = os.path.join(OUT_DIR, FILENAME)
     doc.save(out)
     print('Wrote ' + out)
     print('  %d modules: %d built, %d partial, %d not built'

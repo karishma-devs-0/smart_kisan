@@ -116,3 +116,4 @@ done
 
 echo "Done. $(ls -1 "$OUT"/*.png 2>/dev/null | wc -l) screenshots in $OUT"
 echo "Now run:  python generate_test_manual.py"
+echo "The manual is written to docs/documents/."
