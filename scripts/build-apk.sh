@@ -16,6 +16,51 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../android"
 
+# ── The SDK path ────────────────────────────────────────────────────────────
+# Gradle needs it, and android/local.properties is gitignored and regenerated.
+# `expo prebuild --clean` deletes the file without writing it back, and the
+# build then fails with "SDK location not found", which reads like a broken
+# toolchain rather than a missing one-line file.
+#
+# The file is checked for a usable path rather than merely existing. An earlier
+# version of this wrote an empty sdk.dir when the environment variable was
+# unset, and every later run skipped the repair because a file was there.
+sdk_ok=false
+
+if [ -f local.properties ]; then
+  current=$(sed -n 's/^sdk\.dir=//p' local.properties | head -1)
+  if [ -n "$current" ] && [ -d "$current" ]; then
+    sdk_ok=true
+  fi
+fi
+
+if [ "$sdk_ok" = false ]; then
+  for candidate in \
+    "${ANDROID_HOME:-}" \
+    "${ANDROID_SDK_ROOT:-}" \
+    "${LOCALAPPDATA:-}/Android/Sdk" \
+    "$HOME/AppData/Local/Android/Sdk" \
+    "$HOME/Android/Sdk" \
+    "$HOME/Library/Android/sdk"
+  do
+    [ -n "$candidate" ] || continue
+    [ -d "$candidate" ] || continue
+
+    # Gradle wants forward slashes even on Windows.
+    printf 'sdk.dir=%s\n' "${candidate//\\//}" > local.properties
+    echo "wrote android/local.properties -> $candidate"
+    sdk_ok=true
+    break
+  done
+fi
+
+if [ "$sdk_ok" = false ]; then
+  echo "No Android SDK found." >&2
+  echo "Set ANDROID_HOME, or put sdk.dir=<path> in android/local.properties" >&2
+  exit 1
+fi
+
+# ── Build ───────────────────────────────────────────────────────────────────
 ./gradlew assembleRelease \
   --no-daemon \
   --console=plain \

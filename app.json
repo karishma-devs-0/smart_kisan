@@ -69,10 +69,13 @@
       ],
       "@react-native-community/datetimepicker",
       [
-        "@react-native-voice/voice",
+        "expo-speech-recognition",
         {
           "microphonePermission": "SmartKisan needs the microphone so you can speak instead of typing.",
-          "speechRecognitionPermission": "SmartKisan needs speech recognition to understand what you say."
+          "speechRecognitionPermission": "SmartKisan needs speech recognition to understand what you say.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
         }
       ]
     ]
