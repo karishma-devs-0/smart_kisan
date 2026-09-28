@@ -6,14 +6,20 @@
  * into a record and acted on. Nothing here changes data.
  *
  * MATCHING
- * Loose on purpose. The recogniser returns a whole sentence - "mujhe mausam
- * dikhao", "weather dikha do" - and a farmer will not say the same words
- * twice. So every screen carries the words that identify it in all three
- * languages, and a phrase matches if any of them appear anywhere in what was
- * heard.
+ * The recogniser returns a whole sentence - "mujhe mausam dikhao", "weather
+ * dikha do" - and a farmer will not say the same words twice. So every screen
+ * carries the words that identify it in all three languages, and the sentence
+ * is searched for them.
  *
- * Longer phrases are tested first, so "soil moisture" is not swallowed by
- * "soil".
+ * Whole words, not substrings. Searching for the characters "ph" anywhere in
+ * the sentence sent "photo kheecho", "graph dikhao" and "mera phone kahan
+ * hai" all to the soil screen. Words are compared against the spoken words,
+ * so "ph" matches a farmer saying "pee-aitch" and nothing else.
+ *
+ * Every candidate is scored rather than the first one winning. The earliest
+ * match wins, so a sentence naming two screens opens the one he asked for
+ * first; where two start at the same word the longer wins, so "soil moisture"
+ * beats "soil".
  *
  * ROMANISED SPELLINGS
  * Each word appears in its own script and in Latin. The recogniser only
@@ -53,7 +59,7 @@ const COMMANDS = [
   {
     screen: 'SoilTab',
     isTab: true,
-    words: ['soil moisture', 'soil', 'nitrogen', 'ph',
+    words: ['soil moisture', 'soil', 'nitrogen', 'ph level', 'ph',
             'mitti', 'mitty', 'mridа', 'nami', 'namee',
             'मिट्टी', 'मृदा', 'नमी',
             'ਮਿੱਟੀ', 'ਨਮੀ'],
@@ -130,35 +136,99 @@ const COMMANDS = [
   },
 ];
 
-// Tested longest first so a short word does not swallow a longer phrase that
-// contains it - "soil" would otherwise match before "soil moisture".
-const RANKED = COMMANDS
-  .map((c) => ({ ...c, words: [...c.words].sort((a, b) => b.length - a.length) }))
-  .sort((a, b) => Math.max(...b.words.map((w) => w.length))
-                - Math.max(...a.words.map((w) => w.length)));
+/**
+ * Reduces a sentence to its words, padded with spaces at both ends.
+ *
+ * Padding is what makes a plain includes() behave as a whole-word search: a
+ * target wrapped in spaces can only match between word boundaries. That
+ * avoids a lookbehind, which Hermes has not always supported.
+ *
+ * The punctuation stripped covers the Latin marks and the Devanagari danda.
+ * Nothing in the class is a letter in any of the three scripts, so Hindi and
+ * Punjabi words survive intact.
+ */
+function wordsOf(text) {
+  const cleaned = String(text || '')
+    .toLowerCase()
+    .replace(/[\u0964\u0965.,!?;:'"()\[\]{}\/\\_\-\u2013\u2014]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned ? ` ${cleaned} ` : '';
+}
+
+/**
+ * Finds a word in the padded sentence, allowing an English plural.
+ *
+ * Whole-word matching is what stops "ph" matching inside "phone", but it also
+ * stops "pump" matching "pumps", and a farmer says whichever comes to him.
+ * Rather than listing both forms of every word - which would be forgotten for
+ * the next one added - a trailing s is tried in both directions.
+ *
+ * Latin only. Hindi and Punjabi do not pluralise with an s, and stripping one
+ * from a Devanagari or Gurmukhi word could only do harm.
+ *
+ * @returns {number} index of the match, or -1
+ */
+function findWord(padded, word) {
+  const lower = word.toLowerCase();
+
+  let at = padded.indexOf(` ${lower} `);
+  if (at !== -1) return at;
+
+  if (!/^[a-z0-9 ]+$/.test(lower)) return -1;
+
+  if (lower.endsWith('s')) {
+    return padded.indexOf(` ${lower.slice(0, -1)} `);
+  }
+  return padded.indexOf(` ${lower}s `);
+}
 
 /**
  * @param {string} heard  the recogniser's transcript
  * @returns {{screen: string, matched: string, nested?: object, isTab?: boolean, tabName?: string}|null}
  */
 export function matchCommand(heard) {
-  const text = String(heard || '').toLowerCase().trim();
-  if (!text) return null;
+  const padded = wordsOf(heard);
+  if (!padded) return null;
 
-  for (const command of RANKED) {
+  let best = null;
+
+  for (const command of COMMANDS) {
     for (const word of command.words) {
-      if (text.includes(word.toLowerCase())) {
-        return {
-          screen: command.screen,
-          nested: command.nested,
-          isTab: command.isTab,
-          tabName: command.tabName,
-          matched: word,
+      const at = findWord(padded, word);
+      if (at === -1) continue;
+
+      // Earliest wins, then longest.
+      //
+      // Position first, because a sentence naming two screens should open the
+      // one the farmer asked for first - "mitti aur mausam dono" is soil, not
+      // weather. Ranking by length instead let a longer word said later beat
+      // a shorter one said first.
+      //
+      // Length breaks a tie at the same position, which is where overlapping
+      // words sit: "soil" and "soil moisture" both start at the same word, and
+      // the longer is the more specific.
+      const better = !best
+        || at < best.at
+        || (at === best.at && word.length > best.length);
+
+      if (better) {
+        best = {
+          length: word.length,
+          at,
+          result: {
+            screen: command.screen,
+            nested: command.nested,
+            isTab: command.isTab,
+            tabName: command.tabName,
+            matched: word,
+          },
         };
       }
     }
   }
-  return null;
+
+  return best ? best.result : null;
 }
 
 /**
