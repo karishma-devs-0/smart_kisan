@@ -22,7 +22,19 @@
         "foregroundImage": "./assets/smartKisanIcon_adaptive.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "queries": [
+        {
+          "intent": [
+            {
+              "action": "android.speech.RecognitionService"
+            }
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/smartKisanIcon.png"
@@ -55,7 +67,14 @@
           }
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "@react-native-voice/voice",
+        {
+          "microphonePermission": "SmartKisan needs the microphone so you can speak instead of typing.",
+          "speechRecognitionPermission": "SmartKisan needs speech recognition to understand what you say."
+        }
+      ]
     ]
   }
 }

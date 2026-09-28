@@ -18,6 +18,7 @@ import FarmMapWidget from '../../../components/farm/FarmMapWidget';
 import { fetchFields } from '../../fields/slice/fieldsSlice';
 import { fetchDevices } from '../../devices/slice/devicesSlice';
 import { fetchPumps, fetchTodaySummary } from '../../pumps/slice/pumpsSlice';
+import VoiceCommandButton from '../../../components/common/VoiceCommandButton';
 import { fetchSoilData } from '../../soil/slice/soilSlice';
 import { fetchCurrentWeather } from '../../weather/slice/weatherSlice';
 
@@ -106,13 +107,19 @@ const HomeScreen = ({ navigation }) => {
           always rendered, so it showed an unread dot whether or not anything
           was unread. Now it opens the notification list and the dot reflects
           the real count. */}
-      <TouchableOpacity
-        style={styles.notificationButton}
-        onPress={() => navigation.navigate('Notification')}
-      >
-        <MaterialCommunityIcons name="bell-outline" size={24} color={COLORS.white} />
-        {unreadCount > 0 && <View style={styles.notificationBadge} />}
-      </TouchableOpacity>
+      <View style={styles.headerActions}>
+        {/* Speak to move around the app. Hidden when the phone cannot listen,
+            or in a language the recogniser handles poorly - a mic that hears
+            nothing is worse than no mic. */}
+        <VoiceCommandButton navigation={navigation} />
+        <TouchableOpacity
+          style={styles.notificationButton}
+          onPress={() => navigation.navigate('Notification')}
+        >
+          <MaterialCommunityIcons name="bell-outline" size={24} color={COLORS.white} />
+          {unreadCount > 0 && <View style={styles.notificationBadge} />}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -237,6 +244,7 @@ const HomeScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

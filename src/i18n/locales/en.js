@@ -889,6 +889,26 @@ export default {
     backToLogin: 'Back to sign in',
   },
 
+  listen: {
+    speak: 'Speak',
+    listening: 'Listening…',
+    tapToSpeak: 'Tap the microphone to speak',
+    tryAgain: 'Try again',
+    opening: 'Opening',
+    notUnderstood: 'I did not understand that one.',
+    tryOneOf: 'Try one of these:',
+    couldNotOpen: 'I could not open that screen.',
+    micDenied: 'SmartKisan needs the microphone to hear you. You can allow it in your phone settings.',
+    nothingHeard: 'I did not catch that. Try again, a little closer to the phone.',
+    cannotStart: 'Listening is not available on this phone.',
+    failed: 'Something went wrong while listening. Please try again.',
+  },
+
+  speech: {
+    listen: 'Listen',
+    stop: 'Stop reading',
+  },
+
   harvests: {
     title: 'Harvests',
     record: 'Record a harvest',
