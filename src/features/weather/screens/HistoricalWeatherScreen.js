@@ -22,12 +22,10 @@ const HistoricalWeatherScreen = ({ navigation }) => {
 
   useEffect(() => { dispatch(fetchHistoricalWeather()); }, [dispatch]);
 
-  const weekData = historical?.week || [
-    { day: 'Mon', temp: 38, humidity: 65 }, { day: 'Tue', temp: 36, humidity: 70 },
-    { day: 'Wed', temp: 34, humidity: 72 }, { day: 'Thu', temp: 33, humidity: 78 },
-    { day: 'Fri', temp: 35, humidity: 74 }, { day: 'Sat', temp: 37, humidity: 68 },
-    { day: 'Sun', temp: 39, humidity: 65 },
-  ];
+  // No invented week. This fell back to a fixed Monday-to-Sunday - 38, 36,
+  // 34, 33, 35, 37, 39 degrees - which every farmer saw as their own past
+  // week whenever the real one had not arrived, including when it failed.
+  const weekData = historical?.week || [];
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -39,6 +37,13 @@ const HistoricalWeatherScreen = ({ navigation }) => {
         <Text style={styles.titleText}>{' ' + t('weather.title')}</Text>
       </View>
       <Text style={styles.sectionTitle}>{t('historicalWeather.title')}</Text>
+      {!weekData.length && (
+        <Text style={styles.emptyText}>
+          {t('historicalWeather.noData',
+            'Past weather for your farm is not available yet. Pull down to try '
+            + 'again once you have a connection.')}
+        </Text>
+      )}
       <View style={styles.tabRow}>
         {TABS.map((tab) => (
           <TouchableOpacity key={tab} style={[styles.tab, activeTab === tab && styles.tabActive]} onPress={() => setActiveTab(tab)}>
@@ -80,6 +85,7 @@ const HistoricalWeatherScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  emptyText: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, lineHeight: 19, marginBottom: SPACING.lg },
   container: { flex: 1, backgroundColor: COLORS.white },
   content: { padding: SPACING.lg, paddingBottom: SPACING.xxxxl },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.xl },
