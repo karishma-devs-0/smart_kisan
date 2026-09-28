@@ -30,10 +30,15 @@ const ComprehensiveReportScreen = ({ navigation }) => {
       // General Metrics
       if (reports.generalMetrics) {
         const gm = reports.generalMetrics;
-        rows.push(`General,Water Consumption,${gm.waterConsumption.value},${gm.waterConsumption.unit},${gm.waterConsumption.change}%`);
-        rows.push(`General,Total Run Hours,${gm.totalRunHours.value},${gm.totalRunHours.unit},${gm.totalRunHours.change}%`);
-        rows.push(`General,Pump Runtime,${gm.pumpRuntime.value},${gm.pumpRuntime.unit},${gm.pumpRuntime.change}%`);
-        rows.push(`General,Mixing Ratio,${gm.mixingRatio.value},${gm.mixingRatio.unit},${gm.mixingRatio.change}%`);
+        rows.push(`General,Water Consumption,${gm.waterConsumption.value},${gm.waterConsumption.unit},${gm.waterConsumption.change ?? ''}`);
+        rows.push(`General,Total Run Hours,${gm.totalRunHours.value},${gm.totalRunHours.unit},${gm.totalRunHours.change ?? ''}`);
+        rows.push(`General,Pump Runtime,${gm.pumpRuntime.value},${gm.pumpRuntime.unit},${gm.pumpRuntime.change ?? ''}`);
+        // Was Mixing Ratio, which nothing measured and the server no longer
+        // returns - this line threw on export once the invented metric was
+        // removed, taking the whole CSV with it.
+        if (gm.energyUse) {
+          rows.push(`General,Electricity Used,${gm.energyUse.value},${gm.energyUse.unit},`);
+        }
       }
 
       // Water Usage (daily)
@@ -67,11 +72,18 @@ const ComprehensiveReportScreen = ({ navigation }) => {
       }
 
       // Harvest Performance
+      // Quintals, not kilograms: that is what harvests are recorded in and
+      // what mandi prices are quoted in. Efficiency is only written when
+      // something was recorded to compare against.
       if (reports.harvestPerformance) {
         const hp = reports.harvestPerformance;
-        rows.push(`Harvest,Estimated Yield,${hp.estimatedYield},kg,`);
-        rows.push(`Harvest,Actual Yield,${hp.actualYield},kg,`);
-        rows.push(`Harvest,Efficiency,${hp.efficiency},%,`);
+        rows.push(`Harvest,Actual Yield,${hp.actualYield},quintal,`);
+        if (hp.estimatedYield != null) {
+          rows.push(`Harvest,Expected Yield,${hp.estimatedYield},quintal,`);
+        }
+        if (hp.efficiency != null) {
+          rows.push(`Harvest,Against Expectation,${hp.efficiency},%,`);
+        }
       }
 
       const csv = csvHeader + rows.join('\n');

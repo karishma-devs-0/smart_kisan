@@ -1,25 +1,63 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSelector } from 'react-redux';
 import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS } from '../../../constants/layout';
 import { useTranslation } from 'react-i18next';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchReports } from '../slice/reportsSlice';
 
-const getMetrics = (t) => [
-  { label: t('metricReports.waterConsumption'), value: '2,450', unit: 'L', change: -5, icon: 'water', color: COLORS.info },
-  { label: t('metricReports.totalRunHours'), value: '156', unit: 'hrs', change: 8, icon: 'clock-outline', color: COLORS.primary },
-  { label: t('metricReports.pumpRuntime'), value: '8.5', unit: 'hrs/day', change: -2, icon: 'water-pump', color: COLORS.success },
-  { label: t('metricReports.mixingRatio'), value: '85', unit: '%', change: 3, icon: 'flask', color: COLORS.warning },
-];
+/**
+ * Farm metrics, from recorded pump runs.
+ *
+ * These four figures were written into the file - 2,450 litres, 156 hours, 8.5
+ * hours a day, an 85% mixing ratio - so every farmer saw the same numbers and
+ * they did not change when the server began returning real ones. Mixing ratio
+ * is gone entirely: nothing in the app measures it.
+ */
+const buildMetrics = (t, gm, energy) => {
+  if (!gm) return [];
+
+  const rows = [
+    { key: 'water', label: t('metricReports.waterConsumption'),
+      m: gm.waterConsumption, icon: 'water', color: COLORS.info },
+    { key: 'hours', label: t('metricReports.totalRunHours'),
+      m: gm.totalRunHours, icon: 'clock-outline', color: COLORS.primary },
+    { key: 'perDay', label: t('metricReports.pumpRuntime'),
+      m: gm.pumpRuntime, icon: 'water-pump', color: COLORS.success },
+    { key: 'energy', label: t('metricReports.electricity', 'Electricity Used'),
+      m: gm.energyUse, icon: 'flash', color: COLORS.warning },
+  ];
+
+  return rows
+    .filter((r) => r.m && r.m.value !== null && r.m.value !== undefined)
+    .map((r) => ({
+      label: r.label,
+      value: Number(r.m.value).toLocaleString(),
+      unit: r.m.unit,
+      // Null when there is no earlier period to compare against - a first
+      // month of use should not claim to be up or down on anything.
+      change: r.m.change ?? null,
+      icon: r.icon,
+      color: r.color,
+    }));
+};
 
 const MetricReportsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const metrics = getMetrics(t);
+  const dispatch = useDispatch();
+
+  const generalMetrics = useSelector((state) => state.reports.generalMetrics);
+
+  useEffect(() => {
+    dispatch(fetchReports());
+  }, [dispatch]);
+
+  const metrics = buildMetrics(t, generalMetrics);
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
@@ -27,6 +65,14 @@ const MetricReportsScreen = ({ navigation }) => {
         <Text style={styles.titlePrefix}>{t('metricReports.titlePrefix')}</Text><Text style={styles.titleText}>{' ' + t('metricReports.title')}</Text>
       </View>
       <Text style={styles.sectionTitle}>{t('metricReports.generalMetrics')}</Text>
+      {!metrics.length && (
+        <Text style={styles.emptyText}>
+          {t('metricReports.noData',
+            'No pump runs recorded yet. Once a pump has run, the water, hours '
+            + 'and electricity it used appear here.')}
+        </Text>
+      )}
+
       <View style={styles.grid}>
         {metrics.map((m, i) => (
           <View key={i} style={styles.metricCard}>
@@ -34,10 +80,12 @@ const MetricReportsScreen = ({ navigation }) => {
             <Text style={styles.metricValue}>{m.value}</Text>
             <Text style={styles.metricUnit}>{m.unit}</Text>
             <Text style={styles.metricLabel}>{m.label}</Text>
-            <View style={[styles.changeBadge, { backgroundColor: m.change >= 0 ? COLORS.success + '20' : COLORS.danger + '20' }]}>
-              <MaterialCommunityIcons name={m.change >= 0 ? 'arrow-up' : 'arrow-down'} size={12} color={m.change >= 0 ? COLORS.success : COLORS.danger} />
-              <Text style={[styles.changeText, { color: m.change >= 0 ? COLORS.success : COLORS.danger }]}>{Math.abs(m.change)}%</Text>
-            </View>
+            {m.change !== null && (
+              <View style={[styles.changeBadge, { backgroundColor: m.change >= 0 ? COLORS.success + '20' : COLORS.danger + '20' }]}>
+                <MaterialCommunityIcons name={m.change >= 0 ? 'arrow-up' : 'arrow-down'} size={12} color={m.change >= 0 ? COLORS.success : COLORS.danger} />
+                <Text style={[styles.changeText, { color: m.change >= 0 ? COLORS.success : COLORS.danger }]}>{Math.abs(m.change)}%</Text>
+              </View>
+            )}
           </View>
         ))}
       </View>
@@ -50,6 +98,7 @@ const MetricReportsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  emptyText: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, lineHeight: 19, marginBottom: SPACING.lg },
   container: { flex: 1, backgroundColor: COLORS.white },
   content: { padding: SPACING.lg, paddingBottom: SPACING.xxxxl },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.xl },

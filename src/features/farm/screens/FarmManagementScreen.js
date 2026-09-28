@@ -112,15 +112,22 @@ const FarmManagementScreen = ({ navigation }) => {
           ))}
         </View>
 
-        {/* Growth Trends */}
-        <Text style={styles.sectionTitle}>{t('farmMgmt.growthTrends')}</Text>
-        <View style={styles.growthChartCard}>
-          <View style={styles.growthChartRow}>
-            {growthTrends.map((item) => (
-              <GrowthBar key={item.day} item={item} maxValue={maxGrowth} />
-            ))}
-          </View>
-        </View>
+        {/* Growth Trends. Hidden while empty rather than shown as a heading
+            over a blank chart card. It needs a season of recorded crop
+            measurements and nothing collects them yet; the bars here before
+            were the same for every farmer. */}
+        {growthTrends.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>{t('farmMgmt.growthTrends')}</Text>
+            <View style={styles.growthChartCard}>
+              <View style={styles.growthChartRow}>
+                {growthTrends.map((item) => (
+                  <GrowthBar key={item.day} item={item} maxValue={maxGrowth} />
+                ))}
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Active Tasks Button Removed */}
       </ScrollView>
