@@ -56,8 +56,8 @@ MODULES = [
      "farmer's own fields, and today's water, hours and electricity worked "
      "out from recorded pump runs.",
      "The specification's revenue KPI needs market prices, which are not "
-     "connected yet. Predicted yield needs harvest records, which nothing "
-     "collects. Widget customisation is not offered."),
+     "connected yet. Widget customisation is not offered. Predicted yield is "
+     "now available, since harvests are recorded."),
 
     ("1.2", "Crop Suitability Analysis", BUILT,
      "Full input form for soil and climate, a scoring engine over an Indian "
@@ -89,14 +89,18 @@ MODULES = [
      "screens. Alerts reach the app only; SMS, email and WhatsApp channels "
      "are not connected."),
 
-    ("1.5", "Weather and Irrigation", PARTIAL,
-     "14-day forecast with temperature, rainfall, humidity and wind, for the "
-     "farm's own location. An evapotranspiration calculator, an irrigation "
-     "scheduler that takes soil moisture and forecast into account, historical "
-     "weather, and wind and humidity detail screens.",
-     "No rain probability heatmap in calendar form. No heat or cold stress "
-     "alerts against crop-specific thresholds. No wind-based spray scheduling "
-     "or lodging risk. No growing degree day accumulation."),
+    ("1.5", "Weather and Irrigation", BUILT,
+     "A genuine 14-day forecast for the farm's own location - days six to "
+     "fourteen used to be the first five repeated with random jitter, and now "
+     "come from a provider that actually forecasts that far. An "
+     "evapotranspiration calculator, an irrigation scheduler that takes soil "
+     "moisture and forecast into account, historical weather, and wind and "
+     "humidity detail. Heat, frost and heavy-rain warnings with the day "
+     "named; which days are fit to spray and why not on the others, from wind "
+     "and expected rainfall; and growing degree days.",
+     "The rain outlook is worked out but shown as a list rather than the "
+     "calendar heatmap the specification describes. No lodging-risk warning "
+     "for tall crops."),
 
     ("1.6", "Marketplace", NOT_BUILT,
      "Six screens exist and work as screens - listings, listing detail, "
@@ -118,13 +122,19 @@ MODULES = [
      "no regional outbreak warnings, no crowd-sourced reporting, and no "
      "before-and-after efficacy tracking."),
 
-    ("1.8", "Voice Assistant", NOT_BUILT,
-     "Nothing. The app is fully translated into the 10 languages the "
-     "specification lists, so the words exist - but they are read, not "
-     "spoken.",
-     "No speech-to-text, no text-to-speech, no voice navigation. This is the "
-     "largest single gap for the intended user: a farmer who reads little "
-     "cannot use an app that only writes."),
+    ("1.8", "Voice Assistant", PARTIAL,
+     "The app reads its advice aloud in the farmer's own language: the "
+     "disease diagnosis and its treatment, the weed result including the "
+     "warning that a grass may be the crop, each farm observation, and the "
+     "weather warnings. It uses the phone's own voice, so it works without a "
+     "connection once the language pack is installed, and the button hides "
+     "itself when the phone has no voice for that language rather than "
+     "playing silence.",
+     "Listening is not built - no speech-to-text and no voice navigation. "
+     "That needs a recogniser, a connection for most Indian languages, and a "
+     "decision about what happens when it mishears a chemical name. Speaking "
+     "is the half that helps a farmer who reads little, and it is the half "
+     "that works offline."),
 
     ("1.9", "AR Crop Identification", NOT_BUILT,
      "The app has an on-device weed detector that photographs a plant and "
@@ -164,12 +174,16 @@ MODULES = [
      "connecting daily mandi prices; forecasting comes after there is a "
      "history to forecast from."),
 
-    ("2.4", "Yield Predictor", NOT_BUILT,
-     "Nothing.",
-     "Needs a season of recorded harvests to learn from, and the app does "
-     "not record a sowing or a harvest at all. Recording those is the "
-     "sensible next step - it is a small feature and it unlocks both this "
-     "and harvest performance reporting."),
+    ("2.4", "Yield Predictor", BUILT,
+     "Expected yield for each crop in the ground, from the farmer's own "
+     "average yield per acre over the area planted, with the range his past "
+     "harvests have actually covered. It shows the arithmetic rather than a "
+     "confidence percentage, and refuses to predict a crop it has never seen "
+     "harvested.",
+     "It is the farmer's own history, not a trained model, and is described "
+     "that way rather than as one. His own land and practice predict his next "
+     "harvest better than a national average would, but it cannot account for "
+     "a season unlike any he has recorded."),
 
     ("2.5", "Fertilizer Calculator", BUILT,
      "Select the crop, target yield and field area and it works out the "
@@ -198,9 +212,9 @@ CROSS = [
      "detector runs on the phone with no internet at all. Actions needing "
      "the server are refused clearly rather than failing silently."),
     ("Reports and export", PARTIAL,
-     "Water, hours, electricity and soil reports run on real data, and a "
-     "report can be exported as CSV. PDF export and scheduled daily reports "
-     "are not built."),
+     "Water, hours, electricity, soil and harvest reports all run on the "
+     "farm's own records, and a report can be exported as CSV. PDF export and "
+     "scheduled daily reports are not built."),
     ("Accessibility", PARTIAL,
      "Large touch targets and the 10 languages help. No screen reader "
      "testing has been done and there is no high contrast mode."),
@@ -360,16 +374,6 @@ def build():
         'effort, so they are not a single queue of work.')
 
     order = [
-        ('Record sowings and harvests',
-         'Small, and it unlocks two other things. Yield prediction cannot be '
-         'built without a season of harvest records, and the harvest '
-         'performance report is empty for the same reason. Nothing in the app '
-         'records either today. Roughly a week.'),
-        ('Voice assistant',
-         'The biggest gap relative to who this app is for. A farmer who reads '
-         'little cannot use an app that only writes, whatever language it is '
-         'written in. Speech-to-text and text-to-speech for the 10 languages '
-         'already translated. Several weeks, and worth costing properly.'),
         ('Mandi prices',
          'The government publishes daily prices through data.gov.in. Needs a '
          'free API key, then roughly half a day. It also has to exist before '
@@ -385,6 +389,12 @@ def build():
         ('Blockchain supply chain',
          'Last. It traces produce sold through the marketplace, and there is '
          'no marketplace yet, so there is nothing to trace.'),
+        ('Voice commands, if wanted',
+         'The app speaks now; it does not listen. Listening needs a '
+         'recogniser, a connection for most Indian languages, and a decision '
+         'about what happens when it mishears a chemical name. Worth deciding '
+         'whether it is wanted before it is costed - speaking already covers '
+         'the farmer who cannot read.'),
     ]
 
     for i, (name, why) in enumerate(order, start=1):
@@ -401,9 +411,30 @@ def build():
         'is a separate build and was never a port of it, so a module missing '
         'from the app is not necessarily work that was skipped - in several '
         'cases the app does the same job a different way, and in a few it '
-        'does more. The weed detector, the farm task list, one-time code '
-        'sign-in and account deletion are all in the app and appear nowhere '
-        'in that document.')
+        'does more. The weed detector, the farm task list, harvest recording, '
+        'spray-window advice, one-time code sign-in and account deletion are '
+        'all in the app and appear nowhere in that document.')
+
+    doc.add_heading('What changed since the last version of this report', level=1)
+    doc.add_paragraph(
+        'Harvest recording was built, which turned yield prediction and the '
+        'harvest report from impossible into real - both had nothing behind '
+        'them because nothing recorded what came off a field.')
+    doc.add_paragraph(
+        'The weather forecast beyond five days was invented: the first five '
+        'days repeated with random variation. It now comes from a provider '
+        'that forecasts fourteen. The advice those numbers drive - when to '
+        'spray, what to protect against - was added alongside.')
+    doc.add_paragraph(
+        'The app reads its advice aloud in the farmer\'s language, which is '
+        'the half of the voice assistant that helps someone who cannot read '
+        'and the half that works without a connection.')
+    doc.add_paragraph(
+        'Several screens were still showing figures written into the markup - '
+        'soil rated Good, a 91.7% harvest efficiency, 2,450 litres, a '
+        'satellite index of 0.72 - so the real data reaching the API never '
+        'reached the farmer. Removing them exposed three crashes those '
+        'invented numbers had been propping up.')
 
     os.makedirs(OUT_DIR, exist_ok=True)
     out = os.path.join(OUT_DIR, FILENAME)
