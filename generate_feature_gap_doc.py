@@ -123,18 +123,22 @@ MODULES = [
      "before-and-after efficacy tracking."),
 
     ("1.8", "Voice Assistant", PARTIAL,
-     "The app reads its advice aloud in the farmer's own language: the "
-     "disease diagnosis and its treatment, the weed result including the "
-     "warning that a grass may be the crop, each farm observation, and the "
-     "weather warnings. It uses the phone's own voice, so it works without a "
-     "connection once the language pack is installed, and the button hides "
-     "itself when the phone has no voice for that language rather than "
-     "playing silence.",
-     "Listening is not built - no speech-to-text and no voice navigation. "
-     "That needs a recogniser, a connection for most Indian languages, and a "
-     "decision about what happens when it mishears a chemical name. Speaking "
-     "is the half that helps a farmer who reads little, and it is the half "
-     "that works offline."),
+     "The app speaks and listens. It reads its advice aloud in the farmer's "
+     "own language - the disease diagnosis and its treatment, the weed result "
+     "including the warning that a grass may be the crop, each farm "
+     "observation and the weather warnings. He can answer: speaking a word "
+     "opens the screen he asked for, in Hindi, Punjabi or English. Both use "
+     "the phone's own engine, so they work without a connection once the "
+     "language pack is installed, and both hide themselves when the phone "
+     "cannot manage that language rather than playing silence or hearing "
+     "nothing.",
+     "Listening moves around the app and nothing else - it never writes to a "
+     "record. That is deliberate rather than unfinished: a misheard screen "
+     "name is visible and correctable, a misheard quantity or chemical name "
+     "would be saved and acted on. Dictating into a text box is the next safe "
+     "step, since the farmer reads it before saving. Three languages, not "
+     "ten: the recogniser handles the other seven poorly. No spoken answers "
+     "to spoken questions."),
 
     ("1.9", "AR Crop Identification", NOT_BUILT,
      "The app has an on-device weed detector that photographs a plant and "
@@ -389,12 +393,12 @@ def build():
         ('Blockchain supply chain',
          'Last. It traces produce sold through the marketplace, and there is '
          'no marketplace yet, so there is nothing to trace.'),
-        ('Voice commands, if wanted',
-         'The app speaks now; it does not listen. Listening needs a '
-         'recogniser, a connection for most Indian languages, and a decision '
-         'about what happens when it mishears a chemical name. Worth deciding '
-         'whether it is wanted before it is costed - speaking already covers '
-         'the farmer who cannot read.'),
+        ('Dictation into text boxes',
+         'The app listens well enough to navigate. Speaking into a task title '
+         'or a harvest note is the next safe use, because the farmer reads '
+         'what was heard before saving it. Numbers stay typed: a quantity '
+         'misheard as sixty rather than sixteen would be saved and every '
+         'later prediction built on it. About an hour.'),
     ]
 
     for i, (name, why) in enumerate(order, start=1):
@@ -426,9 +430,11 @@ def build():
         'that forecasts fourteen. The advice those numbers drive - when to '
         'spray, what to protect against - was added alongside.')
     doc.add_paragraph(
-        'The app reads its advice aloud in the farmer\'s language, which is '
-        'the half of the voice assistant that helps someone who cannot read '
-        'and the half that works without a connection.')
+        'The app reads its advice aloud in the farmer\'s language, and now '
+        'listens too - speaking a word opens the screen he asked for, in '
+        'Hindi, Punjabi or English. Listening navigates and nothing else: a '
+        'misheard screen name is visible and correctable, a misheard quantity '
+        'would be saved and acted on.')
     doc.add_paragraph(
         'Several screens were still showing figures written into the markup - '
         'soil rated Good, a 91.7% harvest efficiency, 2,450 litres, a '

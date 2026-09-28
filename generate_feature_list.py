@@ -235,6 +235,19 @@ ROWS = [
      "ActiveTasks, FarmManagement", REAL, LIVE,
      "Had no storage at all before - a fixed sample list, an Add button that "
      "did nothing, and ticks that vanished on restart."],
+    ["Farm", "Record a harvest",
+     "What actually came off each field - quantity, area, quality and what "
+     "was expected.",
+     "Harvests, RecordHarvestModal", REAL, LIVE,
+     "Accepts quintals, kilograms, tonnes or maunds over acres, bigha or "
+     "hectares, and works out yield per acre so seasons can be compared. "
+     "Choosing a crop already sown fills in its field and area."],
+    ["Farm", "Yield history",
+     "Average, best and worst yield per acre for each crop, and how the last "
+     "harvest compared.",
+     "Harvests", REAL, LIVE,
+     "A comparison only appears after a second season of that crop - there is "
+     "no average to be above or below before then."],
     ["Farm", "Crop growth trends",
      "How crops are growing over the season.",
      "FarmManagement", NONE, MISSING,
@@ -271,9 +284,10 @@ ROWS = [
      "is short."],
     ["Reports", "Harvest performance",
      "Expected against actual yield.",
-     "SoilHarvestReport", NONE, MISSING,
-     "Left empty on purpose. Nothing records a sowing or a harvest, so there "
-     "is no yield to compare. It used to show 91.7% efficiency to everyone."],
+     "SoilHarvestReport", REAL, LIVE,
+     "Real once a harvest is recorded. Efficiency is worked out only from "
+     "records that carry an expectation, and the count of those is shown, so "
+     "a missing expectation is not quietly treated as a met one."],
     ["Analytics", "Crop health",
      "A health score per field, with what is wrong listed.",
      "FarmAnalytics, FarmOverview", INAPP, LIVE,
@@ -299,11 +313,11 @@ ROWS = [
      "imagery provider - Sentinel-2 through Copernicus is free but needs an "
      "account and real work to wire up."],
     ["Analytics", "Yield prediction",
-     "Expected harvest.",
-     "YieldPrediction", NONE, MISSING,
-     "Returns nothing now rather than a made-up figure. Needs a season of "
-     "recorded harvests first, which means recording sowings and harvests - "
-     "a feature in itself, and the sensible next thing to build."],
+     "Expected harvest for each crop in the ground.",
+     "YieldPrediction", INAPP, LIVE,
+     "The farmer's own average yield per acre over the area planted, with the "
+     "arithmetic shown. Not a trained model and not described as one. It will "
+     "not predict a crop it has never seen harvested."],
     ["Marketplace", "Buy and sell produce",
      "Listings, chat with buyers, and creating a listing.",
      "MarketplaceHome, ListingDetail, CreateListing, ChatList, Chat",
@@ -337,6 +351,28 @@ ROWS = [
      "SettingsMain, SettingsDetail", REAL, LIVE, ""],
 
     # ── Across the app ───────────────────────────────────────────────────
+    ["Across the app", "Read aloud",
+     "Reads the advice out in the farmer's own language - the disease "
+     "diagnosis and treatment, the weed result, farm observations and weather "
+     "warnings.",
+     "Disease, Weed, Analytics, Weather", INAPP, LIVE,
+     "Uses the phone's own voice, so it works without a connection once the "
+     "language pack is installed. The button hides itself when the phone has "
+     "no voice for that language rather than playing silence."],
+    ["Across the app", "Speak to move around",
+     "Say what you want and the app opens it - weather, soil, pumps, "
+     "harvests, schemes and the rest.",
+     "Home (microphone)", INAPP, LIVE,
+     "Hindi, Punjabi and English; the recogniser handles the other seven "
+     "poorly. It navigates and never writes to a record: a misheard screen "
+     "name is visible and correctable, a misheard quantity would not be. "
+     "43 spoken phrases are checked by npm run check:voice."],
+    ["Weather", "Spray and weather warnings",
+     "Which days are fit to spray and why not on the others, plus heat, "
+     "frost and heavy-rain warnings with the day named.",
+     "WeatherToday", APIS, LIVE,
+     "Worked out from wind and expected rainfall. Each carries the forecast "
+     "figure it came from."],
     ["Across the app", "Works offline",
      "Recently loaded data stays readable with no signal, and the app says "
      "when it is offline.",
