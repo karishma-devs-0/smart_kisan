@@ -29,6 +29,7 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS } from '../../../constants/layout';
+import DictateButton, { appendSpoken } from '../../../components/common/DictateButton';
 
 const CATEGORIES = [
   { id: 'sowing', icon: 'seed', label: 'Sowing' },
@@ -126,17 +127,28 @@ const AddTaskModal = ({ visible, onClose, onSubmit, saving, fields = [] }) => {
 
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <Text style={styles.label}>{t('tasks.taskTitle', 'What needs doing?')}</Text>
-            <TextInput
-              style={styles.input}
-              value={title}
-              onChangeText={(v) => {
-                setTitle(v);
-                setError(null);
-              }}
-              placeholder={t('tasks.titlePlaceholder', 'e.g. Spray field B')}
-              placeholderTextColor={COLORS.textTertiary}
-              autoFocus
-            />
+            {/* Dictating beats typing a sentence on a phone keyboard, and
+                beats it badly in Hindi or Punjabi. The words land in the box
+                for the farmer to read and correct before he saves. */}
+            <View style={styles.inputRow}>
+              <TextInput
+                style={[styles.input, styles.inputFlex]}
+                value={title}
+                onChangeText={(v) => {
+                  setTitle(v);
+                  setError(null);
+                }}
+                placeholder={t('tasks.titlePlaceholder', 'e.g. Spray field B')}
+                placeholderTextColor={COLORS.textTertiary}
+                autoFocus
+              />
+              <DictateButton
+                onText={(spoken) => {
+                  setTitle((current) => appendSpoken(current, spoken));
+                  setError(null);
+                }}
+              />
+            </View>
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
             <Text style={styles.label}>{t('tasks.category', 'Type of work')}</Text>
@@ -213,14 +225,20 @@ const AddTaskModal = ({ visible, onClose, onSubmit, saving, fields = [] }) => {
             )}
 
             <Text style={styles.label}>{t('tasks.notes', 'Notes')}</Text>
-            <TextInput
-              style={[styles.input, styles.multiline]}
-              value={description}
-              onChangeText={setDescription}
-              placeholder={t('tasks.notesPlaceholder', 'Optional')}
-              placeholderTextColor={COLORS.textTertiary}
-              multiline
-            />
+            <View style={styles.inputRow}>
+              <TextInput
+                style={[styles.input, styles.multiline, styles.inputFlex]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder={t('tasks.notesPlaceholder', 'Optional')}
+                placeholderTextColor={COLORS.textTertiary}
+                multiline
+              />
+              <DictateButton
+                onText={(spoken) => setDescription((c) => appendSpoken(c, spoken))}
+                style={styles.dictateTop}
+              />
+            </View>
 
             <TouchableOpacity style={styles.primary} onPress={submit} disabled={saving}>
               {saving ? (
@@ -237,6 +255,9 @@ const AddTaskModal = ({ visible, onClose, onSubmit, saving, fields = [] }) => {
 };
 
 const styles = StyleSheet.create({
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
+  inputFlex: { flex: 1 },
+  dictateTop: { alignSelf: 'flex-start', marginTop: SPACING.md },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: COLORS.white,

@@ -28,6 +28,7 @@ import { COLORS } from '../../../constants/colors';
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants/typography';
 import { SPACING } from '../../../constants/spacing';
 import { BORDER_RADIUS } from '../../../constants/layout';
+import DictateButton, { appendSpoken } from '../../../components/common/DictateButton';
 
 // Quintal first: it is what mandi prices and yields are quoted in. Maund is
 // still in everyday use across north India.
@@ -272,14 +273,24 @@ const RecordHarvestModal = ({ visible, onClose, onSubmit, saving, crops = [], fi
               {t('harvests.notes', 'Notes')}
               <Text style={styles.optional}>  {t('harvests.optional', 'optional')}</Text>
             </Text>
-            <TextInput
-              style={[styles.input, styles.multiline]}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder={t('harvests.notesPlaceholder', 'Anything worth remembering next season')}
-              placeholderTextColor={COLORS.textTertiary}
-              multiline
-            />
+            {/* Notes only. The quantity above stays typed: "sixteen quintal"
+                heard as sixty would be saved and every yield figure and
+                prediction after it built on the wrong number, where a note is
+                read back before it counts. */}
+            <View style={styles.inputRow}>
+              <TextInput
+                style={[styles.input, styles.multiline, styles.inputFlex]}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder={t('harvests.notesPlaceholder', 'Anything worth remembering next season')}
+                placeholderTextColor={COLORS.textTertiary}
+                multiline
+              />
+              <DictateButton
+                onText={(spoken) => setNotes((c) => appendSpoken(c, spoken))}
+                style={styles.dictateTop}
+              />
+            </View>
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -298,6 +309,9 @@ const RecordHarvestModal = ({ visible, onClose, onSubmit, saving, crops = [], fi
 };
 
 const styles = StyleSheet.create({
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
+  inputFlex: { flex: 1 },
+  dictateTop: { alignSelf: 'flex-start', marginTop: SPACING.md },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: COLORS.white,

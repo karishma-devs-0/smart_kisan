@@ -491,6 +491,7 @@ export default {
 
   // Settings
   listen: {
+    dictate: 'ਲਿਖਣ ਦੀ ਥਾਂ ਬੋਲੋ',
     speak: 'ਬੋਲੋ',
     listening: 'ਸੁਣ ਰਿਹਾ ਹਾਂ…',
     tapToSpeak: 'ਬੋਲਣ ਲਈ ਮਾਈਕ ਦਬਾਓ',

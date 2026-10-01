@@ -890,6 +890,7 @@ export default {
   },
 
   listen: {
+    dictate: 'Speak instead of typing',
     speak: 'Speak',
     listening: 'Listening…',
     tapToSpeak: 'Tap the microphone to speak',

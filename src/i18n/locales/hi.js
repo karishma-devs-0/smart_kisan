@@ -493,6 +493,7 @@ export default {
 
   // Settings
   listen: {
+    dictate: 'लिखने के बजाय बोलिए',
     speak: 'बोलिए',
     listening: 'सुन रहा हूँ…',
     tapToSpeak: 'बोलने के लिए माइक दबाएँ',
